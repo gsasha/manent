@@ -111,8 +111,12 @@ class GlobalConfig:
 		self.dbenv.set_lk_detect(db.DB_LOCK_DEFAULT)
 		self.dbenv.open(dbenv_dir, db.DB_RECOVER|db.DB_CREATE|db.DB_INIT_TXN|db.DB_INIT_MPOOL|db.DB_INIT_LOCK)
 		#self.dbenv.open(dbenv_dir, db.DB_CREATE|db.DB_INIT_MPOOL)
+		
 	def homeArea(self):
-		return os.environ["HOME"]+"/manent"
+		if os.name == "nt":
+			return os.environ["USERPROFILE"] + "/manent"
+		else:
+			return os.environ["HOME"]+"/manent"
 
 	def close(self):
 		for name in self.dbenv.log_archive():
