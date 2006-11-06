@@ -96,4 +96,5 @@ elif sys.argv[1] == "info":
 	label = sys.argv[2]
 	backup = config.load_backup(label)
 	backup.info()
+	config.save()
 	config.close()

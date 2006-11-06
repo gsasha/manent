@@ -6,6 +6,7 @@ import sys, os
 import base64
 from cStringIO import StringIO
 import struct
+import re
 
 from Config import Config
 from Nodes import Directory
@@ -51,7 +52,7 @@ class SpecialIStream:
 		self.digests = digests
 
 		self.buf = None
-	def read(self,data,size):
+	def read(self,size):
 		result = ""
 		while len(result) < size:
 			if (self.buf == None):
@@ -65,12 +66,22 @@ class SpecialIStream:
 				continue
 			result += data
 		return result
+	def readline(self):
+		result = StringIO()
+		while True:
+			ch = self.read(1)
+			if len(ch) == 0:
+				break
+			result.write(ch)
+			if ch == "\n":
+				break
+		return result.getvalue()
 	def read_chunk(self):
 		if len(self.digests)==0:
 			return ""
-		digest = self.digests[0]
+		(idx,digest) = self.digests[0]
 		self.digests = self.digests[1:]
-		chunk = self.backup.read_block(digest)
+		chunk = self.backup.read_block(digest,idx)
 		return chunk
 
 class Backup:
@@ -117,6 +128,8 @@ class Backup:
 		print "Reconstructing backup", self.label, "type:", container_type, container_params
 		self.data_path = data_path
 
+		self.blocks_cache = BlockCache(self)
+		
 		self.container_config = Container.create_container_config(container_type)
 		self.container_config.init(self,container_params)
 
@@ -126,6 +139,7 @@ class Backup:
 		#
 		# Reconstruct the containers dbs
 		#
+		print "Reconstructing container config"
 		self.container_config.reconstruct()
 		#
 		# Reconstruct the blocks db
@@ -142,6 +156,8 @@ class Backup:
 					#print base64.b64encode(digest), "->", block.containers
 			self.container_config.release_container(idx)
 		print
+
+		self.blocks_cache.close()
 		self.blocks_db.commit()
 		self.blocks_db.close()
 		self.container_config.commit()
@@ -158,10 +174,12 @@ class Backup:
 		self.prev_files_dbs = []
 		prev_nums = []
 		for i in prev_increments:
-			self.prev_files_dbs.append(self.global_config.get_database("manent."+self.label, ".files%d"%(i), True))
-			prev_nums.append((len(prev_nums),0))
+			if self.files_db_loaded(i):
+				self.prev_files_dbs.append(self.load_database(i))
+				prev_nums.append((len(prev_nums),0))
 		prev_nums.reverse()
-		self.new_files_db = self.global_config.get_database("manent."+self.label, ".files%d"%(increment),True)
+		self.new_files_db = self.create_files_db(increment)
+		#self.new_files_db = self.global_config.get_database("manent."+self.label, ".files%d"%(increment),True)
 		#
 		# Do the real work of scanning
 		#
@@ -218,11 +236,11 @@ class Backup:
 		#
 		# Create the scratch database to precompute block to container requirements
 		#
-		self.block_cache = BlockCache(self)
+		self.blocks_cache = BlockCache(self)
 	
 		increment = self.container_config.last_finalized_increment()
 		if increment != None:
-			self.files_db = self.global_config.get_database("manent."+self.label,".files%d"%(increment),True)
+			self.files_db = self.load_files_db(increment)
 		else:
 			raise "No finalized increment found. Nothing to restore"
 
@@ -231,11 +249,11 @@ class Backup:
 		#
 		print "1. Computing reference counts"
 		self.root.name = "."
-		self.root.request_blocks(self,0,self.block_cache)
+		self.root.request_blocks(self,0,self.blocks_cache)
 		# just to free up resources
 
 		print "2. Computing the list of required blocks of each container"
-		self.block_cache.analyze()
+		self.blocks_cache.analyze()
 
 		#
 		# Now restore the files
@@ -248,40 +266,29 @@ class Backup:
 		self.files_db.close()
 		self.container_config.close()
 
-		self.block_cache.close()
+		self.blocks_cache.close()
 
-		print "MAX loaded size:", self.block_cache.max_loaded_size
+		print "MAX loaded size:", self.blocks_cache.max_loaded_size
 
-	def load_increment_db(self,index):
-		increment_db = self.config.kuku()
-		if increment_db.has_key("0"):
-			return increment_db
-		#
-		# The increment is not loaded. Re-read it from the backup.
-		#
-		increment = self.container_config.increments[index]
-		increment_blocks = increment.list_specials(Container.CODE_FILES)
-		blocks_db = {}
-		for digest in increment_blocks:
-			if blocks_db.has_key(digest):
-				blocks_db[digest] = blocks_db[digest]+1
-			else:
-				blocks_db[digest] = 1
-	def read_block(self,digest):
+	def read_block(self,digest,index=None):
 		"""
 		Return the data for the given digest
 		"""
-		return self.block_cache.load_block(digest)
+		return self.blocks_cache.load_block(digest,index)
 
 	#
 	# Information
 	#
 	def info(self):
+		self.blocks_cache = BlockCache(self)
 		print "Containers"
 		self.container_config.info()
 		prev_increments = self.container_config.prev_increments()
 		for i in prev_increments:
-			db = self.global_config.get_database("manent."+self.label, ".files%d"%(i), True)
+			#if not self.database_loaded(i):
+				#print "Increment %d not loaded" % i
+				#continue
+			db = self.load_files_db(i)
 			print "Listing of increment",i
 			self.root = Directory(None,self.data_path)
 			self.root.list_files(self,0,db)
@@ -289,5 +296,41 @@ class Backup:
 			db.close()
 			db = None
 		# Just to make the db happy
+
+		self.blocks_cache.close()
 		self.blocks_db.close()
 		self.container_config.close()
+	#
+	# Files database loading
+	#
+	def files_db_loaded(self,increment):
+		if not self.global_config.database_exists("manent."+self.label, ".files.%d"%increment):
+			return False
+		# Consider checking if the DB is empty
+		return True
+	def create_files_db(self,index):
+		db = self.global_config.get_database("manent."+self.label, ".files.%d"%index, True)
+		return db
+	def load_files_db(self,index):
+		db = self.global_config.get_database("manent."+self.label, ".files.%d"%index, True)
+		if len(db)==0:
+			# The database is empty - this means that it must be loaded from the backup
+			increment = self.container_config.increments[index]
+			increment_blocks = increment.list_specials(Container.CODE_FILES)
+
+			for (idx,block) in increment_blocks:
+				self.blocks_cache.request_block(block)
+
+			stream = SpecialIStream(self,increment_blocks)
+			expr = re.compile(":")
+			while True:
+				line = stream.readline()
+				line = line.rstrip()
+				if len(line)==0:
+					break
+				(key,value) = expr.split(line)
+				#print "Read line from stream: [%s:%s]" %(base64.b64decode(key),value)
+				db[base64.b64decode(key)]=base64.b64decode(value)
+			db.commit()
+		return db
+		#self.new_files_db = self.global_config.get_database("manent."+self.label, ".files%d"%(increment),True)

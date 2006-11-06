@@ -23,8 +23,9 @@ class DatabaseWrapper:
 			txn = self.env.txn_begin(flags=db.DB_TXN_NOSYNC|db.DB_DIRTY_READ|db.DB_TXN_NOWAIT)
 		else:
 			txn = None
-		self.d.open(filename+dbname, dbname, db.DB_HASH, db.DB_CREATE, txn=txn)
-		#self.d.open(filename+dbname, dbname, db.DB_BTREE, db.DB_CREATE, txn=txn)
+		print "Opening database filename=%s, dbname=%s" %(filename,dbname)
+		self.d.open(filename, dbname, db.DB_HASH, db.DB_CREATE, txn=txn)
+		#self.d.open(filename, dbname, db.DB_BTREE, db.DB_CREATE, txn=txn)
 		if self.transact:
 			txn.commit()
 			self.txn = self.env.txn_begin(flags=db.DB_TXN_NOSYNC|db.DB_DIRTY_READ|db.DB_TXN_NOWAIT)
@@ -42,7 +43,8 @@ class DatabaseWrapper:
 		self.d.delete(key,txn=self.txn)
 	def __len__(self):
 		stat = self.d.stat()
-		return stat.ndata
+		print stat
+		return stat['ndata']
 	def has_key(self,key):
 		return self.get(key) != None
 	def commit(self):
@@ -66,7 +68,8 @@ class DatabaseWrapper:
 		self.d = None
 	def remove(self):
 		d = db.DB(self.env)
-		d.remove(self.filename+self.dbname)
+		print "Removing database", self.filename
+		d.remove(self.filename)
 		pass
 	def abort(self):
 		if not self.transact: return
@@ -128,8 +131,11 @@ class GlobalConfig:
 		dbenv = db.DBEnv()
 		result = dbenv.remove(self.homeArea()+"/dbenv")
 
+	def database_exists(self,name,tablename):
+		fname = os.path.join(self.homeArea(),name+tablename)
+		return os.path.isfile(fname)
 	def get_database(self,name,tablename,transact):
-		return DatabaseWrapper(self.dbenv, os.path.join(self.homeArea(),name),tablename,transact)
+		return DatabaseWrapper(self.dbenv, os.path.join(self.homeArea(),name+tablename),tablename,transact)
 	def load(self):
 		if not os.path.exists(self.homeArea()+"/config"):
 			return

@@ -484,6 +484,7 @@ class ContainerConfig:
 		self.increments.append(self.new_increment)
 		self.containers_db["Increments"] = str(int(self.containers_db["Increments"])+1)
 
+		print "Restoring increment", start_message, end_message
 		if start_message != end_message:
 			is_finalized = False
 		increment.restore(start_message, start_container, end_container, is_finalized)
@@ -556,6 +557,8 @@ class DirectoryContainerConfig(ContainerConfig):
 				max_container = index
 		for index in range(0,max_container+1):
 			self.containers.append(None)
+		self.containers_db["Containers"] = str(len(self.containers))
+		
 		print "Loading %d containers:" % max_container
 		for (index, file) in container_files.iteritems():
 			if not container_data_files.has_key(index):
@@ -573,6 +576,7 @@ class DirectoryContainerConfig(ContainerConfig):
 		# when everything is recoverable, make sure we do it.
 		#
 		last_start_container = None
+		last_start_message = None
 		for container in self.containers:
 			if container == None:
 				continue
@@ -583,15 +587,17 @@ class DirectoryContainerConfig(ContainerConfig):
 					# This is an unfinished increment
 					# Create that increment, and start this one
 					end_container = container.index-1
-					self.restore_increment(start_message, end_message, last_start_container, end_container, False)
+					self.restore_increment(last_start_message, end_message, last_start_container, end_container, False)
 				if end_message == None:
 					last_start_container = container.index
+					last_start_message = start_message
 			if end_message != None:
 				# Found a finished increment
 				if start_message != None:
 					start_container = container.index
 				elif last_start_container != None:
 					start_container = last_start_container
+					start_message = last_start_message
 				else:
 					print "Found increment end in container %d, but no previous increment start" % container.index
 					continue

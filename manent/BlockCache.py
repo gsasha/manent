@@ -57,7 +57,7 @@ class BlockCache:
 					self.containers[idx] = self.containers[idx]+int(count)
 				else:
 					self.containers[idx] = int(count)
-	def load_block(self,digest):
+	def load_block(self,digest,container_idx = None):
 		"""
 		Actually perform loading of the block. Assumes that the block
 		was reported by request_block, and was loaded not more times than it was
@@ -66,12 +66,13 @@ class BlockCache:
 		block = Block(self.backup,digest)
 		
 		if not self.loaded_blocks.has_key(digest):
-			# Load the block
-			candidates = [(self.containers[x],x) for x in block.containers]
-			candidates.sort()
-			#print "Candidate containers", candidates
-			container_idx = candidates[-1][1] # select the container with max refcount
-			#print "loading block from container", container_idx
+			if container_idx == None:
+				# Load the block
+				candidates = [(self.containers[x],x) for x in block.containers]
+				candidates.sort()
+				#print "Candidate containers", candidates
+				container_idx = candidates[-1][1] # select the container with max refcount
+				#print "loading block from container", container_idx
 			container = self.backup.container_config.get_container(container_idx)
 			self.backup.container_config.load_container_data(container_idx)
 			report = container.read_blocks(self)

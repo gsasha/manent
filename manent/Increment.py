@@ -85,5 +85,5 @@ class Increment:
 			container = self.container_config.get_container(idx)
 			for (blockDigest,blockSize,blockCode) in container.blocks:
 				if blockCode==code:
-					result.append(blockDigest)
+					result.append((idx,blockDigest))
 		return result
