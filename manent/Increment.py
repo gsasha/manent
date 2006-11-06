@@ -79,3 +79,11 @@ class Increment:
 			self.finalized = True
 
 		self.readonly = True
+	def list_specials(self,code):
+		result = []
+		for idx in self.containers:
+			container = self.container_config.get_container(idx)
+			for (blockDigest,blockSize,blockCode) in container.blocks:
+				if blockCode==code:
+					result.append(blockDigest)
+		return result

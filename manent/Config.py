@@ -38,6 +38,8 @@ class DatabaseWrapper:
 		return self.get(key)
 	def __setitem__(self,key,value):
 		return self.put(key,value)
+	def __delitem__(self,key):
+		self.d.delete(key,txn=self.txn)
 	def __len__(self):
 		stat = self.d.stat()
 		return stat.ndata

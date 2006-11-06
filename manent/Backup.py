@@ -1,8 +1,6 @@
 #
 # TODO:
-# 3. Encrypt and compress the contents of containers
-# 5. Consider changing the container format: have the
-#    header and the data in separate files.
+# 3. Encrypt the contents of containers
 #
 import sys, os
 import base64
@@ -12,29 +10,8 @@ import struct
 from Config import Config
 from Nodes import Directory
 import Container
-
-class Block:
-	def __init__(self,backup,digest):
-		self.backup = backup
-		self.digest = digest
-
-		self.containers = []
-		if not self.backup.blocks_db.has_key(self.digest):
-			return
-		data = self.backup.blocks_db[self.digest]
-		blockFile = StringIO(data)
-		while True:
-			containerNum = self.backup.config.read_int(blockFile)
-			if containerNum == None:
-				break
-			self.containers.append(containerNum)
-	def add_container(self,container):
-		self.containers.append(container)
-	def save(self):
-		result = StringIO()
-		for container in self.containers:
-			self.backup.config.write_int(result,container)
-		self.backup.blocks_db[self.digest] = result.getvalue()
+from BlockCache import BlockCache
+from Block import Block
 	
 class SpecialOStream:
 	def __init__(self,backup,code):
@@ -68,6 +45,34 @@ class SpecialOStream:
 		digest = self.backup.config.dataDigest(written)
 		self.backup.container_config.add_block(written,digest,self.code)
 
+class SpecialIStream:
+	def __init__(self,backup,digests):
+		self.backup = backup
+		self.digests = digests
+
+		self.buf = None
+	def read(self,data,size):
+		result = ""
+		while len(result) < size:
+			if (self.buf == None):
+				chunk = self.read_chunk()
+				if len(chunk) == 0:
+					break
+				self.buf = StringIO(chunk)
+			data = self.buf.read(size-len(result))
+			if len(data) == 0:
+				self.buf = None
+				continue
+			result += data
+		return result
+	def read_chunk(self):
+		if len(self.digests)==0:
+			return ""
+		digest = self.digests[0]
+		self.digests = self.digests[1:]
+		chunk = self.backup.read_block(digest)
+		return chunk
+
 class Backup:
 	"""
 	Database of a complete backup set
@@ -90,7 +95,7 @@ class Backup:
 		self.root = Directory(None,self.data_path)
 
 		#
-		# TODO: This is a hack that it sits here. There should be a general close
+		# TODO: This is a hack that these calls sit here. There should be a general close()
 		#       method that would operate for all operations, like load etc.
 		#
 		self.blocks_db.commit()
@@ -213,11 +218,8 @@ class Backup:
 		#
 		# Create the scratch database to precompute block to container requirements
 		#
-		self.scratch_db = self.global_config.get_database("manent."+self.label,".scratch_blocks",True)
-		# If a previous removal was terminated in the middle, scratch db will
-		# contain junk. Clean it up just in that case.
-		self.scratch_db.truncate()
-		
+		self.block_cache = BlockCache(self)
+	
 		increment = self.container_config.last_finalized_increment()
 		if increment != None:
 			self.files_db = self.global_config.get_database("manent."+self.label,".files%d"%(increment),True)
@@ -229,26 +231,11 @@ class Backup:
 		#
 		print "1. Computing reference counts"
 		self.root.name = "."
-		self.root.count_blocks(self,0,self.scratch_db)
+		self.root.request_blocks(self,0,self.block_cache)
 		# just to free up resources
-		self.scratch_db.commit()
 
 		print "2. Computing the list of required blocks of each container"
-		self.scratch_container_db = {}
-		for key,count in self.scratch_db:
-			block = Block(self,key)
-			container_index = block.containers[0]
-			for container_index in block.containers:
-				if self.scratch_container_db.has_key(container_index):
-					self.scratch_container_db[container_index] = self.scratch_container_db[container_index]+int(count)
-				else:
-					self.scratch_container_db[container_index] = int(count)
-		for key,count in self.scratch_container_db.items():
-			print "  ", key, "\t-->", count
-
-		self.loaded_blocks = {}
-		self.loaded_size = 0
-		self.max_loaded_size = 0
+		self.block_cache.analyze()
 
 		#
 		# Now restore the files
@@ -261,66 +248,30 @@ class Backup:
 		self.files_db.close()
 		self.container_config.close()
 
-		self.scratch_db.close()
-		self.scratch_db.remove()
+		self.block_cache.close()
 
-		print "MAX loaded size:", self.max_loaded_size
+		print "MAX loaded size:", self.block_cache.max_loaded_size
 
+	def load_increment_db(self,index):
+		increment_db = self.config.kuku()
+		if increment_db.has_key("0"):
+			return increment_db
+		#
+		# The increment is not loaded. Re-read it from the backup.
+		#
+		increment = self.container_config.increments[index]
+		increment_blocks = increment.list_specials(Container.CODE_FILES)
+		blocks_db = {}
+		for digest in increment_blocks:
+			if blocks_db.has_key(digest):
+				blocks_db[digest] = blocks_db[digest]+1
+			else:
+				blocks_db[digest] = 1
 	def read_block(self,digest):
 		"""
 		Return the data for the given digest
 		"""
-		#print "Reading block", base64.b64encode(digest)
-		block = Block(self,digest)
-		#
-		# Block is not found. Decide which container to load for it.
-		#
-		if not self.loaded_blocks.has_key(digest):
-			candidates = [(self.scratch_container_db[x],x) for x in block.containers]
-			candidates.sort()
-			#print "Candidate containers", candidates
-			container_idx = candidates[-1][1] # select the container with max refcount
-			#print "loading block from container", container_idx
-			container = self.container_config.get_container(container_idx)
-			self.container_config.load_container_data(container_idx)
-			report = container.read_blocks(self.scratch_db)
-			for (d, size) in report.items():
-				if self.loaded_blocks.has_key(d):
-					# We currently don't handle it, but generally, it's a good idea
-					# to make sure that the container uploads only those blocks that
-					# are not in the cache
-					print "AARRRGGGHHH! FIX ME!"
-					continue
-				self.loaded_blocks[d] = size
-				self.loaded_size += size
-				if self.loaded_size > self.max_loaded_size:
-					self.max_loaded_size = self.loaded_size
-		#
-		# Load the block data
-		#
-		block_file_name = self.config.block_file_name(digest)
-		block_file = open(block_file_name, "r")
-		block_data = block_file.read()
-		block_file.close()
-		#
-		# Update the refcounts, delete the block if no longer necessary
-		#
-		self.scratch_db[digest] = str(int(self.scratch_db[digest])-1)
-		if self.scratch_db[digest] == "0":
-			#print "Block", base64.urlsafe_b64encode(digest), "is not used anymore, removing!"
-			os.unlink(block_file_name)
-			self.loaded_size -= len(block_data)
-		for container in block.containers:
-			self.scratch_container_db[container] -= 1
-		#
-		# Ok, done
-		#
-		return block_data
-
-		#block = Block(self,digest)
-		#container_index = block.containers[0]
-		#container = self.container_config.load_container(container_index)
-		#return container.read_block(digest)
+		return self.block_cache.load_block(digest)
 
 	#
 	# Information

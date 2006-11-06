@@ -267,8 +267,7 @@ class Container:
 			if blockDigest==digest:
 				return blockData
 		raise "Requested index block not found"
-	def read_blocks(self,digest_db):
-		report = {}
+	def read_blocks(self,block_cache):
 		compression_start_offset = None
 		block_offset = 0
 		last_read_offset = 0
@@ -298,9 +297,8 @@ class Container:
 				file.seek(size)
 				#print "Starting bzip2 decompressor"
 				decompressor = BZ2FileDecompressor(file,compression_sizes[size])
-			elif (code == CODE_DATA) and digest_db.has_key(digest):
+			elif block_cache.block_needed(digest):
 				#print "Loading block", base64.b64encode(digest), ", size", size, ",rc=", digest_db[digest]
-				report[digest] = size
 				if decompressor != None:
 					# No compression applied. Can just read the block.
 					source = decompressor
@@ -314,21 +312,17 @@ class Container:
 				# check that the block is OK
 				blockDigest = self.backup.config.dataDigest(block)
 				if (digest != blockDigest):
-					print "OUCH!!! The block read is incorrect: expected %s, got %s" % (str(base64.b64encode(digest)), str(base64.b64encode(blockDigest)))
+					raise "OUCH!!! The block read is incorrect: expected %s, got %s" % (str(base64.b64encode(digest)), str(base64.b64encode(blockDigest)))
 
+				#
 				# write the block out
-				filename = self.backup.config.block_file_name(digest)
-				ofile = open(filename, "w")
-				ofile.write(block)
-				ofile.close()
-				#print "wrote block to file", filename
-				
+				#
+				block_cache.block_loaded(digest,block)
 				block_offset += size
 			
 			else:
 				# All the blocks except CODE_COMPRESSION_BZ2_START use size for really size
 				block_offset += size
-		return report
 
 class BZ2FileDecompressor:
 	"""

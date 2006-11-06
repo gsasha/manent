@@ -149,7 +149,7 @@ class File(Node):
 		for digest in digests:
 			#print "File", self.path(), "reading digest", base64.b64encode(digest)
 			file.write(backup.read_block(digest))
-	def count_blocks(self,backup,num,scratch_db):
+	def request_blocks(self,backup,num,block_cache):
 		key = self.get_key(backup,num)
 		valueS = StringIO(backup.files_db[key])
 		linktype = valueS.read(1)
@@ -166,10 +166,7 @@ class File(Node):
 		while True:
 			digest = valueS.read(digestSize)
 			if digest == "": break
-			if not scratch_db.has_key(digest):
-				scratch_db[digest] = "1"
-			else:
-				scratch_db[digest] = str(int(scratch_db[digest])+1)
+			block_cache.request_block(digest)
 	def list_files(self,backup,num,db):
 		print self.path()
 #--------------------------------------------------------
@@ -315,7 +312,7 @@ class Directory(Node):
 			
 			node.restore(backup,node_num)
 
-	def count_blocks(self,backup,num,scratch_db):
+	def request_blocks(self,backup,num,block_cache):
 		key = self.get_key(backup,num)
 		valueS = StringIO(backup.files_db[key])
 		while True:
@@ -333,7 +330,7 @@ class Directory(Node):
 				continue
 			else:
 				raise "Unknown node type [%s]"%node_type
-			node.count_blocks(backup,node_num,scratch_db)
+			node.request_blocks(backup,node_num,block_cache)
 
 	def list_files(self,backup,num,db):
 		print self.path()
