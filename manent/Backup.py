@@ -175,7 +175,7 @@ class Backup:
 		prev_nums = []
 		for i in prev_increments:
 			if self.files_db_loaded(i):
-				self.prev_files_dbs.append(self.load_database(i))
+				self.prev_files_dbs.append(self.load_files_db(i))
 				prev_nums.append((len(prev_nums),0))
 		prev_nums.reverse()
 		self.new_files_db = self.create_files_db(increment)
