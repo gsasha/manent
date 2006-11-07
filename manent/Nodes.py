@@ -72,7 +72,7 @@ class File(Node):
 		#
 		for (db_num,file_num) in prev_nums:
 			# TODO: this must work only if the file is old enough
-			print "  found in previous increment",
+			print "  found in increment %d" %(db_num),
 			
 			old_db = backup.prev_files_dbs[db_num]
 			old_key = self.get_key(backup,file_num)
@@ -117,6 +117,7 @@ class File(Node):
 		backup.new_files_db[key] = valueS.getvalue()
 		backup.new_files_db["S"+key] = file_stat_str
 		return num
+		
 	def restore(self,backup,num):
 		key = self.get_key(backup, num)
 		valueS = StringIO(backup.files_db[key])
@@ -149,6 +150,7 @@ class File(Node):
 		for digest in digests:
 			#print "File", self.path(), "reading digest", base64.b64encode(digest)
 			file.write(backup.read_block(digest))
+	
 	def request_blocks(self,backup,num,block_cache):
 		key = self.get_key(backup,num)
 		valueS = StringIO(backup.files_db[key])
@@ -239,13 +241,13 @@ class Directory(Node):
 			if (file=="..") or (file=="."):
 				continue
 			name = os.path.join(self.path(),file)
-			file_mode = os.stat(name)[stat.ST_MODE]
+			file_mode = os.lstat(name)[stat.ST_MODE]
 			cur_prev_nums = []
 			if prev_data.has_key(file):
 				cur_prev_nums = prev_data[file]
 			try:
-				if os.path.islink(name):
-				#if stat.S_ISLNK(file_mode):
+				#if os.path.islink(name):
+				if stat.S_ISLNK(file_mode):
 					node = Symlink(self, file)
 					num = node.scan(backup,num,cur_prev_nums)
 					children.append((node.number,"S",file))
@@ -262,7 +264,7 @@ class Directory(Node):
 				
 				if len(children)<20 or len(children) > next_flush:
 					if len(children)>next_flush:
-						next_flush = next_flush*2
+						next_flush = int(next_flush*1.25)
 					#print "$$$$$$$$ Saving intermediate version of", self.path()
 					valueS = StringIO()
 					for (node_num,node_type,node_name) in children:
@@ -313,6 +315,7 @@ class Directory(Node):
 			node.restore(backup,node_num)
 
 	def request_blocks(self,backup,num,block_cache):
+		#print "Requesting blocks in", self.path()
 		key = self.get_key(backup,num)
 		valueS = StringIO(backup.files_db[key])
 		while True:

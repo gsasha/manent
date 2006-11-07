@@ -43,7 +43,6 @@ class DatabaseWrapper:
 		self.d.delete(key,txn=self.txn)
 	def __len__(self):
 		stat = self.d.stat()
-		print stat
 		return stat['ndata']
 	def has_key(self,key):
 		return self.get(key) != None
@@ -117,16 +116,21 @@ class GlobalConfig:
 		self.dbenv.open(dbenv_dir, db.DB_RECOVER|db.DB_CREATE|db.DB_INIT_TXN|db.DB_INIT_MPOOL|db.DB_INIT_LOCK)
 		#self.dbenv.open(dbenv_dir, db.DB_CREATE|db.DB_INIT_MPOOL)
 		
+		#for name in self.dbenv.log_archive():
+			#file = os.path.join(self.homeArea(),"dbenv",name)
+			#os.unlink(file)
+		
 	def homeArea(self):
 		if os.name == "nt":
-			return os.environ["USERPROFILE"] + "/manent"
+			return os.path.join(os.environ["USERPROFILE"], "manent")
 		else:
-			return os.environ["HOME"]+"/manent"
+			return os.path.join(os.environ["HOME"], "manent")
 
 	def close(self):
 		for name in self.dbenv.log_archive():
 			file = os.path.join(self.homeArea(),"dbenv",name)
 			os.unlink(file)
+		
 		self.dbenv.close()
 		dbenv = db.DBEnv()
 		result = dbenv.remove(self.homeArea()+"/dbenv")

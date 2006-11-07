@@ -144,7 +144,7 @@ class Backup:
 		#
 		# Reconstruct the blocks db
 		#
-		print "Reconstructiong blocks database:",
+		print "Reconstructing blocks database:",
 		for idx in range(0,self.container_config.num_containers()):
 			print " ",idx,
 			container = self.container_config.get_container(idx)
@@ -179,20 +179,16 @@ class Backup:
 				prev_nums.append((len(prev_nums),0))
 		prev_nums.reverse()
 		self.new_files_db = self.create_files_db(increment)
-		#self.new_files_db = self.global_config.get_database("manent."+self.label, ".files%d"%(increment),True)
 		#
 		# Do the real work of scanning
 		#
 		self.root.scan(self,0,prev_nums)
-		
-		#
-		# Save all the results
-		#
 		self.blocks_db.commit()
 		self.new_files_db.commit()
-		# Types of special data:
-		# 1 - Filesystem database
-		# 2 - Blocks database
+		
+		#
+		# Save the files db
+		#
 		print "Exporting the files db"
 		os = SpecialOStream(self,Container.CODE_FILES)
 		for key,value in self.new_files_db:
@@ -211,11 +207,13 @@ class Backup:
 		self.blocks_db.close()
 		self.new_files_db.close()
 		self.container_config.close()
+	
 	def add_block(self,data,digest):
 		if self.blocks_db.has_key(digest):
 			return
 		(container,index) = self.container_config.add_block(data,digest,Container.CODE_DATA)
-		print "  adding", base64.b64encode(digest), "to", container, index
+		
+		print "  added", base64.b64encode(digest), "to", container, index
 		if container != self.last_container:
 			self.last_container = container
 			# We have finished making a new media.
@@ -225,6 +223,12 @@ class Backup:
 			self.new_files_db.commit()
 			self.container_config.commit()
 		
+		#
+		# The order is extremely important here - the block can be saved
+		# (and thus, blocks_db can be updated) only after the previous db
+		# is committed. Otherwise, the block ends up written as available
+		# in a container that is never finalized.
+		#
 		block = Block(self,digest)
 		block.add_container(container)
 		block.save()
@@ -250,6 +254,8 @@ class Backup:
 		print "1. Computing reference counts"
 		self.root.name = "."
 		self.root.request_blocks(self,0,self.blocks_cache)
+		# inodes_db must be clean once again when we start restoring the files data
+		self.inodes_db = {}
 		# just to free up resources
 
 		print "2. Computing the list of required blocks of each container"

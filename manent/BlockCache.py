@@ -73,11 +73,14 @@ class BlockCache:
 				#print "Candidate containers", candidates
 				container_idx = candidates[-1][1] # select the container with max refcount
 				#print "loading block from container", container_idx
+			print "Block found in container", container_idx
 			container = self.backup.container_config.get_container(container_idx)
 			self.backup.container_config.load_container_data(container_idx)
 			report = container.read_blocks(self)
 
 		data = self.loaded_blocks[digest]
+		if data == None:
+			raise "Ouch! Cache doesn't have data for block %s"%(base64.b64encode(digest))
 		
 		rcount = int(self.requested_blocks[digest])
 		if rcount > 1:
