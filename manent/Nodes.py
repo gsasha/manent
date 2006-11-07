@@ -262,7 +262,7 @@ class Directory(Node):
 					#num = node.scan(backup,num,cur_prev_nums)
 					children.append((num,"D",file))
 				
-				if len(children)<20 or len(children) > next_flush:
+				if len(children)<20 or len(children) > next_flush or stat.S_ISDIR(file_mode):
 					if len(children)>next_flush:
 						next_flush = int(next_flush*1.25)
 					#print "$$$$$$$$ Saving intermediate version of", self.path()
