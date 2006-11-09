@@ -2,6 +2,7 @@ import wx
 import wx.wizard
 
 # A wizard for creating new backup rule
+# $LastChangedRevision$
 
 class CreateBackupRule(wx.wizard.Wizard):
     def __init__(self, parent):
