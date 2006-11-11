@@ -122,7 +122,7 @@ class GlobalConfig:
 		
 	def homeArea(self):
 		if os.name == "nt":
-			return os.path.join(os.environ["USERPROFILE"], "manent")
+			return os.path.join(os.environ["APPDATA"], "manent")
 		else:
 			return os.path.join(os.environ["HOME"], "manent")
 
@@ -189,6 +189,8 @@ class GlobalConfig:
 		return label in self.backups
 	def list_backups(self):
 		return self.backups.keys()
+	def get_backup(self, label):
+		return self.backups[label]
 
 
 # TODO: Make ContainerConfig a subclass of Config
