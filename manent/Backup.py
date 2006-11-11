@@ -219,6 +219,7 @@ class Backup:
 			# We have finished making a new media.
 			# write it to the database
 			print "Committing blocks db for container", container
+			self.root.flush(self)
 			self.blocks_db.commit()
 			self.new_files_db.commit()
 			self.container_config.commit()

@@ -88,7 +88,7 @@ class Container:
 		# Each block will contain a tuple of (digest, size, code)
 		self.blocks = []
 		self.incrementBlocks = []
-		self.dataFileName = self.backup.config.stagingArea()+self.filename()+".data"
+		self.dataFileName = os.path.join(self.backup.config.stagingArea(),self.filename()+".data")
 		try:
 			os.unlink(self.dataFileName)
 		except:
@@ -209,7 +209,7 @@ class Container:
 		self.block_infos = {}
 
 		config = self.backup.config
-		file = open(config.stagingArea()+self.filename(), "r")
+		file = open(os.path.join(config.stagingArea(),self.filename()), "r")
 		MAGIC = file.read(4)
 		if MAGIC != "MNNT":
 			raise "Manent: magic didn't happen..."
@@ -273,7 +273,7 @@ class Container:
 		last_read_offset = 0
 		decompressor = None
 		print "Unpacking container", self.index
-		file = open(self.backup.config.stagingArea()+self.filename()+".data", "r")
+		file = open(os.path.join(self.backup.config.stagingArea(),self.filename()+".data"), "r")
 		#
 		# Compute compression block sizes. This is necessary because
 		# we cannot give extraneous data to decompressor

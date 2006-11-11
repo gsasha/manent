@@ -28,9 +28,8 @@ class Node:
 	#
 	# Node serialization to db
 	#
-	#def renumber(self,number,node_map):
-		#self.number = number
-		#return self.number+1
+	def flush(self,backup):
+		pass
 
 	def get_key(self,backup,number):
 		keyS = StringIO()
@@ -233,62 +232,72 @@ class Directory(Node):
 		#
 		# Scan the directory
 		#
-		key = self.get_key(backup,self.number)
-		# first 20 files in the directory are written immediately!
-		next_flush = 20
-		children = []
+		self.modified = True
+		# TODO: there shouldn't be two lists
+		self.children = []
+		self.child_nodes = []
 		for file in os.listdir(self.path()):
 			if (file=="..") or (file=="."):
 				continue
-			name = os.path.join(self.path(),file)
-			file_mode = os.lstat(name)[stat.ST_MODE]
+			path = os.path.join(self.path(),file)
+			file_mode = os.lstat(path)[stat.ST_MODE]
 			cur_prev_nums = []
 			if prev_data.has_key(file):
 				cur_prev_nums = prev_data[file]
 			try:
-				#if os.path.islink(name):
 				if stat.S_ISLNK(file_mode):
 					node = Symlink(self, file)
 					num = node.scan(backup,num,cur_prev_nums)
-					children.append((node.number,"S",file))
+					self.children.append((node.number,"S",file))
+					self.child_nodes.append(node)
 				elif stat.S_ISREG(file_mode):
 					node = File(self,file)
 					num = node.scan(backup,num,cur_prev_nums)
-					children.append((node.number,"F",file))
+					self.children.append((node.number,"F",file))
+					self.child_nodes.append(node)
 				elif stat.S_ISDIR(file_mode):
 					node = Directory(self,file)
 					# We know that this is the number that the node
 					# will get anyway - assign it without scanning
-					#num = node.scan(backup,num,cur_prev_nums)
-					children.append((num,"D",file))
-				
-				if len(children)<20 or len(children) > next_flush or stat.S_ISDIR(file_mode):
-					if len(children)>next_flush:
-						next_flush = int(next_flush*1.25)
-					#print "$$$$$$$$ Saving intermediate version of", self.path()
-					valueS = StringIO()
-					for (node_num,node_type,node_name) in children:
-						valueS.write(node_type)
-						backup.config.write_int(valueS,node_num)
-						backup.config.write_string(valueS,node_name)
-					backup.new_files_db[key] = valueS.getvalue()
-				
-				if stat.S_ISDIR(file_mode):
+					self.children.append((num,"D",file))
+					self.child_nodes.append(node)
 					num = node.scan(backup,num,cur_prev_nums)
+
+				self.modified = True
+				
 			except OSError:
 				print "OSError accessing", name
 			except IOError:
 				print "IOError accessing", name
 				
 		#print "$$$$$$$$ Saving final version of", self.path()
+		self.flush(backup)
+		# remove the children list - we don't want to keep everything in memory
+		# while scanning
+		self.child_nodes = None
+		return num
+	def flush(self,backup):
+		"""
+		Flush the contents of the current node.
+		Called when a container is completed or when
+		the node is completed
+		"""
+		if not self.modified:
+			return
+
+		for child in self.child_nodes:
+			child.flush(backup)
+		
 		valueS = StringIO()
-		for (node_num,node_type,node_name) in children:
+		for (node_num,node_type,node_name) in self.children:
 			valueS.write(node_type)
 			backup.config.write_int(valueS,node_num)
 			backup.config.write_string(valueS,node_name)
+		key = self.get_key(backup,self.number)
 		backup.new_files_db[key] = valueS.getvalue()
-		#print "files_db[%s] = %s" % (key,valueS.getvalue())
-		return num
+		self.modified = False
+		print "Flushing node", self.path(), "to", key
+		
 	def restore(self,backup,num):
 		if self.path() != ".":
 			print "Restoring dir", self.path(), num
@@ -315,8 +324,9 @@ class Directory(Node):
 			node.restore(backup,node_num)
 
 	def request_blocks(self,backup,num,block_cache):
-		#print "Requesting blocks in", self.path()
+		print "Requesting blocks in", self.path()
 		key = self.get_key(backup,num)
+		print "loading block", num, "key", key
 		valueS = StringIO(backup.files_db[key])
 		while True:
 			node_type = valueS.read(1)
