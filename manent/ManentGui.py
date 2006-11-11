@@ -31,11 +31,17 @@ class MyFrame(wx.Frame):
           
          self.CreateDetailGrid(w2)
 
-         sizer2 = wx.GridSizer(1)
-         sizer2.Add(self.backupsGrid, 1, wx.EXPAND)
+         sizer2 = wx.BoxSizer(wx.VERTICAL)
+         sizer2.Add(self.backupsGrid, 1, wx.EXPAND)         
+         button = wx.Button(w2, -1, "Backup Now")
+         sizer2.Add(button, 0)
+         
+         self.Bind(wx.EVT_BUTTON, self.OnDoBackupNowClick, button)
+         
          w2.SetSizer(sizer2)
          w2.SetAutoLayout(1)
          w2.Fit()
+
 
          splitter.SplitHorizontally(w1, w2, 200)
          
@@ -93,6 +99,13 @@ class MyFrame(wx.Frame):
         wizard = CreateBackupRule(self, self.gconfig)
         wizard.RunWizard(wizard.typeSelectionPage)
         self.FillBackupRulesTable()
+    
+    def OnDoBackupNowClick(self, e):
+        row = self.backupsGrid.GetGridCursorRow()
+        label = self.backupsGrid.GetCellValue(row, 1)
+        backup = self.gconfig.load_backup(label)
+        backup.scan()
+        self.gconfig.save()
     
     def OnAboutButton(self, e):
         # First we create and fill the info object
