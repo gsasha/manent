@@ -252,9 +252,20 @@ class Config:
 	# Filesystem config
 	#
 	def stagingArea(self):
-		return "/tmp/"
+		if os.name == "nt":
+			path = os.path.join(os.environ["TEMP"], "manent")
+			if (not os.path.exists(path)):
+				os.mkdir(path)
+			return path
+		else:
+			return "/tmp"
+
 	def homeArea(self):
-		return os.environ["HOME"] + "/manent/"
+		if os.name == "nt":
+			return os.path.join(os.environ["APPDATA"], "manent")
+		else:
+			return os.path.join(os.environ["HOME"], "manent")
+
 	def block_file_name(self,digest):
 		return self.stagingArea()+"block."+base64.urlsafe_b64encode(digest)
 	def container_file_name(self,label,index):
