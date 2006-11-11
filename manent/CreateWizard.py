@@ -8,8 +8,9 @@ from Config import *
 # $LastChangedRevision$
 
 class CreateBackupRule(wx.wizard.Wizard):
-    def __init__(self, parent):
+    def __init__(self, parent, globalConfig):
         wx.wizard.Wizard.__init__(self, parent, -1, "New Backup Rule")
+        self.globalConfig = globalConfig
         self.CreateTypeSelectionPage()
         self.CreateBrowsePage()
         
@@ -75,10 +76,10 @@ class CreateBackupRule(wx.wizard.Wizard):
     def OnWizFinished(self, e):
         wx.MessageBox("Creating the backup rule", "Done")
         
-        config = GlobalConfig()
-        config.load()
-        config.create_backup(self.backupLabel.GetValue(), self.source.GetPath(), "directory", 
+        self.globalConfig.create_backup(self.backupLabel.GetValue(), 
+                             self.source.GetPath(), "directory", 
                              [self.destination.GetPath()])
+        self.globalConfig.save()
 
         
 #    def CreateFileSelectionPage(self):
