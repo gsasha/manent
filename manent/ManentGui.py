@@ -7,12 +7,11 @@ from Config import *
 from CreateWizard import *
 from wx.lib.wordwrap import wordwrap
 
-config = GlobalConfig()
-config.load()
-
 class MyFrame(wx.Frame):
     def __init__(self, parent, id, title):
          wx.Frame.__init__(self, parent, id, title, wx.DefaultPosition)
+
+         self.InitDb()
 
          self.CreateMenu()
          self.statusBar = self.CreateStatusBar()
@@ -40,12 +39,11 @@ class MyFrame(wx.Frame):
 
          splitter.SplitHorizontally(w1, w2, 200)
          
-         self.InitDb()
-         
+         self.statusBar.SetStatusText("DB: " + os.path.abspath(self.gconfig.homeArea()))
+                  
     def InitDb(self):
         self.gconfig = GlobalConfig()
         self.gconfig.load()
-        self.statusBar.SetStatusText("DB: " + os.path.abspath(self.gconfig.homeArea()))
          
     def CreateMenu(self):
          menuBar = wx.MenuBar()
@@ -70,23 +68,31 @@ class MyFrame(wx.Frame):
         
     def CreateDetailGrid(self, parent):
         self.backupsGrid = wx.grid.Grid(parent, -1)
-        self.backupsGrid.CreateGrid(20, 5)
+        self.backupsGrid.CreateGrid(10, 4)
         for i in range(20):
             self.backupsGrid.SetRowLabelValue(i, "")
         self.backupsGrid.SetRowLabelSize(0)
         self.backupsGrid.SetColLabelValue(0, "#")
         self.backupsGrid.SetColLabelValue(1, "Label")
-        self.backupsGrid.SetColLabelValue(2, "Destination")
-        self.backupsGrid.SetColLabelValue(3, "Parameters")
-        
+        self.backupsGrid.SetColLabelValue(2, "Source")
+        self.backupsGrid.SetColLabelValue(3, "Backup Storage")
+        self.FillBackupRulesTable()
+    
+    def FillBackupRulesTable(self):
         row = 0
-        for i in config.list_backups():
-            self.backupsGrid.SetCellValue(row, 0, row)
-        
+        for i in self.gconfig.list_backups():
+            self.backupsGrid.SetCellValue(row, 0, str(row + 1))
+            self.backupsGrid.SetCellValue(row, 1, i)
+            self.backupsGrid.SetCellValue(row, 2, self.gconfig.get_backup(i)[0])
+            row = row+1
+            
+        self.backupsGrid.AutoSizeColumns()
+        self.backupsGrid.Fit()
     
     def OnCreateBackupSet(self, parent):        
-        wizard = CreateBackupRule(self)
+        wizard = CreateBackupRule(self, self.gconfig)
         wizard.RunWizard(wizard.typeSelectionPage)
+        self.FillBackupRulesTable()
     
     def OnAboutButton(self, e):
         # First we create and fill the info object
