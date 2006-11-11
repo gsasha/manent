@@ -77,8 +77,8 @@ class CreateBackupRule(wx.wizard.Wizard):
         
         config = GlobalConfig()
         config.load()
-        config.create_backup(self.backupLabel.GetValue(), self.destination.GetPath(), "directory", 
-                             self.source.GetPath())
+        config.create_backup(self.backupLabel.GetValue(), self.source.GetPath(), "directory", 
+                             [self.destination.GetPath()])
 
         
 #    def CreateFileSelectionPage(self):
