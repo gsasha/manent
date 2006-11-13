@@ -13,11 +13,14 @@ from Nodes import Directory
 import Container
 from BlockCache import BlockCache
 from Block import Block
+from Database import DatabaseConfig
 	
 class SpecialOStream:
-	def __init__(self,backup,code):
+	def __init__(self,backup,ctx,code):
 		self.backup = backup
+		self.ctx = ctx
 		self.code = code
+		
 		self.chunk = self.backup.config.blockSize()
 		self.buf = StringIO()
 		self.buflen = 0
@@ -44,6 +47,7 @@ class SpecialOStream:
 			self.buf.write(buf[chunk:])
 		#print "adding block of code", self.code, "length", len(written)
 		digest = self.backup.config.dataDigest(written)
+		#self.ctx.add_block(written,digest,self.code)
 		self.backup.container_config.add_block(written,digest,self.code)
 
 class SpecialIStream:
@@ -92,9 +96,14 @@ class Backup:
 		self.global_config = global_config
 		self.label = label
 
-		self.blocks_db = self.global_config.get_database("manent."+self.label, ".blocks",True)
+		self.db_config = DatabaseConfig(self.global_config)
+		self.blocks_db = self.db_config.get_database("manent."+self.label, ".blocks")
 		self.inodes_db = {}
-		
+
+	#
+	# Three initialization methods:
+	# Creation of new Backup, loading from live DB, loading from backups
+	#
 	def configure(self,data_path,container_type,container_params):
 		print "Creating backup", self.label, "type:", container_type, container_params
 		self.data_path = data_path
@@ -103,16 +112,7 @@ class Backup:
 		self.container_config.init(self,container_params)
 		
 		self.config = Config()
-		self.root = Directory(None,self.data_path)
-
-		#
-		# TODO: This is a hack that these calls sit here. There should be a general close()
-		#       method that would operate for all operations, like load etc.
-		#
-		self.blocks_db.commit()
-		self.blocks_db.close()
-		self.container_config.commit()
-		self.container_config.close()
+		self.root = Directory(self,None,self.data_path)
 
 	def load(self,data_path,container_type,container_params):
 		print "Loading backup", self.label
@@ -122,7 +122,7 @@ class Backup:
 		self.container_config.init(self,container_params)
 		
 		self.config = Config()
-		self.root = Directory(None,self.data_path)
+		self.root = Directory(self,None,self.data_path)
 
 	def reconstruct(self,data_path,container_type,container_params):
 		print "Reconstructing backup", self.label, "type:", container_type, container_params
@@ -134,7 +134,7 @@ class Backup:
 		self.container_config.init(self,container_params)
 
 		self.config = Config()
-		self.root = Directory(None,self.data_path)
+		self.root = Directory(self,None,self.data_path)
 
 		#
 		# Reconstruct the containers dbs
@@ -157,87 +157,121 @@ class Backup:
 			self.container_config.release_container(idx)
 		print
 
-		self.blocks_cache.close()
-		self.blocks_db.commit()
-		self.blocks_db.close()
-		self.container_config.commit()
-		self.container_config.close()
+	def close(self):
+		self.db_config.commit()
+		self.db_config.close()
 	#
 	# Functionality for scan mode
 	#
 	def scan(self):
-		self.last_container = None
-		self.root = Directory(None,self.data_path)
-		increment = self.container_config.start_increment()
-		prev_increments = self.container_config.prev_increments()
-		print "Previous increments", prev_increments
-		self.prev_files_dbs = []
+		#
+		# Check in which increments we should look
+		#
+		prev_files_dbs = []
 		prev_nums = []
-		for i in prev_increments:
+		for i in self.container_config.prev_increments():
 			if self.files_db_loaded(i):
-				self.prev_files_dbs.append(self.load_files_db(i))
+				prev_files_dbs.append(self.load_files_db(i))
 				prev_nums.append((len(prev_nums),0))
 		prev_nums.reverse()
-		self.new_files_db = self.create_files_db(increment)
+		print "Previous increments are: ", prev_nums
+		
+		root = Directory(self,None,self.data_path)
+		increment = self.container_config.start_increment()
+		new_files_db = self.create_files_db(increment)
 		#
 		# Do the real work of scanning
 		#
-		self.root.scan(self,0,prev_nums)
-		self.blocks_db.commit()
-		self.new_files_db.commit()
+		class ScanContext:
+			def __init__(self,backup,root,prev_files_dbs,new_files_db):
+				self.backup = backup
+				self.root = root
+				self.prev_files_dbs = prev_files_dbs
+				self.new_files_db = new_files_db
+				
+				self.num = 0
+				self.last_container = None
+				self.inodes_db = {}
+
+			def next_num(self):
+				result = self.num
+				self.num += 1
+				return result
+			def add_block(self,data,digest):
+				if self.backup.blocks_db.has_key(digest):
+					return
+				(container,index) = self.backup.container_config.add_block(data,digest,Container.CODE_DATA)
+				print "  added", base64.b64encode(digest), "to", container, index
+				if container != self.last_container:
+					self.last_container = container
+					# We have finished making a new media.
+					# write it to the database
+					print "Committing blocks db for container", container
+					self.root.flush(self)
+					self.backup.db_config.commit()
+
+				#
+				# The order is extremely important here - the block can be saved
+				# (and thus, blocks_db can be updated) only after the previous db
+				# is committed. Otherwise, the block ends up written as available
+				# in a container that is never finalized.
+				#
+				block = Block(self.backup,digest)
+				block.add_container(container)
+				block.save()
+		ctx = ScanContext(self,root,prev_files_dbs,new_files_db)
+		root.set_num(ctx.next_num())
+		root.scan(ctx,prev_nums)
 		
 		#
 		# Save the files db
 		#
 		print "Exporting the files db"
-		os = SpecialOStream(self,Container.CODE_FILES)
-		for key,value in self.new_files_db:
-			os.write(base64.b64encode(key)+":"+base64.b64encode(value)+"\n")
-		os.flush()
+		s = SpecialOStream(self,ctx,Container.CODE_FILES)
+		for key,value in ctx.new_files_db:
+			s.write(base64.b64encode(key)+":"+base64.b64encode(value)+"\n")
+		s.flush()
 		
 		# Upload the special data to the containers
 		self.container_config.finalize_increment()
-		self.container_config.commit()
-		
-		#
-		# Avoid warning on implicitly closed DB
-		#
-		for db in self.prev_files_dbs:
-			db.close()
-		self.blocks_db.close()
-		self.new_files_db.close()
-		self.container_config.close()
+		self.db_config.commit()
 	
-	def add_block(self,data,digest):
-		if self.blocks_db.has_key(digest):
-			return
-		(container,index) = self.container_config.add_block(data,digest,Container.CODE_DATA)
+	#def add_block(self,data,digest):
+		#if self.blocks_db.has_key(digest):
+			#return
+		#(container,index) = self.container_config.add_block(data,digest,Container.CODE_DATA)
 		
-		print "  added", base64.b64encode(digest), "to", container, index
-		if container != self.last_container:
-			self.last_container = container
-			# We have finished making a new media.
-			# write it to the database
-			print "Committing blocks db for container", container
-			self.root.flush(self)
-			self.blocks_db.commit()
-			self.new_files_db.commit()
-			self.container_config.commit()
+		#print "  added", base64.b64encode(digest), "to", container, index
+		#if container != self.last_container:
+			#self.last_container = container
+			## We have finished making a new media.
+			## write it to the database
+			#print "Committing blocks db for container", container
+			#self.root.flush()
+			#self.blocks_db.commit()
+			#self.new_files_db.commit()
+			#self.container_config.commit()
 		
-		#
-		# The order is extremely important here - the block can be saved
-		# (and thus, blocks_db can be updated) only after the previous db
-		# is committed. Otherwise, the block ends up written as available
-		# in a container that is never finalized.
-		#
-		block = Block(self,digest)
-		block.add_container(container)
-		block.save()
+		##
+		## The order is extremely important here - the block can be saved
+		## (and thus, blocks_db can be updated) only after the previous db
+		## is committed. Otherwise, the block ends up written as available
+		## in a container that is never finalized.
+		##
+		#block = Block(self,digest)
+		#block.add_container(container)
+		#block.save()
 
 	#
 	# Functionality for restore mode
 	#
 	def restore(self):
+		class RestoreContext:
+			def __init__(self,backup,files_db):
+				self.backup = backup
+				self.files_db = files_db
+
+				self.inodes_db = {}
 		#
 		# Create the scratch database to precompute block to container requirements
 		#
@@ -245,18 +279,20 @@ class Backup:
 	
 		increment = self.container_config.last_finalized_increment()
 		if increment != None:
-			self.files_db = self.load_files_db(increment)
+			files_db = self.load_files_db(increment)
 		else:
 			raise "No finalized increment found. Nothing to restore"
 
+		ctx = RestoreContext(self,files_db)
 		#
 		# Compute reference counts for all the blocks required in this restore
 		#
 		print "1. Computing reference counts"
 		self.root.name = "."
-		self.root.request_blocks(self,0,self.blocks_cache)
+		self.root.set_num(0)
+		self.root.request_blocks(ctx,self.blocks_cache)
 		# inodes_db must be clean once again when we start restoring the files data
-		self.inodes_db = {}
+		ctx.inodes_db = {}
 		# just to free up resources
 
 		print "2. Computing the list of required blocks of each container"
@@ -267,13 +303,10 @@ class Backup:
 		#
 		print "3. Restoring files"
 		self.root.name = "."
-		self.root.restore(self,0)
-		
-		self.blocks_db.close()
-		self.files_db.close()
-		self.container_config.close()
+		self.root.restore(ctx)
 
-		self.blocks_cache.close()
+		#self.blocks_cache.close()
+		#self.db_config.close()
 
 		print "MAX loaded size:", self.blocks_cache.max_loaded_size
 
@@ -290,36 +323,32 @@ class Backup:
 		self.blocks_cache = BlockCache(self)
 		print "Containers"
 		self.container_config.info()
-		prev_increments = self.container_config.prev_increments()
-		for i in prev_increments:
+
+		for i in self.container_config.increments:
 			#if not self.database_loaded(i):
 				#print "Increment %d not loaded" % i
 				#continue
-			db = self.load_files_db(i)
-			print "Listing of increment",i
-			self.root = Directory(None,self.data_path)
-			self.root.list_files(self,0,db)
+			db = self.load_files_db(i.index)
+			print "Listing of increment",i.index
+			self.root = Directory(self,None,self.data_path)
+			self.root.set_num(0)
+			self.root.list_files(db)
 			# just to be safe
-			db.close()
-			db = None
-		# Just to make the db happy
 
-		self.blocks_cache.close()
-		self.blocks_db.close()
-		self.container_config.close()
+		#self.db_config.close()
 	#
 	# Files database loading
 	#
 	def files_db_loaded(self,increment):
-		if not self.global_config.database_exists("manent."+self.label, ".files.%d"%increment):
+		if not self.db_config.database_exists("manent."+self.label, ".files.%d"%increment):
 			return False
 		# Consider checking if the DB is empty
 		return True
 	def create_files_db(self,index):
-		db = self.global_config.get_database("manent."+self.label, ".files.%d"%index, True)
+		db = self.db_config.get_database("manent."+self.label, ".files.%d"%index)
 		return db
 	def load_files_db(self,index):
-		db = self.global_config.get_database("manent."+self.label, ".files.%d"%index, True)
+		db = self.db_config.get_database("manent."+self.label, ".files.%d"%index)
 		if len(db)==0:
 			# The database is empty - this means that it must be loaded from the backup
 			increment = self.container_config.increments[index]
@@ -338,6 +367,5 @@ class Backup:
 				(key,value) = expr.split(line)
 				#print "Read line from stream: [%s:%s]" %(base64.b64decode(key),value)
 				db[base64.b64decode(key)]=base64.b64decode(value)
-			db.commit()
 		return db
 		#self.new_files_db = self.global_config.get_database("manent."+self.label, ".files%d"%(increment),True)

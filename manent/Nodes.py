@@ -13,9 +13,11 @@ class Node:
 	"""
 	Base class of all the filesystem nodes
 	"""
-	def __init__(self,parent,name):
-		self.name = name
+	def __init__(self,backup,parent,name):
+		self.backup = backup
 		self.parent = parent
+		self.name = name
+
 	def path(self):
 		pathElements = []
 		node = self
@@ -28,25 +30,24 @@ class Node:
 	#
 	# Node serialization to db
 	#
-	def flush(self,backup):
+	def flush(self,ctx):
 		pass
 
-	def get_key(self,backup,number):
-		keyS = StringIO()
-		keyS.write("N"+str(number))
-		#backup.config.write_int(keyS,number)
-		return keyS.getvalue()
+	def set_num(self,num):
+		self.number = num
+	def get_key(self):
+		return self.backup.config.node_key(self.number)
 
 #--------------------------------------------------------
 # CLASS:File
 #--------------------------------------------------------
 class File(Node):
-	def __init__(self,parent,name):
-		Node.__init__(self,parent,name)
+	def __init__(self,backup,parent,name):
+		Node.__init__(self,backup,parent,name)
 	#
 	# Scanning and restoring
 	#
-	def scan(self,backup,num,prev_nums):
+	def scan(self,ctx,prev_nums):
 		print "scanning", self.path()
 		#
 		# Check if we have seen this file already
@@ -56,15 +57,14 @@ class File(Node):
 		inode_num = file_stat[stat.ST_INO]
 		nlink = file_stat[stat.ST_NLINK]
 		if nlink > 1:
-			if inode_num in backup.inodes_db:
-				self.number = backup.inodes_db[inode_num]
+			if ctx.inodes_db.has_key(inode_num):
+				# This is a hard link to already existing file.
+				# Ignore the suggested file number
+				self.number = ctx.inodes_db[inode_num]
 				print "  is a hard link to file", self.number
-				return num
+				return
 			# Although file is apparently a hard link, we've not seen it yet
-			backup.inodes_db[inode_num] = num
-		
-		self.number = num
-		num += 1
+			ctx.inodes_db[inode_num] = self.number
 		
 		#
 		# See if file was in previous increments
@@ -73,17 +73,17 @@ class File(Node):
 			# TODO: this must work only if the file is old enough
 			print "  found in increment %d" %(db_num),
 			
-			old_db = backup.prev_files_dbs[db_num]
-			old_key = self.get_key(backup,file_num)
+			old_db = ctx.prev_files_dbs[db_num]
+			old_key = self.backup.config.node_key(file_num)
 			old_stat_str = old_db["S"+old_key]
 			old_stat = [int(s) for s in re.split("\s+",old_stat_str)]
 			if (file_stat[stat.ST_INO]==old_stat[stat.ST_INO]) and \
 			            (file_stat[stat.ST_MTIME]==old_stat[stat.ST_MTIME]):
-				key = self.get_key(backup,self.number)
-				backup.new_files_db[key] = old_db[old_key]
-				backup.new_files_db["S"+key] = old_db["S"+old_key]
+				key = self.get_key()
+				ctx.new_files_db[key] = old_db[old_key]
+				ctx.new_files_db["S"+key] = old_db["S"+old_key]
 				print "mtime", file_stat[stat.ST_MTIME], "reusing"
-				return num
+				return
 			else:
 				print "but stamp differs:", file_stat_str, "!=", old_stat_str
 			
@@ -94,18 +94,17 @@ class File(Node):
 		offset = 0
 		read_handle = open(self.path(), "rb")
 		while True:
-			data = read_handle.read(backup.config.blockSize())
+			data = read_handle.read(self.backup.config.blockSize())
 			if len(data)==0:
 				break
-			digest = backup.config.dataDigest(data)
+			digest = self.backup.config.dataDigest(data)
 			digests.append(digest)
-			backup.add_block(data,digest)
+			ctx.add_block(data,digest)
 			#print "Storing block %d of %s, [%d:%d] digest:%s" % (index, self.path(), offset,len(data), base64.b64encode(digest))
 			offset += len(data)
 		#
 		# Serialize to the filesystem db
 		#
-		key = self.get_key(backup,self.number)
 		valueS = StringIO()
 		if nlink>1:
 			valueS.write("H")
@@ -113,31 +112,31 @@ class File(Node):
 			valueS.write("F")
 		for digest in digests:
 			valueS.write(digest)
-		backup.new_files_db[key] = valueS.getvalue()
-		backup.new_files_db["S"+key] = file_stat_str
-		return num
+		key = self.get_key()
+		ctx.new_files_db[key] = valueS.getvalue()
+		ctx.new_files_db["S"+key] = file_stat_str
 		
-	def restore(self,backup,num):
-		key = self.get_key(backup, num)
-		valueS = StringIO(backup.files_db[key])
+	def restore(self,ctx):
+		key = self.get_key()
+		valueS = StringIO(ctx.files_db[key])
 		linktype = valueS.read(1)
 		#
 		# Check if this file is a hard link to already
 		# existing one
 		#
 		if linktype=="H":
-			if num in backup.inodes_db:
-				otherFile = backup.inodes_db[num]
+			if self.number in ctx.inodes_db:
+				otherFile = ctx.inodes_db[num]
 				print "Restoring hard link from", otherFile, "to", self.path()
 				os.link(otherFile, self.path())
 				return
-			backup.inodes_db[num] = self.path()
+			ctx.inodes_db[num] = self.path()
 
 		#
 		# No, this file is new. Create it.
 		#
 		digests = []
-		digestSize = backup.config.dataDigestSize()
+		digestSize = self.backup.config.dataDigestSize()
 		while True:
 			digest = valueS.read(digestSize)
 			if digest=='':
@@ -148,66 +147,62 @@ class File(Node):
 		file = open(self.path(), "w")
 		for digest in digests:
 			#print "File", self.path(), "reading digest", base64.b64encode(digest)
-			file.write(backup.read_block(digest))
+			file.write(self.backup.read_block(digest))
 	
-	def request_blocks(self,backup,num,block_cache):
-		key = self.get_key(backup,num)
-		valueS = StringIO(backup.files_db[key])
+	def request_blocks(self,ctx,block_cache):
+		key = self.get_key()
+		valueS = StringIO(ctx.files_db[key])
 		linktype = valueS.read(1)
 
 		if linktype=="H":
-			if num in backup.inodes_db:
+			if ctx.inodes_db.has_key(num):
 				# This file is a hard link, so it needs no blocks
 				return
-			backup.inodes_db[num] = self.path()
+			ctx.inodes_db[num] = self.path()
 		#
 		# Ok, this file is new. Count all its blocks
 		#
-		digestSize = backup.config.dataDigestSize()
+		digestSize = self.backup.config.dataDigestSize()
 		while True:
 			digest = valueS.read(digestSize)
 			if digest == "": break
 			block_cache.request_block(digest)
-	def list_files(self,backup,num,db):
+	def list_files(self,db):
 		print self.path()
 #--------------------------------------------------------
 # CLASS:Symlink
 #--------------------------------------------------------
 class Symlink(Node):
-	def __init__(self,parent,name):
-		Node.__init__(self,parent,name)
-	def scan(self,backup,num,prev_nums):
+	def __init__(self,backup,parent,name):
+		Node.__init__(self,backup,parent,name)
+	def scan(self,ctx,prev_nums):
 		self.link = os.readlink(self.path())
 		print "scanning", self.path(), "->", self.link
-		key = self.get_key(backup,num)
-		backup.new_files_db[key] = self.link
-		self.number = num
-		return num+1
-	def restore(self,backup,num):
-		key = self.get_key(backup,num)
-		self.link = backup.files_db[key]
+		key = self.get_key()
+		ctx.new_files_db[key] = self.link
+	def restore(self,ctx):
+		key = self.get_key()
+		self.link = ctx.files_db[key]
 		print "Restoring symlink from", self.link, "to", self.path()
 		os.symlink(self.link, self.path())
-	def list_files(self,backup,num,db):
+	def list_files(self,db):
 		print self.path()
 
 ##--------------------------------------------------------
 # CLASS:Directory
 #--------------------------------------------------------
 class Directory(Node):
-	def __init__(self,parent,name):
-		Node.__init__(self,parent,name)
-	def scan(self,backup,num,prev_nums):
-		self.number = num
-		num = num+1
+	def __init__(self,backup,parent,name):
+		Node.__init__(self,backup,parent,name)
+	def scan(self,ctx,prev_nums):
 		#
 		# Reload data from previous increments
 		#
 		print "Path", self.path(), "found in previous increments:", prev_nums
 		prev_data = {}
 		for (db_num,file_num) in prev_nums:
-			db = backup.prev_files_dbs[db_num]
-			file_key = self.get_key(backup,file_num)
+			db = ctx.prev_files_dbs[db_num]
+			file_key = self.backup.config.node_key(file_num)
 			if not db.has_key(file_key):
 				print "DB %d doesn't have key %s" % (db_num,file_key)
 				continue
@@ -216,149 +211,152 @@ class Directory(Node):
 				node_type = valueS.read(1)
 				if node_type == "":
 					break
-				node_num = backup.config.read_int(valueS)
-				node_name = backup.config.read_string(valueS)
+				node_num = self.backup.config.read_int(valueS)
+				node_name = self.backup.config.read_string(valueS)
 				if not prev_data.has_key(node_name):
 					prev_data[node_name] = []
 				prev_data[node_name].append((db_num,node_num))
-				#print node_name,
-			#print
 		#print "Prev data:"
 		#keys = prev_data.keys()
 		#keys.sort()
 		#for key in keys:
 			#print " ", key, prev_data[key]
-		#print "Prev files:", prev_data
 		#
 		# Scan the directory
 		#
-		self.modified = True
 		# TODO: there shouldn't be two lists
+		print "starting scan for", self.path()
+		self.modified = True
 		self.children = []
-		self.child_nodes = []
-		for file in os.listdir(self.path()):
+		for name in os.listdir(self.path()):
 			if (file=="..") or (file=="."):
 				continue
-			path = os.path.join(self.path(),file)
+			path = os.path.join(self.path(),name)
 			file_mode = os.lstat(path)[stat.ST_MODE]
 			cur_prev_nums = []
-			if prev_data.has_key(file):
-				cur_prev_nums = prev_data[file]
+			if prev_data.has_key(name):
+				cur_prev_nums = prev_data[name]
 			try:
-				if stat.S_ISLNK(file_mode):
-					node = Symlink(self, file)
-					num = node.scan(backup,num,cur_prev_nums)
-					self.children.append((node.number,"S",file))
-					self.child_nodes.append(node)
-				elif stat.S_ISREG(file_mode):
-					node = File(self,file)
-					num = node.scan(backup,num,cur_prev_nums)
-					self.children.append((node.number,"F",file))
-					self.child_nodes.append(node)
-				elif stat.S_ISDIR(file_mode):
-					node = Directory(self,file)
-					# We know that this is the number that the node
-					# will get anyway - assign it without scanning
-					self.children.append((num,"D",file))
-					self.child_nodes.append(node)
-					num = node.scan(backup,num,cur_prev_nums)
-
 				self.modified = True
-				
+				if stat.S_ISLNK(file_mode):
+					node = Symlink(self.backup,self, name)
+					node.set_num(ctx.next_num())
+					node.scan(ctx,cur_prev_nums)
+					self.children.append(node)
+				elif stat.S_ISREG(file_mode):
+					node = File(self.backup,self,name)
+					node.set_num(ctx.next_num())
+					node.scan(ctx,cur_prev_nums)
+					self.children.append(node)
+				elif stat.S_ISDIR(file_mode):
+					node = Directory(self.backup,self,name)
+					node.set_num(ctx.next_num())
+					# The order of append and scan is different here!
+					self.children.append(node)
+					node.scan(ctx,cur_prev_nums)
 			except OSError:
-				print "OSError accessing", name
+				print "OSError accessing", path
 			except IOError:
-				print "IOError accessing", name
+				print "IOError accessing", path
 				
-		#print "$$$$$$$$ Saving final version of", self.path()
-		self.flush(backup)
+		self.flush(ctx)
 		# remove the children list - we don't want to keep everything in memory
 		# while scanning
 		self.child_nodes = None
-		return num
-	def flush(self,backup):
+	def flush(self,ctx):
 		"""
 		Flush the contents of the current node.
 		Called when a container is completed or when
 		the node is completed
 		"""
+		for child in self.children:
+			child.flush(ctx)
+		
 		if not self.modified:
 			return
 
-		for child in self.child_nodes:
-			child.flush(backup)
-		
 		valueS = StringIO()
-		for (node_num,node_type,node_name) in self.children:
-			valueS.write(node_type)
-			backup.config.write_int(valueS,node_num)
-			backup.config.write_string(valueS,node_name)
-		key = self.get_key(backup,self.number)
-		backup.new_files_db[key] = valueS.getvalue()
+		for child in self.children:
+			if isinstance(child,Directory):
+				valueS.write("D")
+			elif isinstance(child,File):
+				valueS.write("F")
+			elif isinstance(child,Symlink):
+				valueS.write("S")
+			else:
+				raise "Unrecognized object flushing"
+			
+			self.backup.config.write_int(valueS,child.number)
+			self.backup.config.write_string(valueS,child.name)
+			
+		key = self.get_key()
+		ctx.new_files_db[key] = valueS.getvalue()
 		self.modified = False
 		print "Flushing node", self.path(), "to", key
 		
-	def restore(self,backup,num):
+	def restore(self,ctx):
 		if self.path() != ".":
-			print "Restoring dir", self.path(), num
+			print "Restoring dir", self.path(), self.number
 			os.mkdir(self.path())
-		children = []
-		key = self.get_key(backup,num)
-		valueS = StringIO(backup.files_db[key])
+		key = self.get_key()
+		valueS = StringIO(ctx.files_db[key])
 		while True:
 			node_type = valueS.read(1)
 			if node_type == "":
 				# no more entries in this dir
 				break
-			node_num = backup.config.read_int(valueS)
-			node_name = backup.config.read_string(valueS)
+			node_num = self.backup.config.read_int(valueS)
+			node_name = self.backup.config.read_string(valueS)
 			if node_type == "D":
-				node = Directory(self, node_name)
+				node = Directory(self.backup,self, node_name)
 			elif node_type == "F":
-				node = File(self,node_name)
+				node = File(self.backup,self,node_name)
 			elif node_type == "S":
-				node = Symlink(self,node_name)
+				node = Symlink(self.backup,self,node_name)
 			else:
 				raise "Unknown node type [%s]"%node_type
-			
-			node.restore(backup,node_num)
 
-	def request_blocks(self,backup,num,block_cache):
+			node.set_num(node_num)
+			node.restore(ctx)
+
+	def request_blocks(self,ctx,block_cache):
 		print "Requesting blocks in", self.path()
-		key = self.get_key(backup,num)
-		print "loading block", num, "key", key
-		valueS = StringIO(backup.files_db[key])
+		key = self.get_key()
+		print "loading block", self.number, "key", key
+		valueS = StringIO(ctx.files_db[key])
 		while True:
 			node_type = valueS.read(1)
 			if node_type == "":
 				break
-			node_num = backup.config.read_int(valueS)
-			node_name = backup.config.read_string(valueS)
+			node_num = self.backup.config.read_int(valueS)
+			node_name = self.backup.config.read_string(valueS)
 			if node_type == "D":
-				node = Directory(self,node_name)
+				node = Directory(self.backup,self,node_name)
 			elif node_type == "F":
-				node = File(self,node_name)
+				node = File(self.backup,self,node_name)
 			elif node_type == "S":
 				# Nothing to do for symlinks
 				continue
 			else:
 				raise "Unknown node type [%s]"%node_type
-			node.request_blocks(backup,node_num,block_cache)
+			node.set_num(node_num)
+			node.request_blocks(ctx,block_cache)
 
-	def list_files(self,backup,num,db):
+	def list_files(self,db):
 		print self.path()
-		key = self.get_key(backup,num)
+		key = self.get_key()
 		valueS = StringIO(db[key])
 		while True:
 			node_type = valueS.read(1)
 			if node_type == "":
 				break
-			node_num = backup.config.read_int(valueS)
-			node_name = backup.config.read_string(valueS)
+			node_num = self.backup.config.read_int(valueS)
+			node_name = self.backup.config.read_string(valueS)
 			if node_type == "D":
-				node = Directory(self, node_name)
+				node = Directory(self.backup,self,node_name)
 			elif node_type == "F":
-				node = File(self,node_name)
+				node = File(self.backup,self,node_name)
 			elif node_type == "S":
-				node = Symlink(self,node_name)
-			node.list_files(backup,node_num,db)
+				node = Symlink(self.backup,self,node_name)
+			node.set_num(node_num)
+			node.list_files(db)

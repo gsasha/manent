@@ -74,7 +74,7 @@ class Container:
 	# Utility functions
 	#
 	def filename(self):
-		return self.backup.config.container_file_name(self.backup.label, self.index)
+		return self.backup.global_config.container_file_name(self.backup.label, self.index)
 	def __repr__(self):
 		return "Container totalsize=%d, %d blocks" % (self.totalSize, len(self.blocks))
 
@@ -88,7 +88,7 @@ class Container:
 		# Each block will contain a tuple of (digest, size, code)
 		self.blocks = []
 		self.incrementBlocks = []
-		self.dataFileName = os.path.join(self.backup.config.stagingArea(),self.filename()+".data")
+		self.dataFileName = os.path.join(self.backup.global_config.staging_area(),self.filename()+".data")
 		try:
 			os.unlink(self.dataFileName)
 		except:
@@ -152,19 +152,21 @@ class Container:
 		return len(self.blocks)
 	def finish_dump(self):
 		self.finish_compression()
-		config = self.backup.config
+		filepath = os.path.join(self.backup.global_config.staging_area(),self.filename())
 		try:
-			os.unlink(os.path.join(config.stagingArea(),self.filename()))
+			os.unlink(filepath)
 		except:
-			# It's OK if the file does not exist
+			# do nothing! We don't really expect the file to be there
 			pass
-		file = open(os.path.join(config.stagingArea(),self.filename()), "w")
+		
+		file = open(filepath, "w")
 		#
 		# Write the header
 		#
 		MAGIC = "MNNT"
 		VERSION = 1
 
+		config = self.backup.config
 		file.write(MAGIC)
 		config.write_int(file,VERSION)
 		config.write_int(file,self.index)
@@ -208,11 +210,11 @@ class Container:
 		self.blocks = []
 		self.block_infos = {}
 
-		config = self.backup.config
-		file = open(os.path.join(config.stagingArea(),self.filename()), "r")
+		file = open(os.path.join(self.backup.global_config.staging_area(),self.filename()), "r")
 		MAGIC = file.read(4)
 		if MAGIC != "MNNT":
 			raise "Manent: magic didn't happen..."
+		config = self.backup.config
 		VERSION = config.read_int(file)
 		index = config.read_int(file)
 		if index != self.index:
@@ -273,7 +275,7 @@ class Container:
 		last_read_offset = 0
 		decompressor = None
 		print "Unpacking container", self.index
-		file = open(os.path.join(self.backup.config.stagingArea(),self.filename()+".data"), "r")
+		file = open(os.path.join(self.backup.global_config.staging_area(),self.filename()+".data"), "r")
 		#
 		# Compute compression block sizes. This is necessary because
 		# we cannot give extraneous data to decompressor
@@ -384,22 +386,13 @@ class BZ2FileDecompressor:
 class ContainerConfig:
 	def __init__(self):
 		self.new_increment = None
-	#
-	# Database connection handling
-	#
-	def commit(self):
-		self.containers_db.commit()
-	def close(self):
-		self.containers_db.close()
-		self.containers_db = None
-	def abort(self):
-		self.containers_db.abort()
+	
 	#
 	# Loading
 	#
 	def init(self,backup):
 		self.backup = backup
-		self.containers_db = self.backup.global_config.get_database("manent."+self.backup.label, ".history",True)
+		self.containers_db = self.backup.db_config.get_database("manent."+self.backup.label, ".history")
 
 		#
 		# See if we are loading the db for the first time
@@ -472,6 +465,10 @@ class ContainerConfig:
 			return None
 		return finalized_increments[-1].index
 	def prev_increments(self):
+		"""
+		Compute the set of all the last increments, starting from
+		the latest finalized one
+		"""
 		prev_increments = []
 		for increment in self.increments:
 			if increment.finalized:
@@ -611,7 +608,7 @@ class DirectoryContainerConfig(ContainerConfig):
 		container = Container(self.backup,index)
 
 		filename = container.filename()
-		staging_path = os.path.join(self.backup.config.stagingArea(),filename)
+		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
 		target_path  = os.path.join(self.path, filename)
 		
 		if staging_path != target_path:
@@ -629,7 +626,7 @@ class DirectoryContainerConfig(ContainerConfig):
 		container = Container(self.backup,index)
 
 		filename = container.filename()
-		staging_path = os.path.join(self.backup.config.stagingArea(),filename)
+		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
 		target_path  = os.path.join(self.path, filename)
 		
 		if staging_path != target_path:
@@ -643,7 +640,7 @@ class DirectoryContainerConfig(ContainerConfig):
 		index = container.index
 		
 		filename = container.filename()
-		staging_path = os.path.join(self.backup.config.stagingArea(),filename)
+		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
 		target_path  = os.path.join(self.path, filename)
 		
 		if staging_path != target_path:
