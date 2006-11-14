@@ -70,7 +70,7 @@ class GlobalConfig:
 			backup.close()
 	
 	def create_backup(self,label,dataPath,containerType,containerParams):
-		if label in self.backups:
+		if self.backups.has_key(label):
 			raise "Backup %s already exists"%label
 		
 		backup = Backup.Backup(self,label)
@@ -80,7 +80,7 @@ class GlobalConfig:
 		self.backups[label] = (dataPath,containerType,containerParams)
 		return backup
 	def load_backup(self,label):
-		if not label in self.backups:
+		if not self.backups.has_key(label):
 			raise "Backup %s does not exist"%label
 		
 		backup = Backup.Backup(self,label)
@@ -90,7 +90,7 @@ class GlobalConfig:
 		self.open_backups.append(backup)
 		return backup
 	def reconstruct_backup(self,label,dataPath,containerType,containerParams):
-		if label in self.backups:
+		if self.backups.has_key(label):
 			raise "Backup %s already exists" % label
 		
 		backup = Backup.Backup(self,label)
@@ -101,7 +101,7 @@ class GlobalConfig:
 		return backup
 		
 	def has_backup(self,label):
-		return label in self.backups
+		return self.backups.has_key(label)
 	def list_backups(self):
 		return self.backups.keys()
 	def get_backup(self, label):

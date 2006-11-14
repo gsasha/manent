@@ -125,7 +125,7 @@ class File(Node):
 		# existing one
 		#
 		if linktype=="H":
-			if self.number in ctx.inodes_db:
+			if ctx.inodes_db.has_key(self.number):
 				otherFile = ctx.inodes_db[num]
 				print "Restoring hard link from", otherFile, "to", self.path()
 				os.link(otherFile, self.path())
