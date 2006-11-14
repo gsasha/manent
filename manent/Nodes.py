@@ -320,9 +320,9 @@ class Directory(Node):
 			node.restore(ctx)
 
 	def request_blocks(self,ctx,block_cache):
-		print "Requesting blocks in", self.path()
+		#print "Requesting blocks in", self.path()
 		key = self.get_key()
-		print "loading block", self.number, "key", key
+		#print "loading block", self.number, "key", key
 		valueS = StringIO(ctx.files_db[key])
 		while True:
 			node_type = valueS.read(1)

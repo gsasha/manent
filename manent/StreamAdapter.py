@@ -1,0 +1,95 @@
+from cStringIO import StringIO
+
+class IStreamAdapter:
+	def __init__(self):
+		#
+		# The IStreamAdapter consists of two parts: buffer, which keeps a block
+		# and stream
+		#
+		self.buf = None
+		self.buf_size = 0
+		self.stream = None
+		self.stream_size = 0
+
+	#
+	# Functions for the user
+	#
+	def read(self,size):
+		resultS = StringIO()
+		result_size = 0
+
+		while result_size < size:
+			if self.buf == None:
+				block = self.read_block()
+				if len(block) == 0:
+					break
+				if len(block) <= (size-result_size):
+					# Optimization: don't copy the data over to the stream
+					# if all of it is going to be used immediately
+					resultS.write(block)
+					result_size += len(block)
+					continue
+				self.buf = StringIO(block)
+			data = self.buf.read(size-result_size)
+			if len(data) == 0:
+				self.buf = None
+				continue
+			resultS.write(data)
+			result_size += len(data)
+		return resultS.getvalue()
+	
+	def readline(self):
+		result = StringIO()
+		while True:
+			ch = self.read(1)
+			if len(ch) == 0:
+				break
+			result.write(ch)
+			if ch == "\n":
+				break
+		return result.getvalue()
+
+	def read_block(self):
+		raise "read_block must be overridden by the inheriting class"
+
+class OStreamAdapter:
+	def __init__(self,max_block_size):
+		self.max_block_size = max_block_size
+		self.buf = StringIO()
+		self.buflen = 0
+		self.total = 0
+	#
+	# Interface for the user
+	#
+	def write(self,data):
+		self.buf.write(data)
+		self.buflen += len(data)
+		self.total += len(data)
+		while self.buflen > self.max_block_size:
+			self.__write_chunk()
+	def flush(self):
+		while self.buflen > 0:
+			self.__write_chunk()
+	#
+	# Interface for the inheriting class
+	#
+	def write_block(self,data):
+		"""
+		Inheriting class must override this
+		"""
+		print "write_block must be implemented!"
+		
+	#
+	# Implementation
+	#
+	def __write_chunk(self):
+		chunk = self.buflen
+		if chunk > self.max_block_size:
+			chunk = self.max_block_size
+		buf = self.buf.getvalue()
+		written = buf[0:chunk]
+		self.buflen -= chunk
+		if self.buflen > 0:
+			self.buf = StringIO()
+			self.buf.write(buf[chunk:])
+		self.write_block(written)

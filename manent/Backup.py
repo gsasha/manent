@@ -14,79 +14,37 @@ import Container
 from BlockCache import BlockCache
 from Block import Block
 from Database import DatabaseConfig
-	
-class SpecialOStream:
-	def __init__(self,backup,ctx,code):
-		self.backup = backup
-		self.ctx = ctx
-		self.code = code
-		
-		self.chunk = self.backup.config.blockSize()
-		self.buf = StringIO()
-		self.buflen = 0
-		self.total = 0
-	def write(self,data):
-		self.buf.write(data)
-		self.buflen += len(data)
-		self.total += len(data)
-		while self.buflen > self.chunk:
-			self.write_chunk()
-	def flush(self):
-		#print "Special block",self.code,"total size",self.total
-		while self.buflen > 0:
-			self.write_chunk()
-	def write_chunk(self):
-		chunk = self.buflen
-		if chunk > self.chunk:
-			chunk = self.chunk
-		buf = self.buf.getvalue()
-		written = buf[0:chunk]
-		self.buflen -= chunk
-		if self.buflen > 0:
-			self.buf = StringIO()
-			self.buf.write(buf[chunk:])
-		#print "adding block of code", self.code, "length", len(written)
-		digest = self.backup.config.dataDigest(written)
-		#self.ctx.add_block(written,digest,self.code)
-		self.backup.container_config.add_block(written,digest,self.code)
+from StreamAdapter import *
 
-class SpecialIStream:
+class SpecialOStream(OStreamAdapter):
+	"""
+	This ostream writes its data to a stream of containers
+	"""
+	def __init__(self,backup,code):
+		OStreamAdapter.__init__(self, backup.config.blockSize())
+		self.backup = backup
+		self.code = code
+	def write_block(self,data):
+		#print "adding block of code", self.code, "length", len(written)
+		digest = self.backup.config.dataDigest(data)
+		self.backup.container_config.add_block(data,digest,self.code)
+
+class SpecialIStream(IStreamAdapter):
+	"""
+	This istream reads its data from a stream of containers
+	"""
 	def __init__(self,backup,digests):
+		IStreamAdapter.__init__(self)
 		self.backup = backup
 		self.digests = digests
-
-		self.buf = None
-	def read(self,size):
-		result = ""
-		while len(result) < size:
-			if (self.buf == None):
-				chunk = self.read_chunk()
-				if len(chunk) == 0:
-					break
-				self.buf = StringIO(chunk)
-			data = self.buf.read(size-len(result))
-			if len(data) == 0:
-				self.buf = None
-				continue
-			result += data
-		return result
-	def readline(self):
-		result = StringIO()
-		while True:
-			ch = self.read(1)
-			if len(ch) == 0:
-				break
-			result.write(ch)
-			if ch == "\n":
-				break
-		return result.getvalue()
-	def read_chunk(self):
+	
+	def read_block(self):
 		if len(self.digests)==0:
 			return ""
 		(idx,digest) = self.digests[0]
 		self.digests = self.digests[1:]
-		chunk = self.backup.read_block(digest,idx)
-		return chunk
+		data = self.backup.read_block(digest,idx)
+		return data
 
 class Backup:
 	"""
@@ -227,7 +185,7 @@ class Backup:
 		# Save the files db
 		#
 		print "Exporting the files db"
-		s = SpecialOStream(self,ctx,Container.CODE_FILES)
+		s = SpecialOStream(self,Container.CODE_FILES)
 		for key,value in ctx.new_files_db:
 			s.write(base64.b64encode(key)+":"+base64.b64encode(value)+"\n")
 		s.flush()
@@ -235,32 +193,6 @@ class Backup:
 		# Upload the special data to the containers
 		self.container_config.finalize_increment()
 		self.db_config.commit()
-	
-	#def add_block(self,data,digest):
-		#if self.blocks_db.has_key(digest):
-			#return
-		#(container,index) = self.container_config.add_block(data,digest,Container.CODE_DATA)
-		
-		#print "  added", base64.b64encode(digest), "to", container, index
-		#if container != self.last_container:
-			#self.last_container = container
-			## We have finished making a new media.
-			## write it to the database
-			#print "Committing blocks db for container", container
-			#self.root.flush()
-			#self.blocks_db.commit()
-			#self.new_files_db.commit()
-			#self.container_config.commit()
-		
-		##
-		## The order is extremely important here - the block can be saved
-		## (and thus, blocks_db can be updated) only after the previous db
-		## is committed. Otherwise, the block ends up written as available
-		## in a container that is never finalized.
-		##
-		#block = Block(self,digest)
-		#block.add_container(container)
-		#block.save()
 
 	#
 	# Functionality for restore mode

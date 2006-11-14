@@ -12,17 +12,6 @@ class DatabaseConfig:
 		self.scratch_dbs = {}
 
 		#
-		# Make sure that directories in which database lives
-		# do exist
-		#
-		#home_area = self.global_config.home_area()
-		#if not os.path.isdir(home_area):
-			#os.mkdir(home_area)
-		#dbenv_dir = os.path.join(home_area,"/dbenv")
-		#if not os.path.isdir(dbenv_dir):
-			#os.mkdir(dbenv_dir)
-
-		#
 		# Configure the database environment
 		#
 		self.dbenv = db.DBEnv()
@@ -30,11 +19,11 @@ class DatabaseConfig:
 		self.dbenv.set_lk_max_locks(20000)
 		self.dbenv.set_lk_max_objects(20000)
 		self.dbenv.set_lk_detect(db.DB_LOCK_DEFAULT)
+		self.dbenv.set_flags(db.DB_LOG_AUTOREMOVE, True)
 		#self.dbenv.open(dbenv_dir, db.DB_RECOVER| db.DB_CREATE |db.DB_INIT_TXN| db.DB_INIT_MPOOL| db.DB_INIT_LOCK)
 		self.dbenv.open(self.dbenv_dir(), db.DB_RECOVER| db.DB_CREATE |db.DB_INIT_TXN| db.DB_INIT_MPOOL| db.DB_INIT_LOCK)
 
 		self.txn = self.dbenv.txn_begin(flags=db.DB_TXN_NOSYNC|db.DB_DIRTY_READ|db.DB_TXN_NOWAIT)
-		print "Started transaction", self.txn
 
 	def dbenv_dir(self):
 		home_area = self.global_config.home_area()
@@ -50,13 +39,6 @@ class DatabaseConfig:
 		if self.txn:
 			self.txn.abort()
 			self.txn = None
-		
-		#
-		# Clean up the log files
-		#
-		for name in self.dbenv.log_archive():
-			file = os.path.join(self.dbenv_dir(),name)
-			os.unlink(file)
 
 		#
 		# Free up the files that the database held
@@ -111,9 +93,9 @@ class DatabaseConfig:
 		self.txn.abort()
 		self.txn = self.env.txn_begin()
 	def db_fname(self,name,tablename):
-		return os.path.join(self.global_config.home_area(),name)
+		return os.path.join(self.global_config.home_area(),name+".db")
 	def scratch_db_fname(self,name,tablename):
-		return os.path.join(self.global_config.staging_area(),name)
+		return os.path.join(self.global_config.staging_area(),name+".db")
 	#
 	# Utility methods, not to be called from outside
 	#
