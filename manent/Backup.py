@@ -144,7 +144,7 @@ class Backup:
 		# Do the real work of scanning
 		#
 		class ScanContext:
-			def __init__(self,backup,root,base_files_db,prev_files_dbs,new_files_db):
+			def __init__(self,backup,root,prev_files_dbs,new_files_db):
 				self.backup = backup
 				self.root = root
 				self.prev_files_dbs = prev_files_dbs
