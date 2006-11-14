@@ -429,18 +429,18 @@ class ContainerConfig:
 	#
 	# Increment management
 	#
-	def start_increment(self):
+	def start_increment(self,base_index):
 		if self.new_increment != None:
 			raise "Attempting to start an increment before existing one is finalized"
 		self.new_increment = Increment(self, int(self.containers_db["Increments"]))
-		self.new_increment.start()
+		self.new_increment.start(base_index)
 		self.increments.append(self.new_increment)
 		self.containers_db["Increments"] = str(int(self.containers_db["Increments"])+1)
 
 		message = self.new_increment.message()
 		self.add_block(message,self.backup.config.dataDigest(message),CODE_INCREMENT_START)
 		return self.new_increment.index
-	def finalize_increment(self):
+	def finalize_increment(self,base_diff):
 		if self.new_increment == None:
 			raise "Attempting to finalized an increment but none was started"
 		# TODO: Make the message include the same data as of the starting increment, so that
@@ -454,7 +454,7 @@ class ContainerConfig:
 			self.new_increment.add_container(self.containers[-1].index)
 			self.containers_db["Containers"] = str(len(self.containers))
 
-		self.new_increment.finalize()
+		self.new_increment.finalize(base_diff)
 		self.new_increment = None
 	#
 	# Utility methods for increment management

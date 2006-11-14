@@ -1,3 +1,6 @@
+from cStringIO import StringIO
+import time
+
 # --------------------------------------------------------------------
 # CLASS: Increment
 # --------------------------------------------------------------------
@@ -9,21 +12,35 @@ class Increment:
 
 		self.readonly = None
 		self.finalized = False
+		self.base_index = None
+		self.base_diff = None
 	def message(self):
-		# TODO: Make the message include other data, like increment start time, comment etc.
-		message = "Increment %d of backup %s\n" % (self.index, self.container_config.backup.label)
-		return message
+		# TODO: Make the message include other data, comment etc.
+		m = StringIO()
+		m.write("Increment %d of backup %s\n" % (self.index, self.container_config.backup.label))
+		m.write("version=%s\n" % self.container_config.backup.global_config.version())
+		m.write("index=%d\n" % self.index)
+		m.write("backup=%s\n" % self.container_config.backup.label)
+		m.write("time=%s\n" % self.ctime)
+		if self.base_index != None:
+			m.write("base=%d\n" % self.base_index)
+		m.write("\n")
+		return m.getvalue()
 
 	#
 	# Methods for manipulating a newly created increment
 	#
-	def start(self):
+	def start(self,base_index):
 		if self.readonly != None:
 			raise "Attempting to edit an existing increment"
 		self.readonly = False
 
+		self.ctime = time.ctime()
 		self.containers = []
 		self.db["I%d.containers"%(self.index)] = str(len(self.containers))
+		if base_index != None:
+			self.base_index = base_index
+			self.db["I%d.base_index"%(self.index)] = str(self.base_index)
 	def add_container(self,index):
 		if self.readonly != False:
 			raise "Attempting to add container to a readonly increment"
@@ -31,10 +48,18 @@ class Increment:
 		self.db["I%d.%d"%(self.index,len(self.containers))] = str(index)
 		self.containers.append(index)
 		self.db["I%d.containers"%(self.index)] = str(len(self.containers))
-	def finalize(self):
+	def finalize(self,base_diff):
 		if self.readonly != False:
 			raise "Increment already finalized"
 
+		if base_diff != None:
+			if self.base_index == None:
+				raise "setting base diff without index"
+			self.base_diff = base_diff
+			self.db["I%d.base_diff"%(self.index)] = str(self.base_diff)
+		elif self.base_index != None:
+			raise "base index set, but no base diff!"
+		
 		print "Finalizing increment",self.index, self.containers
 		self.db["I%d.finalized"%(self.index)] = "1"
 		self.finalized = True
@@ -52,12 +77,9 @@ class Increment:
 			self.containers.append(int(self.db["I%d.%d"%(self.index,i)]))
 		if self.db.has_key("I%d.finalized"%(self.index)):
 			self.finalized = True
-		#if self.db.has_key("I%d.specials"%(self.index)):
-			#specials = re.split("\s+", self.db["I%d.specials"%(self.index)])
-			#for s in specials:
-				#spec_line = self.db["I%d.special%s"%(self.index,s)]
-				#(code, first_container,first_index,last_container,last_index) = re.split("\s+",spec_line)
-				#self.specials[code] = (first_container,first_index,last_container,last_index)
+		if self.db.has_key("I%d.base_index"%(self.index)):
+			self.base_index = int(self.db["I%d.base_index"%(self.index)])
+			self.base_diff = float(self.db["I%d.base_diff"%(self.index)])
 
 		self.readonly = True
 	#

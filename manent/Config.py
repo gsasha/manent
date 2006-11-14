@@ -15,7 +15,9 @@ class GlobalConfig:
 
 		self.staging_area_exists = False
 		self.home_area_exists = False
-		
+
+	def version(self):
+		return "0.1"
 	#
 	# Filesystem config
 	#

@@ -138,7 +138,7 @@ class Backup:
 		# of the generated files db
 		
 		root = Directory(self,None,self.data_path)
-		increment = self.container_config.start_increment()
+		increment = self.container_config.start_increment(None)
 		new_files_db = self.create_files_db(increment)
 		#
 		# Do the real work of scanning
@@ -194,7 +194,7 @@ class Backup:
 		s.flush()
 		
 		# Upload the special data to the containers
-		self.container_config.finalize_increment()
+		self.container_config.finalize_increment(None)
 		self.db_config.commit()
 
 	#
