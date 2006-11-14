@@ -79,6 +79,7 @@ class Increment:
 			self.finalized = True
 		if self.db.has_key("I%d.base_index"%(self.index)):
 			self.base_index = int(self.db["I%d.base_index"%(self.index)])
+		if self.db.has_key("I%d.base_diff"%(self.index)):
 			self.base_diff = float(self.db["I%d.base_diff"%(self.index)])
 
 		self.readonly = True

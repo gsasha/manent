@@ -47,7 +47,7 @@ class File(Node):
 	#
 	# Scanning and restoring
 	#
-	def scan(self,ctx,prev_nums):
+	def scan(self,ctx,base_num,prev_nums):
 		print "scanning", self.path()
 		#
 		# Check if we have seen this file already
@@ -83,7 +83,20 @@ class File(Node):
 				ctx.new_files_db[key] = old_db[old_key]
 				ctx.new_files_db["S"+key] = old_db["S"+old_key]
 				print "mtime", file_stat[stat.ST_MTIME], "reusing"
-				return
+
+				prev_value = old_db[old_key]
+				ctx.total_nodes += 1
+				if base_num != None:
+					base_key = self.backup.config.node_key(base_num)
+					if ctx.base_files_db.has_key(base_key):
+						base_value = ctx.base_files_db[self.backup.config.node_key(base_num)]
+						if base_value == prev_value:
+							print "File contents are the same!"
+							return True
+						else:
+							print "File contents differ!"
+							ctx.changed_nodes += 1
+				return False
 			else:
 				print "but stamp differs:", file_stat_str, "!=", old_stat_str
 			
@@ -113,8 +126,23 @@ class File(Node):
 		for digest in digests:
 			valueS.write(digest)
 		key = self.get_key()
-		ctx.new_files_db[key] = valueS.getvalue()
+
+		value = valueS.getvalue()
+		ctx.new_files_db[key] = value
 		ctx.new_files_db["S"+key] = file_stat_str
+		
+		ctx.total_nodes += 1
+		if base_num != None:
+			base_key = self.backup.config.node_key(base_num)
+			if ctx.base_files_db.has_key(base_key):
+				base_value = ctx.base_files_db[self.backup.config.node_key(base_num)]
+				if base_value == value:
+					print "File contents are the same!"
+					return True
+				else:
+					print "File contents differ!"
+					ctx.changed_nodes += 1
+		return False
 		
 	def restore(self,ctx):
 		key = self.get_key()
@@ -175,11 +203,23 @@ class File(Node):
 class Symlink(Node):
 	def __init__(self,backup,parent,name):
 		Node.__init__(self,backup,parent,name)
-	def scan(self,ctx,prev_nums):
+	def scan(self,ctx,base_num,prev_nums):
 		self.link = os.readlink(self.path())
 		print "scanning", self.path(), "->", self.link
 		key = self.get_key()
 		ctx.new_files_db[key] = self.link
+
+		if base_num != None:
+			base_key = self.backup.config.node_key(base_num)
+			if ctx.base_files_db.has_key(base_key):
+				base_value = ctx.base_files_db[base_key]
+				if base_value == self.link:
+					print "Link is the same!"
+				else:
+					print "Link is different!"
+					ctx.changed_nodes += 1
+		ctx.total_nodes += 1
+		
 	def restore(self,ctx):
 		key = self.get_key()
 		self.link = ctx.files_db[key]
@@ -194,7 +234,7 @@ class Symlink(Node):
 class Directory(Node):
 	def __init__(self,backup,parent,name):
 		Node.__init__(self,backup,parent,name)
-	def scan(self,ctx,prev_nums):
+	def scan(self,ctx,base_num,prev_nums):
 		#
 		# Reload data from previous increments
 		#
@@ -216,6 +256,23 @@ class Directory(Node):
 				if not prev_data.has_key(node_name):
 					prev_data[node_name] = []
 				prev_data[node_name].append((db_num,node_num))
+		#
+		# Reload data from the base increment
+		#
+		base_data = {}
+		if base_num != None:
+			base_key = self.backup.config.node_key(base_num)
+			if not ctx.base_files_db.has_key(base_key):
+				print "Base db doesn't have key %s" % (base_key)
+			else:
+				valueS = StringIO(db[file_key])
+				while True:
+					node_type = valueS.read(1)
+					if len(node_type) == 0:
+						break
+					node_num = self.backup.config.read_int(valueS)
+					node_name = self.backup.config.read_string(valueS)
+					base_data[node_name] = node_num
 		#print "Prev data:"
 		#keys = prev_data.keys()
 		#keys.sort()
@@ -227,6 +284,7 @@ class Directory(Node):
 		# TODO: there shouldn't be two lists
 		print "starting scan for", self.path()
 		self.modified = True
+		self.same_as_base = True
 		self.children = []
 		for name in os.listdir(self.path()):
 			if (file=="..") or (file=="."):
@@ -236,33 +294,55 @@ class Directory(Node):
 			cur_prev_nums = []
 			if prev_data.has_key(name):
 				cur_prev_nums = prev_data[name]
+			cur_base_num = None
+			if base_data.has_key(name):
+				cur_base_num = base_data[name]
+				# We want to make sure that all the files are deleted,
+				# otherwise the directory is not equal
+				del base_data[name]
 			try:
 				self.modified = True
 				if stat.S_ISLNK(file_mode):
 					node = Symlink(self.backup,self, name)
 					node.set_num(ctx.next_num())
-					node.scan(ctx,cur_prev_nums)
+					same = node.scan(ctx,cur_base_num,cur_prev_nums)
 					self.children.append(node)
 				elif stat.S_ISREG(file_mode):
 					node = File(self.backup,self,name)
 					node.set_num(ctx.next_num())
-					node.scan(ctx,cur_prev_nums)
+					same = node.scan(ctx,cur_base_num,cur_prev_nums)
 					self.children.append(node)
 				elif stat.S_ISDIR(file_mode):
 					node = Directory(self.backup,self,name)
 					node.set_num(ctx.next_num())
 					# The order of append and scan is different here!
 					self.children.append(node)
-					node.scan(ctx,cur_prev_nums)
+					same = node.scan(ctx,cur_base_num,cur_prev_nums)
+				else:
+					print "Unecognized file", name
+					same = True
+				if not same:
+					print "Directory",self.path(),": found a differing file!"
+					same_as_base = False
 			except OSError:
 				print "OSError accessing", path
 			except IOError:
 				print "IOError accessing", path
-				
+
+		if len(base_data) != 0:
+			print "Files remained in directory, so it's not the same"
+			self.same_as_base = False
+
 		self.flush(ctx)
 		# remove the children list - we don't want to keep everything in memory
 		# while scanning
 		self.child_nodes = None
+
+		if self.same_as_base:
+			print "Directory",self.path(),"is same as in base increment"
+		else:
+			print "Directory",self.path(),"is not same as in base increment"
+		return self.same_as_base
 	def flush(self,ctx):
 		"""
 		Flush the contents of the current node.

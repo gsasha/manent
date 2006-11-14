@@ -122,37 +122,20 @@ class Backup:
 	# Functionality for scan mode
 	#
 	def scan(self):
-		#
-		# Check in which increments we should look
-		#
-		prev_files_dbs = []
-		prev_nums = []
-		for i in self.container_config.prev_increments():
-			if self.files_db_loaded(i):
-				prev_files_dbs.append(self.load_files_db(i))
-				prev_nums.append((len(prev_nums),0))
-		prev_nums.reverse()
-		print "Previous increments are: ", prev_nums
-
-		# TODO: base this increment on some previous one, to reduce the size
-		# of the generated files db
-		
-		root = Directory(self,None,self.data_path)
-		increment = self.container_config.start_increment(None)
-		new_files_db = self.create_files_db(increment)
-		#
-		# Do the real work of scanning
-		#
 		class ScanContext:
-			def __init__(self,backup,root,prev_files_dbs,new_files_db):
+			def __init__(self,backup,root,base_files_db,prev_files_dbs,new_files_db):
 				self.backup = backup
 				self.root = root
+				self.base_files_db = base_files_db
 				self.prev_files_dbs = prev_files_dbs
 				self.new_files_db = new_files_db
 				
 				self.num = 0
 				self.last_container = None
 				self.inodes_db = {}
+
+				self.total_nodes = 0
+				self.changed_nodes = 0
 
 			def next_num(self):
 				result = self.num
@@ -180,9 +163,63 @@ class Backup:
 				block = Block(self.backup,digest)
 				block.add_container(container)
 				block.save()
-		ctx = ScanContext(self,root,prev_files_dbs,new_files_db)
+		#
+		# Check in which increments we should look
+		#
+		prev_increments = self.container_config.prev_increments()
+		prev_files_dbs = []
+		prev_nums = []
+		for idx in prev_increments:
+			f_increment = self.container_config.increments[idx]
+			if f_increment.finalized:
+				# At most one of the prev_increments is supposed to be
+				# finalized, and the final one!
+				self.load_files_db(idx)
+			if self.files_db_loaded(idx):
+				prev_files_dbs.append(self.load_files_db(idx))
+				prev_nums.append((len(prev_nums),0))
+		prev_nums.reverse()
+		print "Previous increments are: ", prev_nums
+
+		base_index = None
+		if len(prev_increments)>0:
+			base_increment = self.container_config.increments[prev_increments[-1]]
+			if base_increment.finalized:
+				base_index = base_increment.base_index
+				base_diff = base_increment.base_diff
+				if base_index == None:
+					# The previous increment is not based on anybody - OK, we base on it
+					base_index = prev_increments[-1]
+				elif base_diff>0.5:
+					# The previous increment is based on somebody, but too big - OK, we'll
+					# make a new one
+					print "Difference too big. Starting a new increment"
+					base_index = None
+				print "Basing this increment on", base_index
+		
+		base_node_num = None
+		base_files_db = None
+		if base_index != None:
+			base_files_db = self.load_files_db(base_index)
+			base_node_num = 0
+		
+		#
+		# Do the real work of scanning
+		#
+		increment = self.container_config.start_increment(base_index)
+		print "Creating files db for increment",increment, "of type", type(increment)
+		new_files_db = self.create_files_db(increment)
+		root = Directory(self,None,self.data_path)
+		ctx = ScanContext(self,root,base_files_db,prev_files_dbs,new_files_db)
 		root.set_num(ctx.next_num())
-		root.scan(ctx,prev_nums)
+		root.scan(ctx,base_node_num,prev_nums)
+
+		base_diff = None
+		if base_index != None:
+			base_diff = 0.0
+			if ctx.total_nodes != 0:
+				base_diff = ctx.changed_nodes / float(ctx.total_nodes)
+		print "Diff from previous increment:", base_diff, "which is", ctx.changed_nodes, "out of", ctx.total_nodes
 		
 		#
 		# Save the files db
@@ -194,7 +231,7 @@ class Backup:
 		s.flush()
 		
 		# Upload the special data to the containers
-		self.container_config.finalize_increment(None)
+		self.container_config.finalize_increment(base_diff)
 		self.db_config.commit()
 
 	#
@@ -274,11 +311,9 @@ class Backup:
 	#
 	# Files database loading
 	#
-	def files_db_loaded(self,increment):
-		if not self.db_config.database_exists("manent."+self.label, ".files.%d"%increment):
-			return False
-		# Consider checking if the DB is empty
-		return True
+	def files_db_loaded(self,index):
+		db = self.db_config.get_database("manent."+self.label, ".files.%d"%index)
+		return len(db)>0
 	def create_files_db(self,index):
 		db = self.db_config.get_database("manent."+self.label, ".files.%d"%index)
 		return db
