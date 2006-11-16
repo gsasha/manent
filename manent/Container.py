@@ -421,7 +421,9 @@ class ContainerConfig:
 				print "F",
 			else:
 				print " ",
-			print increment.containers
+			print increment.containers,
+			print ", base:", increment.base_index, "diff:", increment.base_diff
+			
 		for i in range(0,len(self.containers)):
 			container = self.get_container(i)
 			container.info()

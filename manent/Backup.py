@@ -10,6 +10,7 @@ import re
 
 from Config import Config
 from Nodes import Directory
+import Nodes
 import Container
 from BlockCache import BlockCache
 from Block import Block
@@ -122,47 +123,6 @@ class Backup:
 	# Functionality for scan mode
 	#
 	def scan(self):
-		class ScanContext:
-			def __init__(self,backup,root,base_files_db,prev_files_dbs,new_files_db):
-				self.backup = backup
-				self.root = root
-				self.base_files_db = base_files_db
-				self.prev_files_dbs = prev_files_dbs
-				self.new_files_db = new_files_db
-				
-				self.num = 0
-				self.last_container = None
-				self.inodes_db = {}
-
-				self.total_nodes = 0
-				self.changed_nodes = 0
-
-			def next_num(self):
-				result = self.num
-				self.num += 1
-				return result
-			def add_block(self,data,digest):
-				if self.backup.blocks_db.has_key(digest):
-					return
-				(container,index) = self.backup.container_config.add_block(data,digest,Container.CODE_DATA)
-				print "  added", base64.b64encode(digest), "to", container, index
-				if container != self.last_container:
-					self.last_container = container
-					# We have finished making a new media.
-					# write it to the database
-					print "Committing blocks db for container", container
-					self.root.flush(self)
-					self.backup.db_config.commit()
-
-				#
-				# The order is extremely important here - the block can be saved
-				# (and thus, blocks_db can be updated) only after the previous db
-				# is committed. Otherwise, the block ends up written as available
-				# in a container that is never finalized.
-				#
-				block = Block(self.backup,digest)
-				block.add_container(container)
-				block.save()
 		#
 		# Check in which increments we should look
 		#
@@ -177,12 +137,15 @@ class Backup:
 				self.load_files_db(idx)
 			if self.files_db_loaded(idx):
 				prev_files_dbs.append(self.load_files_db(idx))
-				prev_nums.append((len(prev_nums),0))
+				prev_nums.append((len(prev_nums),0,Nodes.NODE_DIR))
 		prev_nums.reverse()
-		print "Previous increments are: ", prev_nums
+		print "Previous increments are: ", prev_increments, prev_nums
 
 		base_index = None
+		new_increment = False
 		if len(prev_increments)>0:
+			# last increment in the prev list is the only one that
+			# can be finalized
 			base_increment = self.container_config.increments[prev_increments[-1]]
 			if base_increment.finalized:
 				base_index = base_increment.base_index
@@ -190,29 +153,37 @@ class Backup:
 				if base_index == None:
 					# The previous increment is not based on anybody - OK, we base on it
 					base_index = prev_increments[-1]
+					(idx,node_num,code) = prev_nums[-1]
+					# This will upgrade all the nodes in this increment to BASED status
+					# for the updating
+					prev_nums[-1] = (idx,node_num,Nodes.NODE_DIR_BASED)
 				elif base_diff>0.5:
-					# The previous increment is based on somebody, but too big - OK, we'll
-					# make a new one
-					print "Difference too big. Starting a new increment"
-					base_index = None
+						# The previous increment is based on somebody, but too big - OK, we'll
+						# make a new one
+						print "Difference too big. Starting a new increment"
+						new_increment = True
+						base_index = None
+				else:
+					print "Reusing the same increment", base_index
+					prev_nums.append((len(prev_nums),0,Nodes.NODE_DIR_BASED))
+					prev_files_dbs.append(self.load_files_db(base_index))
 				print "Basing this increment on", base_index
 		
-		base_node_num = None
 		base_files_db = None
 		if base_index != None:
 			base_files_db = self.load_files_db(base_index)
-			base_node_num = 0
 		
 		#
 		# Do the real work of scanning
 		#
 		increment = self.container_config.start_increment(base_index)
-		print "Creating files db for increment",increment, "of type", type(increment)
 		new_files_db = self.create_files_db(increment)
 		root = Directory(self,None,self.data_path)
+		root.code = Nodes.NODE_DIR
 		ctx = ScanContext(self,root,base_files_db,prev_files_dbs,new_files_db)
+		ctx.new_increment = new_increment
 		root.set_num(ctx.next_num())
-		root.scan(ctx,base_node_num,prev_nums)
+		root.scan(ctx,prev_nums)
 
 		base_diff = None
 		if base_index != None:
@@ -238,30 +209,29 @@ class Backup:
 	# Functionality for restore mode
 	#
 	def restore(self):
-		class RestoreContext:
-			def __init__(self,backup,files_db):
-				self.backup = backup
-				self.files_db = files_db
-
-				self.inodes_db = {}
 		#
 		# Create the scratch database to precompute block to container requirements
 		#
 		self.blocks_cache = BlockCache(self)
 	
-		increment = self.container_config.last_finalized_increment()
-		if increment != None:
-			files_db = self.load_files_db(increment)
+		increment_idx = self.container_config.last_finalized_increment()
+		if increment_idx != None:
+			files_db = self.load_files_db(increment_idx)
+			increment = self.container_config.increments[increment_idx]
+			base_files_db = None
+			if increment.base_index != None:
+				base_files_db = self.load_files_db(increment.base_index)
 		else:
 			raise "No finalized increment found. Nothing to restore"
 
-		ctx = RestoreContext(self,files_db)
+		ctx = RestoreContext(self,base_files_db,files_db)
 		#
 		# Compute reference counts for all the blocks required in this restore
 		#
 		print "1. Computing reference counts"
 		self.root.name = "."
 		self.root.set_num(0)
+		self.root.code = Nodes.NODE_DIR
 		self.root.request_blocks(ctx,self.blocks_cache)
 		# inodes_db must be clean once again when we start restoring the files data
 		ctx.inodes_db = {}
@@ -293,18 +263,26 @@ class Backup:
 	#
 	def info(self):
 		self.blocks_cache = BlockCache(self)
+		
 		print "Containers"
 		self.container_config.info()
 
-		for i in self.container_config.increments:
+		for increment in self.container_config.increments:
 			#if not self.database_loaded(i):
 				#print "Increment %d not loaded" % i
 				#continue
-			db = self.load_files_db(i.index)
-			print "Listing of increment",i.index
+			files_db = self.load_files_db(increment.index)
+			base_files_db = None
+			if increment.base_index != None:
+				base_files_db = self.load_files_db(increment.base_index)
+
+			ctx = RestoreContext(self,base_files_db,files_db)
+			
+			print "Listing of increment %d:" % (increment.index)
 			self.root = Directory(self,None,self.data_path)
 			self.root.set_num(0)
-			self.root.list_files(db)
+			self.root.code = Nodes.NODE_DIR
+			self.root.list_files(ctx)
 			# just to be safe
 
 		#self.db_config.close()
@@ -339,3 +317,53 @@ class Backup:
 				db[base64.b64decode(key)]=base64.b64decode(value)
 		return db
 		#self.new_files_db = self.global_config.get_database("manent."+self.label, ".files%d"%(increment),True)
+
+class ScanContext:
+	def __init__(self,backup,root,base_files_db,prev_files_dbs,new_files_db):
+		self.backup = backup
+		self.root = root
+		self.base_files_db = base_files_db
+		self.prev_files_dbs = prev_files_dbs
+		self.new_files_db = new_files_db
+
+		self.num = 0
+		self.last_container = None
+		self.inodes_db = {}
+
+		self.total_nodes = 0
+		self.changed_nodes = 0
+
+	def next_num(self):
+		result = self.num
+		self.num += 1
+		return result
+	def add_block(self,data,digest):
+		if self.backup.blocks_db.has_key(digest):
+			return
+		(container,index) = self.backup.container_config.add_block(data,digest,Container.CODE_DATA)
+		print "  added", base64.b64encode(digest), "to", container, index
+		if container != self.last_container:
+			self.last_container = container
+			# We have finished making a new media.
+			# write it to the database
+			print "Committing blocks db for container", container
+			self.root.flush(self)
+			self.backup.db_config.commit()
+
+		#
+		# The order is extremely important here - the block can be saved
+		# (and thus, blocks_db can be updated) only after the previous db
+		# is committed. Otherwise, the block ends up written as available
+		# in a container that is never finalized.
+		#
+		block = Block(self.backup,digest)
+		block.add_container(container)
+		block.save()
+
+class RestoreContext:
+	def __init__(self,backup,base_files_db,files_db):
+		self.backup = backup
+		self.base_files_db = base_files_db
+		self.files_db = files_db
+
+		self.inodes_db = {}
