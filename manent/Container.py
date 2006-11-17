@@ -56,7 +56,6 @@ class Container:
 	for compression, it is the offset in the data file itself, so that scanning can be
 	restarted there.
 	
-	CODE_COMPRESSION_START:
 	CODE_CONTAINER_START: Must be the first one in a container. Contains a human-
 	readable description of the container
 	CODE_INCREMENT_START: The descriptor of an increment. Contains machine-readable data
@@ -303,13 +302,21 @@ class Container:
 			compression_sizes[last_compression] = None
 
 		for (digest,size,code) in self.blocks:
-			if code == CODE_COMPRESSION_BZ2_START:
+			if code == CODE_COMPRESSION_END:
+				decompressor = None
+			elif code == CODE_COMPRESSION_BZ2_START:
 				compression_start_offset = size
 				block_offset = 0
 				last_read_offset = 0
 				file.seek(size)
 				#print "Starting bzip2 decompressor"
 				decompressor = BZ2FileDecompressor(file,compression_sizes[size])
+			elif code == CODE_COMPRESSION_GZIP_START:
+				compression_start_offset = size
+				block_offset = 0
+				last_read_offset = 0
+				file.seek(size)
+				decompressor = GZIPFileDecompressor(file,compression_sizes[size])
 			elif block_cache.block_needed(digest):
 				#print "Loading block", base64.b64encode(digest), ", size", size, ",rc=", digest_db[digest]
 				if decompressor != None:
@@ -359,6 +366,28 @@ class BZ2FileDecompressor(IStreamAdapter):
 			if len(decomp) > 0:
 				return decomp
 
+class GZIPFileDecompressor(IStreamAdapter):
+	def __init__(self,file,limit):
+		IStreamAdapter.__init__(self)
+		
+		self.file = file
+		self.limit = limit
+		# TODO: support gzip algorithm here
+		self.decompressor = None
+	def read_block(self):
+		step = 8192
+		while True:
+			if self.limit == None:
+				data = self.file.read(step)
+			elif self.limit < step:
+				data = self.file.read(self.limit)
+			else:
+				data = self.file.read(step)
+			if len(data) == 0:
+				return ""
+			decomp = self.decompressor.decompress(data)
+			if len(decomp) > 0:
+				return decomp
 	
 class ContainerConfig:
 	def __init__(self):
@@ -465,6 +494,53 @@ class ContainerConfig:
 			is_finalized = False
 		increment.restore(start_message, start_container, end_container, is_finalized)
 	#
+	# Reconstruction!
+	#
+	def reconstruct(self):
+		#
+		# It is the specific implementation of ContainerConfig that knows how to reconstruct the
+		# containers
+		#
+		self.reconstruct_containers()
+		#
+		# TODO: Support cases where some of the containers are lost
+		# or broken - in these case, do the best effort, i.e., recover
+		# everything that is recoverable. In particular, in cases of redundancy,
+		# when everything is recoverable, make sure we do it.
+		#
+		print "Scanning increments:"
+		last_start_container = None
+		last_start_message = None
+		for container in self.containers:
+			if container == None:
+				continue
+			start_message = container.find_increment_start()
+			end_message = container.find_increment_end()
+			if start_message != None:
+				if last_start_container != None:
+					# This is an unfinished increment
+					# Create that increment, and start this one
+					end_container = container.index-1
+					self.restore_increment(last_start_message, end_message, last_start_container, end_container, False)
+				if end_message == None:
+					last_start_container = container.index
+					last_start_message = start_message
+			if end_message != None:
+				# Found a finished increment
+				if start_message != None:
+					start_container = container.index
+				elif last_start_container != None:
+					start_container = last_start_container
+					start_message = last_start_message
+				else:
+					print "Found increment end in container %d, but no previous increment start" % container.index
+					continue
+				# Create the increment
+				end_container = container.index
+				print "Found a finished increment in containers %d-%d" % (start_container,end_container)
+				self.restore_increment(start_message, end_message, start_container, end_container, True)
+				last_start_container = None
+	#
 	# Container management
 	#
 	def num_containers(self):
@@ -511,15 +587,15 @@ class DirectoryContainerConfig(ContainerConfig):
 		self.path = path
 	def container_size(self):
 		return 10<<20
-	def reconstruct(self):
+	def reconstruct_containers(self):
 		print "Scanning containers:", self.path
 		container_files = {}
 		container_data_files = {}
 		for file in os.listdir(self.path):
-			container_index = self.backup.config.container_index(file,self.backup.label,"")
+			container_index = self.backup.global_config.container_index(file,self.backup.label,"")
 			if container_index != None:
 				container_files[container_index] = file
-			container_index = self.backup.config.container_index(file,self.backup.label,".data")
+			container_index = self.backup.global_config.container_index(file,self.backup.label,".data")
 			if container_index != None:
 				container_data_files[container_index] = file
 		max_container = 0
@@ -544,44 +620,6 @@ class DirectoryContainerConfig(ContainerConfig):
 			self.load_container(index)
 			container.load()
 			self.containers[index] = container
-		print "Scanning increments:"
-		#
-		# TODO: Support cases where some of the containers are lost
-		# or broken - in these case, do the best effort, i.e., recover
-		# everything that is recoverable. In particular, in cases of redundancy,
-		# when everything is recoverable, make sure we do it.
-		#
-		last_start_container = None
-		last_start_message = None
-		for container in self.containers:
-			if container == None:
-				continue
-			start_message = container.find_increment_start()
-			end_message = container.find_increment_end()
-			if start_message != None:
-				if last_start_container != None:
-					# This is an unfinished increment
-					# Create that increment, and start this one
-					end_container = container.index-1
-					self.restore_increment(last_start_message, end_message, last_start_container, end_container, False)
-				if end_message == None:
-					last_start_container = container.index
-					last_start_message = start_message
-			if end_message != None:
-				# Found a finished increment
-				if start_message != None:
-					start_container = container.index
-				elif last_start_container != None:
-					start_container = last_start_container
-					start_message = last_start_message
-				else:
-					print "Found increment end in container %d, but no previous increment start" % container.index
-					continue
-				# Create the increment
-				end_container = container.index
-				print "Found a finished increment in containers %d-%d" % (start_container,end_container)
-				self.restore_increment(start_message, end_message, start_container, end_container, True)
-				last_start_container = None
 	def load_container(self,index):
 		print "Loading header for container", index
 		container = Container(self.backup,index)
