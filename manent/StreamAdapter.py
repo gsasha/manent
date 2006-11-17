@@ -37,7 +37,27 @@ class IStreamAdapter:
 			resultS.write(data)
 			result_size += len(data)
 		return resultS.getvalue()
-	
+
+	def seek(self, offset, whence=1):
+		if whence != 1:
+			raise "Only whence=1 is supported"
+		if offset < 0:
+			raise "Can seek only forward"
+		block = 1024*4
+		while offset > block:
+			data = self.read(block)
+			if len(data) < block:
+				raise "Not enough available data to seek"
+			offset -= block
+		if offset > 0:
+			data = self.read(offset)
+			if len(data) < offset:
+				raise "Not enough data available to seek"
+		#
+		# we have read forward as much as was required.
+		# so now, the stream is positioned correctly
+		#
+		return
 	def readline(self):
 		result = StringIO()
 		while True:

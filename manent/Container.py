@@ -5,6 +5,7 @@ import base64
 import bz2
 
 from Increment import Increment
+from StreamAdapter import *
 
 def create_container_config(containerType):
 	if containerType == "directory":
@@ -26,14 +27,15 @@ class NoopCompressor:
 # Codes for the different block types
 #
 CODE_DATA                  =  0
-
-CODE_FILES                 = 16
+CODE_FILES                 =  1
 
 CODE_CONTAINER_START       = 32
-CODE_COMPRESSION_BZ2_START = 33
+CODE_INCREMENT_START       = 33
+CODE_INCREMENT_END         = 34
 
-CODE_INCREMENT_START       = 48
-CODE_INCREMENT_END         = 49
+CODE_COMPRESSION_END       = 48
+CODE_COMPRESSION_BZ2_START = 49
+CODE_COMPRESSION_GZIP_START= 50
 
 class Container:
 	"""
@@ -248,8 +250,12 @@ class Container:
 				print " FILES [%6d] %s" % (size, base64.b64encode(digest))
 			elif code == CODE_CONTAINER_START:
 				print " CONTAINER_START [%6d]" % (size)
+			elif code == CODE_COMPRESSION_END:
+				print " COMPRESSION END AT %d" % (size)
 			elif code == CODE_COMPRESSION_BZ2_START:
 				print " BZ2 START AT %d" % (size)
+			elif code == CODE_COMPRESSION_GZIP_START:
+				print " GZIP START AT %d" % (size)
 			elif code == CODE_INCREMENT_START:
 				print " INCREMENT START [%6d]" % (size)
 			elif code == CODE_INCREMENT_END:
@@ -283,6 +289,11 @@ class Container:
 		compression_sizes = {}
 		last_compression = None
 		for (digest,size,code) in self.blocks:
+			if code == CODE_COMPRESSION_END:
+				if last_compression != None:
+					raise "OOPS: Compression end tag without corresponding start"
+				compression_sizes[last_compressin] = size-last_compression
+				last_compression = None
 			if code == CODE_COMPRESSION_BZ2_START:
 				if last_compression != None:
 					compression_sizes[last_compression] = size-last_compression
@@ -326,62 +337,28 @@ class Container:
 				# All the blocks except CODE_COMPRESSION_BZ2_START use size for really size
 				block_offset += size
 
-class BZ2FileDecompressor:
-	"""
-	A buffered decompressor for bzip2 algorithm that presents the interface
-	of a file.
-	"""
+class BZ2FileDecompressor(IStreamAdapter):
 	def __init__(self,file,limit):
+		IStreamAdapter.__init__(self)
+		
 		self.file = file
 		self.limit = limit
 		self.decompressor = bz2.BZ2Decompressor()
-		self.buf = ""
-	def read(self,size):
-		#print "read(%d)" % size
-		result = StringIO()
-		result.write(self.buf)
-		result_size = len(self.buf)
-		while result_size < size:
-			#print "want to see", size, "bytes, heve:", result_size
-			chunk = self.read_chunk()
-			if len(chunk) == 0:
-				raise "Ouch. Underlying file has ended, and we still don't have the output"
-			data = self.decompressor.decompress(chunk)
-			result.write(data)
-			result_size += len(data)
-		tmp = result.getvalue()
-		self.buf = tmp[size:]
-		#print "buf is of size", len(tmp)
-		return tmp[0:size]
-	def seek(self,offset,whence):
-		#print "seek(%d)" % offset
-		if whence != 1:
-			raise "Only whence=1 is currently supported"
-		while True:
-			#print "Seeking for offset of", offset, "have", len(self.buf)
-			if offset <= len(self.buf):
-				# We have found it!
-				self.buf = self.buf[offset:]
-				return
-			offset -= len(self.buf)
-			data = self.read_chunk()
-			if len(data) == 0:
-				raise "Same ouch here"
-			self.buf = self.decompressor.decompress(data)
-			#print "got", len(data), "from file,", len(self.buf), "from decompressor"
-	def read_chunk(self):
+	def read_block(self):
 		step = 8192
-		if self.limit == None:
-			chunk = self.file.read(step)
-			return chunk
-		if self.limit < step:
-			chunk = self.file.read(self.limit)
-			self.limit = 0
-		else:
-			chunk = self.file.read(step)
-			self.limit -= step
-		#print "remaining chunks:", self.limit, ", buf:", len(self.buf)
-		return chunk
+		while True:
+			if self.limit == None:
+				data = self.file.read(step)
+			elif self.limit < step:
+				data = self.file.read(self.limit)
+			else:
+				data = self.file.read(step)
+			if len(data) == 0:
+				return ""
+			decomp = self.decompressor.decompress(data)
+			if len(decomp) > 0:
+				return decomp
+
 	
 class ContainerConfig:
 	def __init__(self):
