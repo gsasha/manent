@@ -664,6 +664,32 @@ class DirectoryContainerConfig(ContainerConfig):
 			shutil.move(staging_path, target_path)
 			shutil.move(staging_path+".data", target_path+".data")
 	
+class MailContainerConfig(ContainerConfig):
+	"""
+	Handler for gmail container.
+	Needs a list of gmail addresses.
+	"""
+	def __init__(self):
+		self.accounts = []
+		raise "not implemented"
+	def configure(self,username,password,quota):
+		self.add_account(username,password,quota)
+	def load(self,filename):
+		file = open(filename)
+		ContainerConfig.load(self,file)
+		configLine = file.readline()
+		(username,password,quota) = re.split("\s+",configLine)[0:3]
+		self.add_account(username,password,quota)
+	def save(self,filename):
+		file = open(filename,"w")
+		ContainerConfig.save(self,file)
+		account = self.accounts[0]
+		file.write("%s %s %s" % (account["user"],account["pass"],account["quota"]))
+	def add_account(self,username,password,quota):
+		self.accounts.append({"user":username, "pass":password, "quota":quota, "used":0})
+	def container_size(self):
+		return 2<<20
+
 class OpticalContainerConfig(ContainerConfig):
 	"""
 	Handler for optical container.
@@ -700,30 +726,4 @@ class OpticalContainerConfig(ContainerConfig):
 			file.write(container+"\n")
 	def container_size(self):
 		return CONTAINER_TYPES[self.containerType]
-
-class GmailContainerConfig(ContainerConfig):
-	"""
-	Handler for gmail container.
-	Needs a list of gmail addresses.
-	"""
-	def __init__(self):
-		self.accounts = []
-		raise "not implemented"
-	def configure(self,username,password,quota):
-		self.add_account(username,password,quota)
-	def load(self,filename):
-		file = open(filename)
-		ContainerConfig.load(self,file)
-		configLine = file.readline()
-		(username,password,quota) = re.split("\s+",configLine)[0:3]
-		self.add_account(username,password,quota)
-	def save(self,filename):
-		file = open(filename,"w")
-		ContainerConfig.save(self,file)
-		account = self.accounts[0]
-		file.write("%s %s %s" % (account["user"],account["pass"],account["quota"]))
-	def add_account(self,username,password,quota):
-		self.accounts.append({"user":username, "pass":password, "quota":quota, "used":0})
-	def container_size(self):
-		return 2<<20
 
