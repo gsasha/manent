@@ -74,7 +74,8 @@ class GlobalConfig:
 	def create_backup(self,label,dataPath,containerType,containerParams):
 		if self.backups.has_key(label):
 			raise "Backup %s already exists"%label
-		
+
+		print "Creating backup label[%s] path[%s] type[%s] params[%s]"%(label, dataPath, containerType, str(containerParams))
 		backup = Backup.Backup(self,label)
 		backup.configure(dataPath,containerType,containerParams)
 		self.open_backups.append(backup)

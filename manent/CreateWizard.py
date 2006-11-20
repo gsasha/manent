@@ -5,7 +5,6 @@ from Config import *
 
 
 # A wizard for creating new backup rule
-# $LastChangedRevision$
 
 class CreateBackupRule(wx.wizard.Wizard):
     def __init__(self, parent, globalConfig):
@@ -13,7 +12,8 @@ class CreateBackupRule(wx.wizard.Wizard):
         self.globalConfig = globalConfig
         self.CreateTypeSelectionPage()
         self.CreateBrowsePage()
-        
+
+        self.destination.SetPath("/tmp")
         wx.wizard.WizardPageSimple_Chain(self.typeSelectionPage, self.browsePage)
         
         self.Bind(wx.wizard.EVT_WIZARD_FINISHED, self.OnWizFinished)
@@ -51,35 +51,36 @@ class CreateBackupRule(wx.wizard.Wizard):
         self.browsePage = wx.wizard.WizardPageSimple(self)
         win = wx.Panel(self.browsePage)
         
+        label2 = wx.StaticText(win, -1, "Select the directory to be backed up")
+        self.source = wx.DirPickerCtrl(win, -1)
+        self.source.SetPath("/")
+
         label1 = wx.StaticText(win, -1, "Select the destination directory")
         self.destination = wx.DirPickerCtrl(win, -1)
-
-        label2 = wx.StaticText(win, -1, "Select the directory to be backed up")
-        source = wx.DirPickerCtrl(win, -1)
+        self.destination.SetPath("/")
 
         sizer = wx.BoxSizer(wx.VERTICAL)
+        sizer.Add(label2, 0)
+        sizer.Add(self.source, 1, wx.EXPAND)
+        sizer.Add((30, 30))
         sizer.Add(label1, 0)
         sizer.Add(self.destination, 1, wx.EXPAND)
-        sizer.Add((30, 30))
-        sizer.Add(label2, 0)
-        sizer.Add(source, 1, wx.EXPAND)
         win.SetSizer(sizer)
         
         sizer2 = wx.BoxSizer(wx.HORIZONTAL)
         sizer2.Add(win, 1, wx.ALIGN_CENTER)
         self.browsePage.SetSizer(sizer2)
         
-        self.source = source
-        
         return self.browsePage
     
     def OnWizFinished(self, e):
-        wx.MessageBox("Creating the backup rule", "Done")
-        
-        self.globalConfig.create_backup(self.backupLabel.GetValue(), 
-                             self.source.GetPath(), "directory", 
-                             [self.destination.GetPath()])
-        self.globalConfig.save()
+		label = self.backupLabel.GetValue()
+		source = self.source.GetPath()
+		destination = self.destination.GetPath()
+		wx.MessageBox("Creating the backup rule %s \n(source:%s, dest:%s)" %(label,source,destination), "Done")
+
+		self.globalConfig.create_backup(label, source, "directory", [destination])
+		self.globalConfig.save()
 
         
 #    def CreateFileSelectionPage(self):

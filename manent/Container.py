@@ -14,8 +14,7 @@ def create_container_config(containerType):
 	#	return GmailContainerConfig()
 	#elif containerType == "optical":
 	#	return OpticalContainerConfig()
-	print "Unknown container type", containerType
-	return None
+	raise "Unknown container type", containerType
 
 class NoopCompressor:
 	def compress(self,data):
