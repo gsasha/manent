@@ -10,6 +10,8 @@ from StreamAdapter import *
 def create_container_config(containerType):
 	if containerType == "directory":
 		return DirectoryContainerConfig()
+	elif containerType == "mail":
+		return MailContainerConfig()
 	#elif containerType == "gmail":
 	#	return GmailContainerConfig()
 	#elif containerType == "optical":
@@ -646,7 +648,7 @@ class DirectoryContainerConfig(ContainerConfig):
 		print "Loading data for container", index
 		container = Container(self.backup,index)
 
-		filename = container.filename()
+		filename = container.filename()+".data"
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
 		target_path  = os.path.join(self.path, filename)
 		
@@ -668,15 +670,31 @@ class DirectoryContainerConfig(ContainerConfig):
 		if staging_path != target_path:
 			shutil.move(staging_path, target_path)
 			shutil.move(staging_path+".data", target_path+".data")
-	
+
+import smtplib
+from email import Encoders
+from email.Message import Message
+from email.MIMEAudio import MIMEAudio
+from email.MIMEBase import MIMEBase
+from email.MIMEMultipart import MIMEMultipart
+from email.MIMEImage import MIMEImage
+from email.MIMEText import MIMEText
+
+
 class MailContainerConfig(ContainerConfig):
 	"""
 	Handler for gmail container.
 	Needs a list of gmail addresses.
 	"""
 	def __init__(self):
+		ContainerConfig.__init__(self)
 		self.accounts = []
-		raise "not implemented"
+	def init(self,backup,params):
+		ContainerConfig.init(self,backup)
+		self.backup = backup
+		self.username = params[0]
+		self.password = params[1]
+		self.quota = int(params[2])
 	def configure(self,username,password,quota):
 		self.add_account(username,password,quota)
 	def load(self,filename):
@@ -694,6 +712,35 @@ class MailContainerConfig(ContainerConfig):
 		self.accounts.append({"user":username, "pass":password, "quota":quota, "used":0})
 	def container_size(self):
 		return 2<<20
+	def save_container(self,container):
+		print "Saving container"
+		header_msg = MIMEMultipart()
+		header_msg["Subject"] = "manent.%s.%s.header" % (self.backup.label, str(container.index))
+		header_msg["To"] = "gsasha@gmail.com"
+		header_msg["From"] = "gsasha@gmail.com"
+		header_attch = MIMEBase("application", "manent-container")
+		filename = container.filename()
+		header_file = open(os.path.join(self.backup.global_config.staging_area(),filename), "r")
+		header_attch.set_payload(header_file.read())
+		header_file.close()
+		Encoders.encode_base64(header_attch)
+		header_msg.attach(header_attch)
+
+		s = smtplib.SMTP()
+		s.set_debuglevel(1)
+		print "connecting"
+		s.connect("smtp.gmail.com", 587)
+		print "starting tls"
+		s.ehlo()
+		s.starttls()
+		s.ehlo()
+		print "logging in"
+		s.login("gsasha@gmail.com","thesmf")
+		print "sending mail"
+		s.sendmail("gsasha@gmail.com", "gsasha@gmail.com", header_msg.as_string())
+		print "all done"
+		s.close()
+		print header_msg.as_string()
 
 class OpticalContainerConfig(ContainerConfig):
 	"""
