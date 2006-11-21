@@ -102,6 +102,12 @@ class GlobalConfig:
 		self.open_backups.append(backup)
 		self.backups[label] = (dataPath,containerType,containerParams)
 		return backup
+	def remove_backup(self,label):
+		if not self.backups.has_key(label):
+			raise "Backup %s does not exist"%label
+		backup = Backup.Backup(self,label)
+		backup.remove()
+		del self.backups[label]
 		
 	def has_backup(self,label):
 		return self.backups.has_key(label)

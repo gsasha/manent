@@ -42,7 +42,7 @@ if (len(sys.argv)==1) or (sys.argv[1]=="help"):
 #
 #  Create a new backup set
 #
-if sys.argv[1] == "create":
+elif sys.argv[1] == "create":
 	label = sys.argv[2]
 	dataPath = sys.argv[3]
 	containerType = sys.argv[4]
@@ -58,7 +58,7 @@ if sys.argv[1] == "create":
 #
 # Reconstruct the backup set from medias
 #
-if sys.argv[1] == "reconstruct":
+elif sys.argv[1] == "reconstruct":
 	label = sys.argv[2]
 	dataPath = sys.argv[3]
 	containerType = sys.argv[4]
@@ -71,10 +71,11 @@ if sys.argv[1] == "reconstruct":
 
 	config.save()
 	config.close()
+
 #
 #  Do the backup
 #
-if sys.argv[1] == "backup":
+elif sys.argv[1] == "backup":
 	label = sys.argv[2]
 
 	backup = config.load_backup(label)
@@ -93,9 +94,18 @@ elif sys.argv[1] == "restore":
 	backup.restore(target_path)
 	config.close()
 
+elif sys.argv[1] == "remove":
+	label = sys.argv[2]
+	config.remove_backup(label)
+	config.save()
+	config.close()
+
 elif sys.argv[1] == "info":
 	label = sys.argv[2]
 	backup = config.load_backup(label)
 	backup.info()
 	#config.save()
 	config.close()
+
+else:
+	print "Unknown command", sys.argv[1]

@@ -68,21 +68,27 @@ class DatabaseConfig:
 		d = DatabaseWrapper(self, fname, tablename, transact=False)
 		self.scratch_dbs[key] = d
 		return d
-	def remove_database(self,name,tablename):
+	def remove_database(self,name,tablename=None):
 		key = (name,tablename)
 		#
 		# Clean up the database handle
 		#
-		if self.has_key(key):
-			self[key].close()
-			del self[key]
+		print "before", self.open_dbs.items(), "key", key
+		if self.open_dbs.has_key(key):
+			self.open_dbs[key].close()
+			del self.open_dbs[key]
+		if self.scratch_dbs.has_key(key):
+			self.scratch_dbs[key].close()
+			del self.scratch_dbs[key]
+		print "after", self.open_dbs.items()
 
 		#
 		# Now actually delete the database file
 		#
 		fname = self.db_fname(name,tablename)
 		d = db.DB(self.dbenv)
-		d.remove(fname)
+		print "Removing database", fname, tablename
+		d.remove(fname,tablename)
 	
 	def commit(self):
 		self.close_cursors()
@@ -91,7 +97,7 @@ class DatabaseConfig:
 	def abort(self):
 		self.close_cursors()
 		self.txn.abort()
-		self.txn = self.env.txn_begin()
+		self.txn = self.dbenv.txn_begin(flags=db.DB_TXN_NOSYNC|db.DB_DIRTY_READ|db.DB_TXN_NOWAIT)
 	def db_fname(self,name,tablename):
 		return os.path.join(self.global_config.home_area(),name+".db")
 	def scratch_db_fname(self,name,tablename):
@@ -105,6 +111,7 @@ class DatabaseConfig:
 		for (key, d) in self.scratch_dbs.iteritems():
 			d.close_cursor()
 	def close_dbs(self):
+		print "Closing all dbs"
 		for (key, d) in self.open_dbs.iteritems():
 			d.close()
 		for (key, d) in self.scratch_dbs.iteritems():
@@ -160,8 +167,10 @@ class DatabaseWrapper:
 			self.cursor.close()
 			self.cursor = None
 	def close(self):
+		print "Closing database filename=%s, dbname=%s" %(self.filename,self.dbname)
 		self.d.close()
 		self.d = None
+		self.filename="deadbeef"
 	#
 	# Iteration support
 	#

@@ -56,8 +56,6 @@ class Backup:
 		self.label = label
 
 		self.db_config = DatabaseConfig(self.global_config)
-		self.blocks_db = self.db_config.get_database("manent."+self.label, ".blocks")
-		self.inodes_db = {}
 
 	#
 	# Three initialization methods:
@@ -66,6 +64,8 @@ class Backup:
 	def configure(self,data_path,container_type,container_params):
 		print "Creating backup", self.label, "type:", container_type, container_params
 		self.data_path = data_path
+		
+		self.blocks_db = self.db_config.get_database("manent."+self.label, ".blocks")
 		
 		self.container_config = Container.create_container_config(container_type)
 		self.container_config.init(self,container_params)
@@ -77,16 +77,26 @@ class Backup:
 		print "Loading backup", self.label
 		self.data_path = data_path
 				
+		self.blocks_db = self.db_config.get_database("manent."+self.label, ".blocks")
+		
 		self.container_config = Container.create_container_config(container_type)
 		self.container_config.init(self,container_params)
 		
 		self.config = Config()
 		self.root = Directory(self,None,self.data_path)
 
+	def remove(self):
+		print "Removing backup", self.label
+		self.db_config.remove_database("manent."+self.label)
+		self.db_config.close()
+
 	def reconstruct(self,data_path,container_type,container_params):
 		print "Reconstructing backup", self.label, "type:", container_type, container_params
 		self.data_path = data_path
 
+		self.blocks_db = self.db_config.get_database("manent."+self.label, ".blocks")
+		self.inodes_db = {}
+		
 		self.blocks_cache = BlockCache(self)
 		
 		self.container_config = Container.create_container_config(container_type)
