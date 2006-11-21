@@ -735,7 +735,7 @@ class MailContainerConfig(ContainerConfig):
 		s.starttls()
 		s.ehlo()
 		print "logging in"
-		s.login("gsasha@gmail.com","thesmf")
+		s.login("gsasha@gmail.com","password")
 		print "sending mail"
 		s.sendmail("gsasha@gmail.com", "gsasha@gmail.com", header_msg.as_string())
 		print "all done"
