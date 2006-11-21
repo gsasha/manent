@@ -87,9 +87,10 @@ if sys.argv[1] == "backup":
 #
 elif sys.argv[1] == "restore":
 	label = sys.argv[2]
+	target_path = sys.argv[3]
 
 	backup = config.load_backup(label)
-	backup.restore()
+	backup.restore(target_path)
 	config.close()
 
 elif sys.argv[1] == "info":

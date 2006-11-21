@@ -208,7 +208,7 @@ class Backup:
 	#
 	# Functionality for restore mode
 	#
-	def restore(self):
+	def restore(self,target_path):
 		#
 		# Create the scratch database to precompute block to container requirements
 		#
@@ -229,7 +229,7 @@ class Backup:
 		# Compute reference counts for all the blocks required in this restore
 		#
 		print "1. Computing reference counts"
-		self.root.name = "."
+		self.root.name = target_path
 		self.root.set_num(0)
 		self.root.code = Nodes.NODE_DIR
 		self.root.request_blocks(ctx,self.blocks_cache)
@@ -244,7 +244,7 @@ class Backup:
 		# Now restore the files
 		#
 		print "3. Restoring files"
-		self.root.name = "."
+		self.root.name = target_path
 		self.root.restore(ctx)
 
 		#self.blocks_cache.close()

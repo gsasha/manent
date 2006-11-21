@@ -465,7 +465,7 @@ class Directory(Node):
 		print "Flushing node", self.path(), "to", key
 		
 	def restore(self,ctx,based=False):
-		if self.path() != ".":
+		if self.parent != None:
 			print "Restoring dir", self.path(), self.number
 			os.mkdir(self.path())
 		key = self.get_key()
