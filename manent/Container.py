@@ -94,7 +94,7 @@ class Container:
 		except:
 			#it's OK if the file does not exist
 			pass
-		self.dataFile = open(self.dataFileName, "w")
+		self.dataFile = open(self.dataFileName, "wb")
 
 		# Add the "container start" special block
 		message = "Manent container #%d of backup '%s'\n\0x1b" % (self.index, self.backup.label)
@@ -159,7 +159,7 @@ class Container:
 			# do nothing! We don't really expect the file to be there
 			pass
 		
-		file = open(filepath, "w")
+		file = open(filepath, "wb")
 		#
 		# Write the header
 		#
@@ -201,7 +201,7 @@ class Container:
 	#
 	# Loading mode implementation
 	#
-	def load(self):
+	def load(self,filename=None):
 		if self.mode == "LOAD":
 			return
 		
@@ -210,7 +210,9 @@ class Container:
 		self.blocks = []
 		self.block_infos = {}
 
-		file = open(os.path.join(self.backup.global_config.staging_area(),self.filename()), "r")
+		if filename == None:
+			filename = os.path.join(self.backup.global_config.staging_area(),self.filename())
+		file = open(filename, "rb")
 		MAGIC = file.read(4)
 		if MAGIC != "MNNT":
 			raise "Manent: magic didn't happen..."
@@ -273,13 +275,15 @@ class Container:
 			if blockDigest==digest:
 				return blockData
 		raise "Requested index block not found"
-	def read_blocks(self,block_cache):
+	def read_blocks(self,block_cache,filename = None):
 		compression_start_offset = None
 		block_offset = 0
 		last_read_offset = 0
 		decompressor = None
 		print "Unpacking container", self.index
-		file = open(os.path.join(self.backup.global_config.staging_area(),self.filename()+".data"), "r")
+		if filename == None:
+			filename = os.path.join(self.backup.global_config.staging_area(),self.filename()+".data")
+		file = open(filename, "rb")
 		#
 		# Compute compression block sizes. This is necessary because
 		# we cannot give extraneous data to decompressor
@@ -627,16 +631,17 @@ class DirectoryContainerConfig(ContainerConfig):
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
 		target_path  = os.path.join(self.path, filename)
 		
-		if staging_path != target_path:
-			try:
-				os.unlink(staging_path)
-			except:
-				# if the file is not there, we're fine
-				pass
-			os.symlink(target_path, staging_path)
+#		if staging_path != target_path:
+#			try:
+#				os.unlink(staging_path)
+#			except:
+#				# if the file is not there, we're fine
+#				pass
+#			os.symlink(target_path, staging_path)
 		
-		container.load()
+		container.load(os.path.join(self.path,filename))
 		return container
+	
 	def load_container_data(self,index):
 		print "Loading data for container", index
 		container = Container(self.backup,index)
@@ -645,13 +650,14 @@ class DirectoryContainerConfig(ContainerConfig):
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
 		target_path  = os.path.join(self.path, filename)
 		
-		if staging_path != target_path:
-			try:
-				os.unlink(staging_path+".data")
-			except:
-				# if the file is not there, fine!
-				pass
-			os.symlink(target_path+".data", staging_path+".data")
+#		if staging_path != target_path:
+#			try:
+#				os.unlink(staging_path+".data")
+#			except:
+#				# if the file is not there, fine!
+#				pass
+#			os.symlink(target_path+".data", staging_path+".data")
+		return target_path
 	def save_container(self,container):
 		index = container.index
 		
@@ -674,13 +680,13 @@ class MailContainerConfig(ContainerConfig):
 	def configure(self,username,password,quota):
 		self.add_account(username,password,quota)
 	def load(self,filename):
-		file = open(filename)
+		file = open(filename, "rb")
 		ContainerConfig.load(self,file)
 		configLine = file.readline()
 		(username,password,quota) = re.split("\s+",configLine)[0:3]
 		self.add_account(username,password,quota)
 	def save(self,filename):
-		file = open(filename,"w")
+		file = open(filename,"wb")
 		ContainerConfig.save(self,file)
 		account = self.accounts[0]
 		file.write("%s %s %s" % (account["user"],account["pass"],account["quota"]))
@@ -712,13 +718,13 @@ class OpticalContainerConfig(ContainerConfig):
 			print "Unknown container type", self.containerType
 			exit(1)
 	def load(self,filename):
-		file = open(filename)
+		file = open(filename, "rb")
 		ContainerConfig.load(self,file)
 		containerType = file.readline()
 		for line in file:
 			self.containers.append(line)
 	def save(self,file):
-		file = open(filename,"w")
+		file = open(filename,"wb")
 		ContainerConfig.save(self,file)
 		file.write(self.containerType+"\n")
 		for container in self.containers:

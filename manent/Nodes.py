@@ -205,7 +205,7 @@ class File(Node):
 			digests.append(digest)
 		
 		print "Restoring file", self.path()
-		file = open(self.path(), "w")
+		file = open(self.path(), "wb")
 		for digest in digests:
 			#print "File", self.path(), "reading digest", base64.b64encode(digest)
 			file.write(self.backup.read_block(digest))
@@ -379,6 +379,7 @@ class Directory(Node):
 					node.set_num(ctx.next_num())
 					same = node.scan(ctx,cur_prev_nums)
 					self.children.append(node)
+					self.modified = True
 					if node.code == NODE_FILE:
 						#print "Directory", self.path(), "has a differing entry", name
 						self.same_as_base = False

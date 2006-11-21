@@ -75,8 +75,8 @@ class BlockCache:
 				#print "loading block from container", container_idx
 			print "Block found in container", container_idx
 			container = self.backup.container_config.get_container(container_idx)
-			self.backup.container_config.load_container_data(container_idx)
-			report = container.read_blocks(self)
+			path = self.backup.container_config.load_container_data(container_idx)
+			report = container.read_blocks(self,path)
 
 		data = self.loaded_blocks[digest]
 		if data == None:
