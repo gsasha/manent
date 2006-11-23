@@ -349,6 +349,7 @@ class Container:
 				# All the blocks except CODE_COMPRESSION_BZ2_START use size for really size
 				block_offset += size
 
+
 class BZ2FileDecompressor(IStreamAdapter):
 	def __init__(self,file,limit):
 		IStreamAdapter.__init__(self)
@@ -632,15 +633,6 @@ class DirectoryContainerConfig(ContainerConfig):
 		filename = container.filename()
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
 		target_path  = os.path.join(self.path, filename)
-		
-#		if staging_path != target_path:
-#			try:
-#				os.unlink(staging_path)
-#			except:
-#				# if the file is not there, we're fine
-#				pass
-#			os.symlink(target_path, staging_path)
-		
 		container.load(os.path.join(self.path,filename))
 		return container
 	
@@ -651,14 +643,6 @@ class DirectoryContainerConfig(ContainerConfig):
 		filename = container.filename()+".data"
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
 		target_path  = os.path.join(self.path, filename)
-		
-#		if staging_path != target_path:
-#			try:
-#				os.unlink(staging_path+".data")
-#			except:
-#				# if the file is not there, fine!
-#				pass
-#			os.symlink(target_path+".data", staging_path+".data")
 		return target_path
 	def save_container(self,container):
 		index = container.index
@@ -714,31 +698,52 @@ class MailContainerConfig(ContainerConfig):
 		return 2<<20
 	def save_container(self,container):
 		print "Saving container"
-		header_msg = MIMEMultipart()
-		header_msg["Subject"] = "manent.%s.%s.header" % (self.backup.label, str(container.index))
-		header_msg["To"] = "gsasha@gmail.com"
-		header_msg["From"] = "gsasha@gmail.com"
-		header_attch = MIMEBase("application", "manent-container")
-		filename = container.filename()
-		header_file = open(os.path.join(self.backup.global_config.staging_area(),filename), "r")
-		header_attch.set_payload(header_file.read())
-		header_file.close()
-		Encoders.encode_base64(header_attch)
-		header_msg.attach(header_attch)
 
 		s = smtplib.SMTP()
 		s.set_debuglevel(1)
 		print "connecting"
-		s.connect("smtp.gmail.com", 587)
+		#s.connect("gmail-smtp-in.l.google.com")
+		s.connect("alt2.gmail-smtp-in.l.google.com")
+		#s.connect("smtp.gmail.com", 587)
 		print "starting tls"
-		s.ehlo()
+		s.ehlo("www.manent.net")
 		s.starttls()
-		s.ehlo()
+		s.ehlo("www.manent.net")
 		print "logging in"
-		s.login("gsasha@gmail.com","password")
-		print "sending mail"
-		s.sendmail("gsasha@gmail.com", "gsasha@gmail.com", header_msg.as_string())
+		#s.login("gsasha.manent1@gmail.com","thesmf")
+		
+		print "sending header in mail"
+		#s.set_debuglevel(0)
+		header_msg = MIMEMultipart()
+		header_msg["Subject"] = "manent.%s.%s.header" % (self.backup.label, str(container.index))
+		#header_msg["To"] = "gsasha@gmail.com"
+		#header_msg["From"] = "gsasha@gmail.com"
+		header_attch = MIMEBase("application", "manent-container")
+		filename = container.filename()
+		header_file = open(os.path.join(self.backup.global_config.staging_area(),filename), "rb")
+		header_attch.set_payload(header_file.read())
+		header_file.close()
+		Encoders.encode_base64(header_attch)
+		header_msg.attach(header_attch)
+		s.set_debuglevel(0)
+		s.sendmail("gsasha.manent1@gmail.com", "gsasha.manent1@gmail.com", header_msg.as_string())
+		s.set_debuglevel(1)
+		
+		print "sending data in mail"
+		data_msg = MIMEMultipart()
+		data_msg["Subject"] = "manent.%s.%s.data" % (self.backup.label, str(container.index))
+		data_attch = MIMEBase("application", "manent-container")
+		filename = container.filename()
+		data_file = open(os.path.join(self.backup.global_config.staging_area(),filename+".data"), "rb")
+		data_attch.set_payload(data_file.read())
+		data_file.close()
+		Encoders.encode_base64(data_attch)
+		data_msg.attach(data_attch)
+		s.set_debuglevel(0)
+		s.sendmail("gsasha.manent1@gmail.com", "gsasha.manent1@gmail.com", data_msg.as_string())
+		s.set_debuglevel(1)
 		print "all done"
+		
 		s.close()
 		print header_msg.as_string()
 

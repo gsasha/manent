@@ -178,4 +178,3 @@ class Config:
 	def node_key(self,num):
 		return "N%x"%num
 
-	
