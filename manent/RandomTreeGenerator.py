@@ -1,7 +1,8 @@
 from __future__ import with_statement
 
-import os;
-import random;
+import os
+import random
+import cStringIO
 
 class GeneratedFile:
 	def __init__(self, depth, parent):
@@ -44,8 +45,17 @@ class GeneratedFile:
 
 	def CreateAtFileSystem(self, where):
 		real_path = os.path.join(where, self.path)
-		file = open(real_path, "w")
-		file.write("hello")
+		file = open(real_path, "wb")
+		bytesleft = self.size
+		while bytesleft > 0:
+			blockSize = min([bytesleft, 1024*1024])
+#			output = cStringIO.StringIO()
+#			for i in xrange(0, blockSize):
+#				output.write(chr(int(random.random() * 256)))
+#			file.write(output.getvalue())
+			strdata = ''.join([chr(int(random.random() * 256)) for num in xrange(blockSize)])
+			file.write(strdata)
+			bytesleft = bytesleft - blockSize
 		file.close()
 
 	def RemoveFromFileSystem(self, where):
@@ -162,7 +172,21 @@ class FileTree:
 tree = FileTree()
 tree.printSelf()
 path = "c:\\temp\\manent\\source"
-tree.CreateAtFileSystem(path)
-print "The total tree size is " + str(tree.totalSize()) + " bytes"
-s = raw_input("Press enter to delete tree")
-tree.RemoveFromFileSystem(path)
+totalSize = tree.totalSize()
+print "The total tree size is " + str(totalSize/(1024.*1024))  + " mbytes"
+
+if os.name == 'nt':
+	import win32file
+	freeData = win32file.GetDiskFreeSpace("c:\\")
+	freespace = freeData[0] * freeData[1] * freeData[2]
+else:
+	freespace = 0
+	
+print "Free space on drive " + str(freespace/(1024.*1024))  + " mbytes"
+
+if freespace - totalSize - 1*1024*1024*1024: # leavw 1GB of free space
+	tree.CreateAtFileSystem(path)
+	s = raw_input("Press enter to delete tree")
+	tree.RemoveFromFileSystem(path)
+else:
+	print "Too little free space, not creating test tree"
