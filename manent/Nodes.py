@@ -55,7 +55,7 @@ class File(Node):
 	# Scanning and restoring
 	#
 	def scan(self,ctx,prev_nums):
-		print "scanning", self.path()
+		print "scanning", self.path(), prev_nums
 		#
 		# Check if we have seen this file already
 		#
@@ -89,7 +89,7 @@ class File(Node):
 			elif file_code == NODE_FILE_BASED:
 				old_db = ctx.base_files_db
 			else:
-				raise "File cannot have data of code", file_code
+				raise "File %s cannot have data of code [%s:%d]" %(self.path(),file_code,ord(file_code))
 
 			# load the old data
 			old_key = self.backup.config.node_key(file_num)
@@ -462,7 +462,7 @@ class Directory(Node):
 		key = self.get_key()
 		ctx.new_files_db[key] = valueS.getvalue()
 		self.modified = False
-		print "Flushing node", self.path(), "to", key
+		print "Flushing node", self.path(), "to", base64.b64encode(key)
 		
 	def restore(self,ctx,based=False):
 		if self.parent != None:
