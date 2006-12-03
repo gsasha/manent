@@ -29,7 +29,8 @@ parameters as "create", but re-scans the backup storage instead of creating an e
 The "info" command prints out the contents of the backup rule (currently useful mostly for
 debugging purposes).
 
-<create>:
+create:
+-------
 	
 Manent.py create <label> <srcpath> <trgtype> <trgtype_params>
 
@@ -42,14 +43,22 @@ trgtype can be either of: [ftp|directory]
 The parameters for "directory" are: [<path>]
 The parameters for "ftp" are: [<server> <username> <password> <path>]
 
-params for backup:
-	Manent.py backup <label>
+backup:
+-------
 
-	uses an already created label and backs it up incrementally
-params for restore:
-	Manent.py restore <label> <trgpath>
+Manent.py backup <label>
+
+Updates the data of backup rule <label>
+
+restore:
+--------
+
+Manent.py restore <label> <trgpath>
 	
-	restores the backup into the path specified by trgpath
+restores the backup rule <label> into the path specified by trgpath
+
+general:
+--------
 
 <label> is the name of the backup. The label is used to generate file names,
 so avoid using characters such as "/", "\", whitespace etc. It is advised to
