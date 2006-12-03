@@ -1,0 +1,90 @@
+I have a new 300G disk, I'm considering to buy a cheap MB to hold it (to keep 
+my data etc - I wanted to put it in an old P2 or P3, but it doesn't work 
+unfortunately). When I do that, we can dedicate some 50G to testing, set it 
+in chroot and let it run continuously... The disk will eventually die, but if 
+its data will be backed up, the HW is covered by a loooong warranty :)
+
+Ok, C'est tout.
+
+-----------------------------------------------------
+- Manent supports symbolic and hard links, these need to be tested as well 
+(yeah, I know Windows doesn't have them...)
+- The testing algorithm, IMHO, should go like follows:
+ 1.1. Generate some filesystem state. Compute a hash of it (i.e., MD5 of all 
+the files concatenated, and then MD5 of `find <path>`. It's very easy to do - 
+MD5 object has an "update" method that adds new data).
+ 1.2. Run "manent backup", killing it periodically. After each kill, you do 
+some amount of changes to the FS (random! zero changes should happen as 
+well). Eventually, it finishes on itself. When this happens, recompute the 
+hash of the current FS state - this is what should appear in the backup.
+ 1.3. Run "manent restore" to an empty directory. Compare it to the computed 
+hash.
+ 1.4. Do some changes and repeat the process. Try restoring old (finalized) 
+increments - I'll make you an API for that when you get to this point. That 
+should be easy, you just compare to the old hash.
+ 1.5. Remove a backup, reconstruct it and then try restoring (and backing up 
+again too!)
+
+- it is good to record the amount of change you did from backup to backup, and 
+the amount of data added to the backup itself and to the live DB, so that we 
+could see the report and decide if it behaves logically. Also, please log the 
+running time.
+- it is good to record the seed you used, so that we can repeat the experiment 
+(just for the record, I'm sure you thought about it :) Well, it's not going 
+to be completely repeatable since we kill the backup asynchronously, but 
+still better than nothing.
+-------------------------------------------------------------
+Kinds of files that need to be tested:
+- empty files
+- very short files
+- moderate files
+- photos (d/l from images.google.com?)
+- mp3s
+- couple of large files, if you have space for that (ISOs? AVIs?)
+-------------------------------------------------------------
+Kinds of directories:
+- empty dirs
+- small dirs
+- large dirs (>> 1000s of files)
+- large trees of dirs
+-------------------------------------------------------------
+Kinds of file contents:
+- zeros, or files with other highly repetitive content (something extremely 
+compressible). Currently, Manent restore could take an unordinate amount of 
+space in such case... when I see it fail, I may consider fixing it ;)
+- something other highly compressible (text, source code. Think of version 
+history of a large project. You can probably get it in the form of SVN 
+patches, and then just apply them to the FS.
+- something not very compressible (did I say mp3? :) or random
+-------------------------------------------------------------
+Kinds of change to files:
+- totally replace a file with a file of different kind above
+- rewrite the file contents with different data
+- small changes at several places in a large file (think huge mailbox)
+- copy chunks from one file to another
+- move files or complete directories around
+- delete files
+- touch files without changing anything
+- add new files
+- changes only to files
+- changes only to directories
+- re-add files that were deleted before a previous backup
+-------------------------------------------------------------
+Kinds of change to symlinks (where applicable):
+- add a symlink instead of existing file (the symlink can point to file with 
+same contents or not).
+- add a symlink to unexisting file
+- add a symlink to something outside of the backed up space
+- change a symlink to point to a different file.
+- rename a symlink
+- add a file instead of a symlink
+* same with hard links
+- very important: hard links to things outside the backed up space
+Also, consider changing between symlinks and hard links.
+-------------------------------------------------------------
+Number of changes applied:
+- zero
+- one or another small amount
+- lots of changes (necessary to trigger re-basing)
+- grow the FS
+- shrink the FS
