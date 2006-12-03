@@ -12,6 +12,8 @@ def create_container_config(containerType):
 		return DirectoryContainerConfig()
 	elif containerType == "mail":
 		return MailContainerConfig()
+	elif containerType == "ftp":
+		return FTPContainerConfig()
 	#elif containerType == "gmail":
 	#	return GmailContainerConfig()
 	#elif containerType == "optical":
@@ -579,6 +581,66 @@ class ContainerConfig:
 				container = self.add_container()
 		index = container.append(data,digest,code)
 		return (container.index, index)
+
+from ftplib import FTP
+
+class FTPContainerConfig(ContainerConfig):
+	"""
+	Handler for a FTP site storage
+	"""
+	def __init__(self):
+		ContainerConfig.__init__(self)
+		self.server = None
+		self.user = None
+		self.password = None
+		self.path = None
+
+		self.ftp = None
+	def init(self,backup,params):
+		ContainerConfig.init(self,backup)
+		(self.server,self.user,self.password,self.path) = params
+	def container_size(self):
+		return 4<<20
+	def reconstruct_containers(self):
+		raise "FTP reconstruct not implemented yet"
+	def load_container(self,index):
+		print "Loading header for container", index
+		container = Container(self.backup,index)
+
+		filename = container.filename()
+		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
+		self.connect()
+		self.ftp.retrbinary("RETR %s" % (filename), open(staging_path,"wb").write)
+		container.load(staging_path)
+		return container
+	
+	def load_container_data(self,index):
+		print "Loading data for container", index
+		container = Container(self.backup,index)
+
+		filename = container.filename()+".data"
+		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
+		self.connect()
+		self.ftp.retrbinary("RETR %s" % (filename), open(staging_path,"wb").write)
+		return staging_path
+	def save_container(self,container):
+		index = container.index
+		
+		filename = container.filename()
+		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
+
+		self.connect()
+		self.ftp.storbinary("STOR %s" % (filename), open(staging_path,"rb"))
+		self.ftp.storbinary("STOR %s" % (filename+".data"), open(staging_path+".data","rb"))
+		os.unlink(staging_path)
+		os.unlink(staging_path+".data")
+	def connect(self):
+		if self.ftp != None:
+			return
+		print "Connecting to %s as %s" % (self.server,self.user)
+		self.ftp = FTP(self.server,self.user,self.password)
+		self.ftp.cwd(self.path)
+
 
 class DirectoryContainerConfig(ContainerConfig):
 	"""
