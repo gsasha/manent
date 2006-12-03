@@ -634,6 +634,44 @@ class FTPContainerConfig(ContainerConfig):
 		self.ftp.storbinary("STOR %s" % (filename+".data"), open(staging_path+".data","rb"))
 		os.unlink(staging_path)
 		os.unlink(staging_path+".data")
+	def reconstruct_containers(self):
+		print "Scanning containers:", self.path
+		self.connect()
+		container_files = {}
+		container_data_files = {}
+		print "listed files", self.ftp.nlst()
+		for file in self.ftp.nlst():
+			container_index = self.backup.global_config.container_index(file,self.backup.label,"")
+			if container_index != None:
+				container_files[container_index] = file
+			container_index = self.backup.global_config.container_index(file,self.backup.label,".data")
+			if container_index != None:
+				container_data_files[container_index] = file
+		max_container = 0
+		for (index, file) in container_files.iteritems():
+			print "  ", index, "\t", file,
+			if container_data_files.has_key(index):
+				print "\t", container_data_files[index]
+			else:
+				print
+			if max_container<index:
+				max_container = index
+		for index in range(0,max_container+1):
+			self.containers.append(None)
+		self.containers_db["Containers"] = str(len(self.containers))
+		
+		print "Loading %d containers:" % max_container
+		for (index, file) in container_files.iteritems():
+			if not container_data_files.has_key(index):
+				print "Container", index, "has no data file :("
+				continue
+			container = Container(self.backup,index)
+			self.load_container(index)
+			container.load()
+			self.containers[index] = container
+	#
+	# Internal implementation
+	#
 	def connect(self):
 		if self.ftp != None:
 			return
