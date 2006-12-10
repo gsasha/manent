@@ -109,18 +109,20 @@ class Container:
 		self.start_compression()
 		
 	def start_compression(self):
-		self.finish_compression()
+		self.finish_compression(restart=True)
 		self.blocks.append((self.backup.config.dataDigest(""),self.totalSize,CODE_COMPRESSION_BZ2_START))
 		self.compressor = bz2.BZ2Compressor(3)
 		self.compressedSize = 0
 		self.uncompressedSize = 0
-	def finish_compression(self):
+	def finish_compression(self,restart=False):
 		if self.compressor == None:
 			return
 		remainder = self.compressor.flush()
 		self.dataFile.write(remainder)
 		self.totalSize += len(remainder)
 		self.compressedSize += len(remainder)
+		if not restart:
+			self.blocks.append((self.backup.config.dataDigest(""),self.totalSize,CODE_COMPRESSION_END))
 		#print "Compressed remainder of size", len(remainder)
 		#print "Total compressed  ", self.compressedSize, self.totalSize
 		#print "Total uncompressed", self.uncompressedSize
@@ -155,7 +157,7 @@ class Container:
 		#self.totalSize += len(compressed)
 		return len(self.blocks)
 	def finish_dump(self):
-		self.finish_compression()
+		self.finish_compression(restart=False)
 		filepath = os.path.join(self.backup.global_config.staging_area(),self.filename())
 		try:
 			os.unlink(filepath)
