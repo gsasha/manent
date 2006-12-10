@@ -812,7 +812,6 @@ class MailContainerConfig(ContainerConfig):
 		s.starttls()
 		s.ehlo("www.manent.net")
 		print "logging in"
-		#s.login("gsasha.manent1@gmail.com","thesmf")
 		
 		print "sending header in mail"
 		#s.set_debuglevel(0)
