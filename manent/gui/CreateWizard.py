@@ -1,7 +1,7 @@
 import wx
 import wx.wizard
 
-from Config import *
+from manent.Config import *
 
 
 # A wizard for creating new backup rule

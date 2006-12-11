@@ -1,11 +1,11 @@
 import wx
 import wx.grid
 import wx.wizard
-
-from Backup import Backup
-from Config import *
-from CreateWizard import *
 from wx.lib.wordwrap import wordwrap
+
+from manent.Backup import Backup
+from manent.Config import *
+from gui.CreateWizard import *
 
 class MyFrame(wx.Frame):
 	def __init__(self, parent, id, title):

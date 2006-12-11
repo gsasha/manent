@@ -24,8 +24,8 @@ import sys, os, os.path, stat
 import pickle
 
 # we need everything because we still use pickle
-from Backup import Backup
-from Config import *
+from manent.Backup import Backup
+from manent.Config import *
 
 config = GlobalConfig()
 config.load()
