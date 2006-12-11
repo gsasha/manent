@@ -1,7 +1,8 @@
-from Format import *
 import unittest
 import random
 from cStringIO import StringIO
+
+from manent.Format import *
 
 class TestFormat(unittest.TestCase):
 	def setUp(self):
