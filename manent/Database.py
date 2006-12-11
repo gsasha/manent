@@ -21,9 +21,9 @@ class DatabaseConfig:
 		self.dbenv.set_lk_detect(db.DB_LOCK_DEFAULT)
 		self.dbenv.set_flags(db.DB_LOG_AUTOREMOVE, True)
 		#self.dbenv.open(dbenv_dir, db.DB_RECOVER| db.DB_CREATE |db.DB_INIT_TXN| db.DB_INIT_MPOOL| db.DB_INIT_LOCK)
-		self.dbenv.open(self.dbenv_dir(), db.DB_RECOVER| db.DB_CREATE |db.DB_INIT_TXN| db.DB_INIT_MPOOL| db.DB_INIT_LOCK)
+		self.dbenv.open(self.dbenv_dir(), db.DB_RECOVER| db.DB_CREATE |db.DB_INIT_TXN| db.DB_INIT_MPOOL| db.DB_INIT_LOCK|db.DB_THREAD)
 
-		self.txn = self.dbenv.txn_begin(flags=db.DB_TXN_NOSYNC|db.DB_DIRTY_READ|db.DB_TXN_NOWAIT)
+		self.txn = self.dbenv.txn_begin(flags=db.DB_DIRTY_READ|db.DB_TXN_NOWAIT)
 
 	def dbenv_dir(self):
 		home_area = self.global_config.home_area()
