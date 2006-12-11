@@ -8,7 +8,7 @@ from cStringIO import StringIO
 import struct
 import re
 
-from Config import Config
+from VersionConfig import VersionConfig
 from Nodes import Directory
 import Nodes
 import Container
@@ -70,7 +70,7 @@ class Backup:
 		self.container_config = Container.create_container_config(container_type)
 		self.container_config.init(self,container_params)
 		
-		self.config = Config()
+		self.config = VersionConfig()
 		self.root = Directory(self,None,self.data_path)
 
 	def load(self,data_path,container_type,container_params):
@@ -82,7 +82,7 @@ class Backup:
 		self.container_config = Container.create_container_config(container_type)
 		self.container_config.init(self,container_params)
 		
-		self.config = Config()
+		self.config = VersionConfig()
 		self.root = Directory(self,None,self.data_path)
 
 	def remove(self):
@@ -102,7 +102,7 @@ class Backup:
 		self.container_config = Container.create_container_config(container_type)
 		self.container_config.init(self,container_params)
 
-		self.config = Config()
+		self.config = VersionConfig()
 		self.root = Directory(self,None,self.data_path)
 
 		#

@@ -8,20 +8,15 @@ class Block:
 		self.backup = backup
 		self.digest = digest
 
-		self.containers = []
 		if not self.backup.blocks_db.has_key(self.digest):
+			self.containers = []
 			return
 		data = self.backup.blocks_db[self.digest]
 		blockFile = StringIO(data)
-		while True:
-			containerNum = self.backup.config.read_int(blockFile)
-			if containerNum == None:
-				break
-			self.containers.append(containerNum)
+		self.containers = self.backup.config.read_ints(blockFile)
 	def add_container(self,container):
 		self.containers.append(container)
 	def save(self):
 		result = StringIO()
-		for container in self.containers:
-			self.backup.config.write_int(result,container)
+		self.backup.config.write_ints(result,self.containers)
 		self.backup.blocks_db[self.digest] = result.getvalue()
