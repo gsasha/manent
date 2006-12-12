@@ -168,25 +168,31 @@ class FileTree:
 		
 	def RemoveFromFileSystem(self, path):
 		self.root.RemoveFromFileSystem(path)
-	
-tree = FileTree()
-tree.printSelf()
-path = "c:\\temp\\manent\\source"
-totalSize = tree.totalSize()
-print "The total tree size is " + str(totalSize/(1024.*1024))  + " mbytes"
 
-if os.name == 'nt':
-	import win32file
-	freeData = win32file.GetDiskFreeSpace("c:\\")
-	freespace = freeData[0] * freeData[1] * freeData[2]
-else:
-	freespace = 0
+#
+# Demo usage
+# 
+def main():	
+	tree = FileTree()
+	path = "c:\\temp\\manent\\source"
+	totalSize = tree.totalSize()
+	print "The total tree size is " + str(totalSize/(1024.*1024))  + " mbytes"
 	
-print "Free space on drive " + str(freespace/(1024.*1024))  + " mbytes"
+	if os.name == 'nt':
+		import win32file
+		freeData = win32file.GetDiskFreeSpace("c:\\")
+		freespace = freeData[0] * freeData[1] * freeData[2]
+	else:
+		freespace = 0
+		
+	print "Free space on drive " + str(freespace/(1024.*1024))  + " mbytes"
+	
+	if freespace - totalSize - 1*1024*1024*1024: # leavw 1GB of free space
+		tree.CreateAtFileSystem(path)
+		s = raw_input("Press enter to delete tree")
+		tree.RemoveFromFileSystem(path)
+	else:
+		print "Too little free space, not creating test tree"
 
-if freespace - totalSize - 1*1024*1024*1024: # leavw 1GB of free space
-	tree.CreateAtFileSystem(path)
-	s = raw_input("Press enter to delete tree")
-	tree.RemoveFromFileSystem(path)
-else:
-	print "Too little free space, not creating test tree"
+if __name__ == "__main__":
+    main()
