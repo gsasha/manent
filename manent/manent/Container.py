@@ -298,9 +298,9 @@ class Container:
 		last_compression = None
 		for (digest,size,code) in self.blocks:
 			if code == CODE_COMPRESSION_END:
-				if last_compression != None:
+				if last_compression == None:
 					raise "OOPS: Compression end tag without corresponding start"
-				compression_sizes[last_compressin] = size-last_compression
+				compression_sizes[last_compression] = size-last_compression
 				last_compression = None
 			if code == CODE_COMPRESSION_BZ2_START:
 				if last_compression != None:

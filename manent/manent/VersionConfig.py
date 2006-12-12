@@ -48,7 +48,7 @@ class VersionConfig:
 		"""
 		The reverse of write_string
 		"""
-		length = binary_read_int_varlen(file)
+		length = Format.binary_read_int_varlen(file)
 		return file.read(length)
 	#
 	# Block parameters
@@ -62,6 +62,6 @@ class VersionConfig:
 	# Node configuration
 	#
 	def node_key(self,num):
-		return binary_encode_int_varlen(num)
+		return Format.binary_encode_int_varlen(num)
 		#return "N%x"%num
 
