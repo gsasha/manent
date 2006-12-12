@@ -4,7 +4,6 @@ from cStringIO import StringIO
 import re
 
 import Backup
-from Config import Config
 
 NODE_DIR           = "D"
 NODE_FILE          = "F"
