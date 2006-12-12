@@ -724,9 +724,7 @@ class DirectoryContainerConfig(ContainerConfig):
 			if not container_data_files.has_key(index):
 				print "Container", index, "has no data file :("
 				continue
-			container = Container(self.backup,index)
-			self.load_container(index)
-			container.load()
+			container = self.load_container(index)
 			self.containers[index] = container
 	def load_container(self,index):
 		print "Loading header for container", index
