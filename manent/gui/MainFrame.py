@@ -7,7 +7,7 @@ from manent.Backup import Backup
 from manent.Config import *
 from gui.CreateWizard import *
 
-class MyFrame(wx.Frame):
+class MainFrame(wx.Frame):
 	def __init__(self, parent, id, title):
          wx.Frame.__init__(self, parent, id, title, wx.DefaultPosition)
          self.Bind(wx.EVT_CLOSE, self.OnCloseWindow)
