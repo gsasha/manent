@@ -243,7 +243,7 @@ class File(Node):
 	def list_files(self,ctx,based):
 		if self.code == NODE_FILE_BASED or based == True:
 			print "B",
-		print self.path()
+		print self.path(), self.number
 
 #--------------------------------------------------------
 # CLASS:Symlink
@@ -289,7 +289,7 @@ class Symlink(Node):
 	def list_files(self,ctx,based):
 		if self.code == NODE_SYMLINK_BASED or based == True:
 			print "B",
-		print self.path()
+		print self.path(), self.number
 
 ##--------------------------------------------------------
 # CLASS:Directory
@@ -302,8 +302,14 @@ class Directory(Node):
 		# Reload data from previous increments
 		#
 		print "Path", self.path(), "found in previous increments:", prev_nums
+		# prev_data keeps for each file in this directory the list of backups
+		# in which it was found
 		prev_data = {}
+		# base_nodes keeps the information on which nodes have been existing
+		# in the base version of this directory, in order to decide whether
+		# the directory has changed
 		base_nodes = {}
+		# base_num will contain the number of this node in the base directory
 		base_num = None
 		for (db_num,file_num,file_code) in prev_nums:
 			if file_code == NODE_DIR_BASED:
@@ -312,9 +318,13 @@ class Directory(Node):
 			db = ctx.prev_files_dbs[db_num]
 			file_key = self.node_key(file_num)
 			if not db.has_key(file_key):
-				print "DB %d doesn't have key %s" % (db_num,file_key)
-				continue
-			valueS = StringIO(db[file_key])
+				if ctx.base_files_db == None:
+					print "DB %d doesn't have key [%s]" % (db_num,base64.b64encode(file_key))
+					continue
+				base_key = self.node_key(base_num)
+				valueS = StringIO(ctx.base_files_db[base_key])
+			else:
+				valueS = StringIO(db[file_key])
 			while True:
 				node_type = valueS.read(1)
 				if node_type == "":
@@ -539,7 +549,7 @@ class Directory(Node):
 		else:
 			db = ctx.files_db
 			
-		print self.path()
+		print self.path(), self.number
 		key = self.get_key()
 		valueS = StringIO(db[key])
 		while True:

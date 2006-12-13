@@ -136,12 +136,15 @@ class Backup:
 		prev_increments = self.container_config.prev_increments()
 		prev_files_dbs = []
 		prev_nums = []
+		last_based_increment = None
 		for idx in prev_increments:
 			f_increment = self.container_config.increments[idx]
 			if f_increment.finalized:
 				# At most one of the prev_increments is supposed to be
 				# finalized, and the final one!
 				self.load_files_db(idx)
+				if f_increment.base_index != 0:
+					last_based_increment = f_increment
 			if self.files_db_loaded(idx):
 				prev_files_dbs.append(self.load_files_db(idx))
 				prev_nums.append((len(prev_nums),0,Nodes.NODE_DIR))
@@ -150,31 +153,29 @@ class Backup:
 
 		base_index = None
 		new_increment = False
-		if len(prev_increments)>0:
-			# last increment in the prev list is the only one that
-			# can be finalized
-			base_increment = self.container_config.increments[prev_increments[-1]]
-			if base_increment.finalized:
-				base_index = base_increment.base_index
-				base_diff = base_increment.base_diff
-				if base_index == None:
-					# The previous increment is not based on anybody - OK, we base on it
-					base_index = prev_increments[-1]
-					(idx,node_num,code) = prev_nums[-1]
-					# This will upgrade all the nodes in this increment to BASED status
-					# for the updating
-					prev_nums[-1] = (idx,node_num,Nodes.NODE_DIR_BASED)
-				elif base_diff>0.5:
-						# The previous increment is based on somebody, but too big - OK, we'll
-						# make a new one
-						print "Difference too big. Starting a new increment"
-						new_increment = True
-						base_index = None
-				else:
-					print "Reusing the same increment", base_index
-					prev_nums.append((len(prev_nums),0,Nodes.NODE_DIR_BASED))
-					prev_files_dbs.append(self.load_files_db(base_index))
-				print "Basing this increment on", base_index
+		
+		if last_based_increment != None:
+			# Only finalized increments can change the base!
+			base_index = last_based_increment.base_index
+			base_diff = last_based_increment.base_diff
+			if base_index == None:
+				# The previous increment is not based on anybody - OK, we base on it
+				base_index = prev_increments[-1]
+				(idx,node_num,code) = prev_nums[-1]
+				# This will upgrade all the nodes in this increment to BASED status
+				# for the updating
+				prev_nums[-1] = (idx,node_num,Nodes.NODE_DIR_BASED)
+			elif base_diff>0.5:
+					# The previous increment is based on somebody, but too big - OK, we'll
+					# make a new one
+					print "Difference too big. Starting a new increment"
+					new_increment = True
+					#base_index = None
+			else:
+				print "Reusing the same increment", base_index
+				prev_nums.append((len(prev_nums),0,Nodes.NODE_DIR_BASED))
+				prev_files_dbs.append(self.load_files_db(base_index))
+			print "Basing this increment on", base_index
 		
 		base_files_db = None
 		if base_index != None:
