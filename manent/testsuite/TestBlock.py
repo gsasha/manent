@@ -3,11 +3,9 @@ import random
 from cStringIO import StringIO
 
 from manent.Block import *
-from manent.VersionConfig import *
 
 class MockBackup:
 	def __init__(self):
-		self.config = VersionConfig()
 		self.blocks_db = {}
 
 class TestBlock(unittest.TestCase):
