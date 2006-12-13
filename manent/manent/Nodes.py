@@ -70,11 +70,10 @@ class File(Node):
 			if ctx.inodes_db.has_key(inode_num):
 				# This is a hard link to already existing file.
 				# Ignore the suggested file number
+				print inode_num,ctx.inodes_db[inode_num]
 				(self.number,self.code) = ctx.inodes_db[inode_num]
 				print "  is a hard link to file", self.number
 				return
-			# Although file is apparently a hard link, we've not seen it yet
-			ctx.inodes_db[inode_num] = self.number
 		
 		#
 		# See if file was in previous increments
@@ -461,7 +460,7 @@ class Directory(Node):
 		key = self.get_key()
 		ctx.new_files_db[key] = valueS.getvalue()
 		self.modified = False
-		print "Flushing node", self.path(), "to", base64.b64encode(key)
+		#print "Flushing node", self.path(), "to", base64.b64encode(key)
 		
 	def restore(self,ctx,based=False):
 		if self.parent != None:

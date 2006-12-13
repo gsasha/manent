@@ -1,6 +1,9 @@
 from cStringIO import StringIO
 import time
 
+#TODO: REFACTOR: Remove the followign line after gena's refactoring
+from VersionConfig import VersionConfig
+
 # --------------------------------------------------------------------
 # CLASS: Increment
 # --------------------------------------------------------------------
@@ -18,7 +21,9 @@ class Increment:
 		# TODO: Make the message include other data, comment etc.
 		m = StringIO()
 		m.write("Increment %d of backup %s\n" % (self.index, self.container_config.backup.label))
-		m.write("version=%s\n" % self.container_config.backup.global_config.version())
+		# TODO: REFACTOR: remove this after refactoring
+		config = VersionConfig()
+		m.write("version=%s\n" % config.version())
 		m.write("index=%d\n" % self.index)
 		m.write("backup=%s\n" % self.container_config.backup.label)
 		m.write("time=%s\n" % self.ctime)
