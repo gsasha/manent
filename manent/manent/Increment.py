@@ -2,7 +2,7 @@ from cStringIO import StringIO
 import time
 
 #TODO: REFACTOR: Remove the followign line after gena's refactoring
-from VersionConfig import VersionConfig
+#from VersionConfig import VersionConfig
 
 # --------------------------------------------------------------------
 # CLASS: Increment
