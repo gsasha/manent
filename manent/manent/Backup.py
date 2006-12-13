@@ -8,7 +8,6 @@ from cStringIO import StringIO
 import struct
 import re
 
-from VersionConfig import VersionConfig
 from Nodes import Directory
 import Nodes
 import Container
@@ -16,18 +15,19 @@ from BlockCache import BlockCache
 from Block import Block
 from Database import DatabaseConfig
 from StreamAdapter import *
+import manent.utils.Digest as Digest
 
 class SpecialOStream(OStreamAdapter):
 	"""
 	This ostream writes its data to a stream of containers
 	"""
 	def __init__(self,backup,code):
-		OStreamAdapter.__init__(self, backup.config.blockSize())
+		OStreamAdapter.__init__(self, backup.container_config.blockSize())
 		self.backup = backup
 		self.code = code
 	def write_block(self,data):
 		#print "adding block of code", self.code, "length", len(written)
-		digest = self.backup.config.dataDigest(data)
+		digest = Digest.dataDigest(data)
 		self.backup.container_config.add_block(data,digest,self.code)
 
 class SpecialIStream(IStreamAdapter):
@@ -70,7 +70,6 @@ class Backup:
 		self.container_config = Container.create_container_config(container_type)
 		self.container_config.init(self,container_params)
 		
-		self.config = VersionConfig()
 		self.root = Directory(self,None,self.data_path)
 
 	def load(self,data_path,container_type,container_params):
@@ -82,7 +81,6 @@ class Backup:
 		self.container_config = Container.create_container_config(container_type)
 		self.container_config.init(self,container_params)
 		
-		self.config = VersionConfig()
 		self.root = Directory(self,None,self.data_path)
 
 	def remove(self):
@@ -102,7 +100,6 @@ class Backup:
 		self.container_config = Container.create_container_config(container_type)
 		self.container_config.init(self,container_params)
 
-		self.config = VersionConfig()
 		self.root = Directory(self,None,self.data_path)
 
 		#

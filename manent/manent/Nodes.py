@@ -2,6 +2,9 @@ import os, os.path, stat
 import base64
 from cStringIO import StringIO
 import re
+import manent.utils.IntegerEncodings as IntegerEncodings
+import manent.utils.Digest as Digest
+import manent.utils.Format as Format
 
 import Backup
 
@@ -34,6 +37,12 @@ class Node:
 		return "/".join(pathElements)
 
 	#
+	# Node configuration
+	#
+	def node_key(self,num):
+		return IntegerEncodings.binary_encode_int_varlen(num)
+
+	#
 	# Node serialization to db
 	#
 	def flush(self,ctx):
@@ -42,7 +51,7 @@ class Node:
 	def set_num(self,num):
 		self.number = num
 	def get_key(self):
-		return self.backup.config.node_key(self.number)
+		return self.node_key(self.number)
 
 #--------------------------------------------------------
 # CLASS:File
@@ -90,7 +99,7 @@ class File(Node):
 				raise "File %s cannot have data of code [%s:%d]" %(self.path(),file_code,ord(file_code))
 
 			# load the old data
-			old_key = self.backup.config.node_key(file_num)
+			old_key = self.node_key(file_num)
 			if not old_db.has_key("S"+old_key):
 				# key is not there, probably because it is in the based file?
 				#print "Failed  to load", old_key, "from", db_num, ":", file_num, ":", file_code
@@ -143,10 +152,10 @@ class File(Node):
 		offset = 0
 		read_handle = open(self.path(), "rb")
 		while True:
-			data = read_handle.read(self.backup.config.blockSize())
+			data = read_handle.read(self.backup.container_config.blockSize())
 			if len(data)==0:
 				break
-			digest = self.backup.config.dataDigest(data)
+			digest = Digest.dataDigest(data)
 			digests.append(digest)
 			ctx.add_block(data,digest)
 			offset += len(data)
@@ -195,7 +204,7 @@ class File(Node):
 		# No, this file is new. Create it.
 		#
 		digests = []
-		digestSize = self.backup.config.dataDigestSize()
+		digestSize = Digest.dataDigestSize()
 		while True:
 			digest = valueS.read(digestSize)
 			if digest=='':
@@ -226,7 +235,7 @@ class File(Node):
 		#
 		# Ok, this file is new. Count all its blocks
 		#
-		digestSize = self.backup.config.dataDigestSize()
+		digestSize = Digest.dataDigestSize()
 		while True:
 			digest = valueS.read(digestSize)
 			if digest == "": break
@@ -258,7 +267,7 @@ class Symlink(Node):
 			else:
 				raise "File cannot have data of code", file_code
 
-			if old_db[self.backup.config.node_key(file_num)] == self.link:
+			if old_db[self.node_key(file_num)] == self.link:
 				self.number = file_num
 				self.code = NODE_SYMLINK_BASED
 				return
@@ -301,7 +310,7 @@ class Directory(Node):
 				base_num = file_num
 			
 			db = ctx.prev_files_dbs[db_num]
-			file_key = self.backup.config.node_key(file_num)
+			file_key = self.node_key(file_num)
 			if not db.has_key(file_key):
 				print "DB %d doesn't have key %s" % (db_num,file_key)
 				continue
@@ -310,8 +319,8 @@ class Directory(Node):
 				node_type = valueS.read(1)
 				if node_type == "":
 					break
-				node_num = self.backup.config.read_int(valueS)
-				node_name = self.backup.config.read_string(valueS)
+				node_num = Format.read_int(valueS)
+				node_name = Format.read_string(valueS)
 
 				# If the file sits in a database which is a "base" one,
 				# upgrade the status of the prev file to note that
@@ -454,8 +463,8 @@ class Directory(Node):
 			#else:
 				#raise "Unrecognized object flushing"
 			
-			self.backup.config.write_int(valueS,child.number)
-			self.backup.config.write_string(valueS,child.name)
+			Format.write_int(valueS,child.number)
+			Format.write_string(valueS,child.name)
 			
 		key = self.get_key()
 		ctx.new_files_db[key] = valueS.getvalue()
@@ -478,8 +487,8 @@ class Directory(Node):
 			if node_type == "":
 				# no more entries in this dir
 				break
-			node_num = self.backup.config.read_int(valueS)
-			node_name = self.backup.config.read_string(valueS)
+			node_num = Format.read_int(valueS)
+			node_name = Format.read_string(valueS)
 			if node_type == NODE_DIR or node_type == NODE_DIR_BASED:
 				node = Directory(self.backup,self, node_name)
 			elif node_type == NODE_FILE or node_type == NODE_FILE_BASED:
@@ -507,8 +516,8 @@ class Directory(Node):
 			node_type = valueS.read(1)
 			if node_type == "":
 				break
-			node_num = self.backup.config.read_int(valueS)
-			node_name = self.backup.config.read_string(valueS)
+			node_num = Format.read_int(valueS)
+			node_name = Format.read_string(valueS)
 			if node_type == NODE_DIR or node_type == NODE_DIR_BASED:
 				node = Directory(self.backup,self,node_name)
 			elif node_type == NODE_FILE or node_type == NODE_FILE_BASED:
@@ -537,8 +546,8 @@ class Directory(Node):
 			node_type = valueS.read(1)
 			if node_type == "":
 				break
-			node_num = self.backup.config.read_int(valueS)
-			node_name = self.backup.config.read_string(valueS)
+			node_num = Format.read_int(valueS)
+			node_name = Format.read_string(valueS)
 			if node_type == NODE_DIR or node_type == NODE_DIR_BASED:
 				node = Directory(self.backup,self,node_name)
 			elif node_type == NODE_FILE or node_type == NODE_FILE_BASED:

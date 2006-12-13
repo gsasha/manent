@@ -21,9 +21,9 @@ class Increment:
 		# TODO: Make the message include other data, comment etc.
 		m = StringIO()
 		m.write("Increment %d of backup %s\n" % (self.index, self.container_config.backup.label))
-		# TODO: REFACTOR: remove this after refactoring
-		config = VersionConfig()
-		m.write("version=%s\n" % config.version())
+		
+		# TODO: Move the version number outside
+		m.write("version=%s\n" % "0.1")
 		m.write("index=%d\n" % self.index)
 		m.write("backup=%s\n" % self.container_config.backup.label)
 		m.write("time=%s\n" % self.ctime)

@@ -4,7 +4,8 @@ import re
 
 import Backup
 import Container
-import Format
+import manent.utils.Format as Format
+import manent.utils.IntegerEncodings as IntegerEncodings
 
 class GlobalConfig:
 	def __init__(self):
@@ -18,13 +19,13 @@ class GlobalConfig:
 	# Filesystem config
 	#
 	def container_file_name(self,label,index):
-		return "manent.%s.%s" % (label,Format.ascii_encode_int_varlen(index))
+		return "manent.%s.%s" % (label,IntegerEncodings.ascii_encode_int_varlen(index))
 	def container_index(self,name,label,suffix):
 		file_regexp = "^manent\\.%s\\.(\w\d+)%s$"%(label,suffix)
 		match = re.match(file_regexp, name)
 		if not match:
 			return None
-		index = Format.ascii_decode_int_varlen(match.group(1))
+		index = IntegerEncodings.ascii_decode_int_varlen(match.group(1))
 		return index
 	
 	def home_area(self):

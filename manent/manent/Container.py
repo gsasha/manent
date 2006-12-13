@@ -4,6 +4,8 @@ import re
 import base64
 import bz2
 
+import manent.utils.Digest as Digest
+import manent.utils.Format as Format
 from Increment import Increment
 from StreamAdapter import *
 
@@ -104,13 +106,13 @@ class Container:
 		message = "Manent container #%d of backup '%s'\n\0x1b" % (self.index, self.backup.label)
 		self.dataFile.write(message)
 		self.totalSize += len(message)
-		self.blocks.append((self.backup.config.dataDigest(message),len(message),CODE_CONTAINER_START))
+		self.blocks.append((Digest.dataDigest(message),len(message),CODE_CONTAINER_START))
 
 		self.start_compression()
 		
 	def start_compression(self):
 		self.finish_compression(restart=True)
-		self.blocks.append((self.backup.config.dataDigest(""),self.totalSize,CODE_COMPRESSION_BZ2_START))
+		self.blocks.append((Digest.dataDigest(""),self.totalSize,CODE_COMPRESSION_BZ2_START))
 		self.compressor = bz2.BZ2Compressor(3)
 		self.compressedSize = 0
 		self.uncompressedSize = 0
@@ -122,7 +124,7 @@ class Container:
 		self.totalSize += len(remainder)
 		self.compressedSize += len(remainder)
 		if not restart:
-			self.blocks.append((self.backup.config.dataDigest(""),self.totalSize,CODE_COMPRESSION_END))
+			self.blocks.append((Digest.dataDigest(""),self.totalSize,CODE_COMPRESSION_END))
 		#print "Compressed remainder of size", len(remainder)
 		#print "Total compressed  ", self.compressedSize, self.totalSize
 		#print "Total uncompressed", self.uncompressedSize
@@ -148,7 +150,7 @@ class Container:
 			self.uncompressedSize += len(data)
 			self.blocks.append((digest,len(data),code))
 			self.dataFile.write(compressed)
-			if self.compressionSize > self.backup.config.compression_block_size():
+			if self.compressionSize > self.backup.container_config.compression_block_size():
 				self.start_compression()
 				self.compressionSize = 0
 		else:
@@ -156,6 +158,7 @@ class Container:
 			self.dataFile.write(data)
 		#self.totalSize += len(compressed)
 		return len(self.blocks)
+	
 	def finish_dump(self):
 		self.finish_compression(restart=False)
 		filepath = os.path.join(self.backup.global_config.staging_area(),self.filename())
@@ -172,22 +175,21 @@ class Container:
 		MAGIC = "MNNT"
 		VERSION = 1
 
-		config = self.backup.config
 		file.write(MAGIC)
-		config.write_int(file,VERSION)
-		config.write_int(file,self.index)
+		Format.write_int(file,VERSION)
+		Format.write_int(file,self.index)
 
 		table = StringIO()
-		config.write_int(table, len(self.blocks))
+		Format.write_int(table, len(self.blocks))
 		for (digest,size,code) in self.blocks:
-			config.write_int(table,size)
-			config.write_int(table,code)
+			Format.write_int(table,size)
+			Format.write_int(table,code)
 			table.write(digest)
 
 		tableContents = table.getvalue()
 		table.close()
-		config.write_int(file,len(tableContents))
-		file.write(config.headerDigest(tableContents))
+		Format.write_int(file,len(tableContents))
+		file.write(Digest.headerDigest(tableContents))
 		file.write(tableContents)
 		#
 		# Store the increment blocks in the file
@@ -222,29 +224,28 @@ class Container:
 		MAGIC = file.read(4)
 		if MAGIC != "MNNT":
 			raise "Manent: magic didn't happen..."
-		config = self.backup.config
-		VERSION = config.read_int(file)
-		index = config.read_int(file)
+		VERSION = Format.read_int(file)
+		index = Format.read_int(file)
 		if index != self.index:
 			raise "Manent: wrong index of container file. Expected %s, found %s" % (str(self.index),str(index))
 		
-		tableBytes = config.read_int(file)
-		tableDigest = file.read(config.headerDigestSize())
+		tableBytes = Format.read_int(file)
+		tableDigest = file.read(Digest.headerDigestSize())
 		tableContents = file.read(tableBytes)
-		if config.headerDigest(tableContents) != tableDigest:
+		if Digest.headerDigest(tableContents) != tableDigest:
 			raise "Manent: header of container file corrupted"
 		tableFile = StringIO(tableContents)
-		for i in range(0,config.read_int(tableFile)):
-			blockSize = config.read_int(tableFile)
-			blockCode = config.read_int(tableFile)
-			blockDigest = tableFile.read(config.dataDigestSize())
+		for i in range(0,Format.read_int(tableFile)):
+			blockSize = Format.read_int(tableFile)
+			blockCode = Format.read_int(tableFile)
+			blockDigest = tableFile.read(Digest.dataDigestSize())
 			self.blocks.append((blockDigest,blockSize,blockCode))
 		self.indexBlocks = []
 		for (digest,size,code) in self.blocks:
 			if (code==CODE_INCREMENT_START) or (code==CODE_INCREMENT_END):
 				# We assume that the blocks are just appended there
 				data = file.read(size)
-				if config.dataDigest(data) != digest:
+				if Digest.dataDigest(data) != digest:
 					raise "Manent: index block corrupted"
 				self.indexBlocks.append((data,digest,code))
 	def info(self):
@@ -303,6 +304,7 @@ class Container:
 				compression_sizes[last_compression] = size-last_compression
 				last_compression = None
 			if code == CODE_COMPRESSION_BZ2_START:
+				print "See compression start bz2"
 				if last_compression != None:
 					compression_sizes[last_compression] = size-last_compression
 				last_compression = size
@@ -339,7 +341,7 @@ class Container:
 				last_read_offset = block_offset+size
 				block = source.read(size)
 				# check that the block is OK
-				blockDigest = self.backup.config.dataDigest(block)
+				blockDigest = Digest.dataDigest(block)
 				if (digest != blockDigest):
 					raise "OUCH!!! The block read is incorrect: expected %s, got %s" % (str(base64.b64encode(digest)), str(base64.b64encode(blockDigest)))
 
@@ -456,7 +458,7 @@ class ContainerConfig:
 		self.containers_db["Increments"] = str(int(self.containers_db["Increments"])+1)
 
 		message = self.new_increment.message()
-		self.add_block(message,self.backup.config.dataDigest(message),CODE_INCREMENT_START)
+		self.add_block(message,Digest.dataDigest(message),CODE_INCREMENT_START)
 		return self.new_increment.index
 	def finalize_increment(self,base_diff):
 		if self.new_increment == None:
@@ -464,7 +466,7 @@ class ContainerConfig:
 		# TODO: Make the message include the same data as of the starting increment, so that
 		#       they can be matched at recovery
 		message = self.new_increment.message()
-		self.add_block(message,self.backup.config.dataDigest(message),CODE_INCREMENT_END)
+		self.add_block(message,Digest.dataDigest(message),CODE_INCREMENT_END)
 		
 		if len(self.containers)>0 and self.containers[-1] != None:
 			self.containers[-1].finish_dump()
@@ -583,6 +585,16 @@ class ContainerConfig:
 				container = self.add_container()
 		index = container.append(data,digest,code)
 		return (container.index, index)
+
+	#
+	# Block parameters
+	#
+	def blockSize(self):
+		return 256*1024
+	
+	def compression_block_size(self):
+		return 2*1024*1024
+
 
 from ftplib import FTP
 
