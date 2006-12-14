@@ -422,8 +422,8 @@ class Directory(Node):
 					same = True
 			except OSError:
 				print "OSError accessing", path
-			except IOError:
-				print "IOError accessing", path
+			except IOError, (errno, strerror):
+				print "IOError %s accessing '%s'" % (errno,strerror), path
 
 		if self.same_as_base == True and len(base_nodes) != 0:
 			print "Files remained in directory, so it's not the same"
