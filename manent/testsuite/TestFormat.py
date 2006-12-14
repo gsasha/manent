@@ -59,6 +59,11 @@ class TestFormat(unittest.TestCase):
 		istream = StringIO(ostream.getvalue())
 		read_nums = IE.binary_read_int_varlen_list(istream)
 		self.assertEqual(nums,read_nums)
+
+	def test_binary_known_values(self):
+		self.assertEqual(IE.binary_encode_int_varlen(1024), "\x81\x04\x00")
+		self.assertEqual(IE.binary_encode_int_varlen(1), "\x01")
+		self.assertEqual(IE.binary_encode_int_varlen(1223423423), "\x83\x48\xeb\xf5\xbf")
 	
 	def test_binary_bad_input(self):
 		# Negative numbers are not supported
