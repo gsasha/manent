@@ -8,5 +8,5 @@ class ApplicationUI(wx.App):
 		 self.SetTopWindow(frame)
 		 return True
 
-app = ApplicationUI()
+app = ApplicationUI(None)
 app.MainLoop()
