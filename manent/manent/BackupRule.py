@@ -1,5 +1,19 @@
 import os
 
+def isParent(parentPath, childPath):
+	parentPath = os.path.normpath(parentPath)
+	parentPath = os.path.normcase(parentPath)
+	childPath = os.path.normpath(childPath)
+	childPath = os.path.normcase(childPath)
+	
+	while True:
+		if (len(parentPath) == len(childPath)):
+			return parentPath == childPath
+		if (len(childPath) < len(parentPath)):
+			return False
+		
+		childPath = os.path.split(childPath)[0]
+
 class BackupRule:
 	def __init__(self):
 		self.included = []
@@ -20,7 +34,7 @@ class BackupRule:
 	
 	def isIncluded(self, path):
 		for i in self.included:
-			if path.startswith(i):
+			if isParent(i, path):
 				return True
 		return False
 		# check that it's not excluded.
@@ -33,3 +47,8 @@ class BackupRule:
 #rule.addIncludedTree("c:\\windows\\system32")
 #rule.addIncludedTree("c:\\windows\\system")
 #print rule.isIncluded("c:\\windows\\system\\a.txt")
+
+#print os.path.normcase("c:\\\\\\fIle\\.\\windows\\\\\\")
+#print isParent("c:/file2/windows2", "c:\\file2\\windows2\\fasa");
+#print isParent("c:/", "d:\\");
+#print isParent("\\\\genadyxp\\c$\\windows", "\\\\genadyxp\\c$\\file2fjksahfjkdsahfkjdshmvc,z");
