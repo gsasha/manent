@@ -62,8 +62,9 @@ class GlobalConfig:
 			(dataPath,containerType,containerParams) = self.backups[label]
 			file.write("%s %s %s %s\n" % (label, dataPath, containerType, " ".join(containerParams)))
 	def close(self):
-		for backup in self.open_backups:
-			backup.close()
+		#for backup in self.open_backups:
+		#	backup.close()
+		pass
 	
 	def create_backup(self,label,dataPath,containerType,containerParams):
 		if self.backups.has_key(label):
@@ -72,6 +73,7 @@ class GlobalConfig:
 		print "Creating backup label[%s] path[%s] type[%s] params[%s]"%(label, dataPath, containerType, str(containerParams))
 		backup = Backup.Backup(self,label)
 		backup.configure(dataPath,containerType,containerParams)
+		backup.create()
 		self.open_backups.append(backup)
 		
 		self.backups[label] = (dataPath,containerType,containerParams)
@@ -83,7 +85,7 @@ class GlobalConfig:
 		backup = Backup.Backup(self,label)
 		(dataPath,containerType,containerParams) = self.backups[label]
 		print self.backups[label]
-		backup.load(dataPath,containerType,containerParams)
+		backup.configure(dataPath,containerType,containerParams)
 		self.open_backups.append(backup)
 		return backup
 	def reconstruct_backup(self,label,dataPath,containerType,containerParams):

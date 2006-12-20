@@ -2,11 +2,10 @@ import os, os.path
 import bsddb
 from bsddb import db
 
-import Config
-
 class DatabaseConfig:
-	def __init__(self,global_config):
+	def __init__(self,global_config,filename):
 		self.global_config = global_config
+		self.filename = filename
 		
 		self.open_dbs = {}
 		self.scratch_dbs = {}
@@ -20,137 +19,127 @@ class DatabaseConfig:
 		self.dbenv.set_lk_max_objects(20000)
 		self.dbenv.set_lk_detect(db.DB_LOCK_DEFAULT)
 		self.dbenv.set_flags(db.DB_LOG_AUTOREMOVE, True)
-		#self.dbenv.open(dbenv_dir, db.DB_RECOVER| db.DB_CREATE |db.DB_INIT_TXN| db.DB_INIT_MPOOL| db.DB_INIT_LOCK)
-		self.dbenv.open(self.dbenv_dir(), db.DB_RECOVER| db.DB_CREATE |db.DB_INIT_TXN| db.DB_INIT_MPOOL| db.DB_INIT_LOCK|db.DB_THREAD)
+		self.dbenv.open(self.__dbenv_dir(), db.DB_RECOVER| db.DB_CREATE |db.DB_INIT_TXN| db.DB_INIT_MPOOL| db.DB_INIT_LOCK|db.DB_THREAD)
 
-		self.txn = self.dbenv.txn_begin(flags=db.DB_DIRTY_READ|db.DB_TXN_NOWAIT)
-
-	def dbenv_dir(self):
-		home_area = self.global_config.home_area()
-		return home_area
+	def txn_begin(self):
+		return self.dbenv.txn_begin(flags=db.DB_DIRTY_READ)
 	
 	def close(self):
 		#
 		# Close up the db environment. The user should have been
 		# smart enough to close it himself.
 		#
-		self.close_cursors()
-		self.close_dbs()
-		if self.txn:
-			self.txn.abort()
-			self.txn = None
+		#self.close_cursors()
+		#self.close_dbs()
+		#if self.txn:
+			#self.txn.abort()
+			#self.txn = None
 
 		#
 		# Free up the files that the database held
 		#
 		self.dbenv.close()
 		dbenv = db.DBEnv()
-		dbenv.remove(self.dbenv_dir())
+		dbenv.remove(self.__dbenv_dir())
 
-	def database_exists(self,name,tablename):
-		fname = self.db_fname(name,tablename)
-		return os.path.isfile(fname)
-	def get_database(self,name,tablename):
-		key = (name,tablename)
-		if self.open_dbs.has_key(key):
-			return self.open_dbs[key]
-		
-		fname = self.db_fname(name,tablename)
-		d = DatabaseWrapper(self, fname, tablename)
-		self.open_dbs[key] = d
-		return d
-	def get_scratch_database(self,name,tablename):
-		key = (name,tablename)
-		if self.scratch_dbs.has_key(key):
-			return self.scratch_dbs[key]
-
-		fname = self.scratch_db_fname(name,tablename)
-		d = DatabaseWrapper(self, fname, tablename, transact=False)
-		self.scratch_dbs[key] = d
-		return d
-	def remove_database(self,name,tablename=None):
-		key = (name,tablename)
-		#
-		# Clean up the database handle
-		#
-		print "before", self.open_dbs.items(), "key", key
-		if self.open_dbs.has_key(key):
-			self.open_dbs[key].close()
-			del self.open_dbs[key]
-		if self.scratch_dbs.has_key(key):
-			self.scratch_dbs[key].close()
-			del self.scratch_dbs[key]
-		print "after", self.open_dbs.items()
-
+	def get_database(self,tablename,txn_handler):
+		fname = self.__db_fname(tablename)
+		return DatabaseWrapper(self, fname, tablename, txn_handler)
+	def get_scratch_database(self,tablename):
+		fname = self.__scratch_db_fname(tablename)
+		return DatabaseWrapper(self, fname, tablename, txn_handler=None)
+	def get_queue_database(self,tablename):
+		raise "Not implemented"
+	def remove_database(self,tablename=None):
 		#
 		# Now actually delete the database file
 		#
-		fname = self.db_fname(name,tablename)
+		fname = self.__db_fname(tablename)
 		d = db.DB(self.dbenv)
-		print "Removing database", fname, tablename
+		print "Removing database", self.filename, tablename
+		d.remove(fname,tablename)
+	def remove_scratch_database(self,tablename=None):
+		#
+		# Now actually delete the database file
+		#
+		fname = self.__scratch_db_fname(tablename)
+		d = db.DB(self.dbenv)
+		print "Removing scratch database", self.filename, tablename
 		d.remove(fname,tablename)
 	
+	def __dbenv_dir(self):
+		home_area = self.global_config.home_area()
+		return home_area
+	
+	def __db_fname(self,tablename):
+		return os.path.join(self.global_config.home_area(),self.filename)
+	def __scratch_db_fname(self,tablename):
+		return os.path.join(self.global_config.staging_area(),self.filename)
+
+class TransactionHandler:
+	"""
+	Handles a single transaction context.
+	Unlike a transaction context, a TransactionHandler object
+	can be kept indefinitely, and remains valid even after a transaction
+	is committed or aborted.
+	"""
+	def __init__(self,db_config):
+		self.db_config = db_config
+		self.txn = None
+	def get_txn(self):
+		if self.txn is None:
+			self.txn = self.db_config.txn_begin()
+		return self.txn
 	def commit(self):
-		self.close_cursors()
-		self.txn.commit()
-		self.txn = self.dbenv.txn_begin(flags=db.DB_TXN_NOSYNC|db.DB_DIRTY_READ|db.DB_TXN_NOWAIT)
+		if self.txn is not None:
+			self.txn.commit()
+		self.txn = None
 	def abort(self):
-		self.close_cursors()
-		self.txn.abort()
-		self.txn = self.dbenv.txn_begin(flags=db.DB_TXN_NOSYNC|db.DB_DIRTY_READ|db.DB_TXN_NOWAIT)
-	def db_fname(self,name,tablename):
-		return os.path.join(self.global_config.home_area(),name+".db")
-	def scratch_db_fname(self,name,tablename):
-		return os.path.join(self.global_config.staging_area(),name+".db")
-	#
-	# Utility methods, not to be called from outside
-	#
-	def close_cursors(self):
-		for (key, d) in self.open_dbs.iteritems():
-			d.close_cursor()
-		for (key, d) in self.scratch_dbs.iteritems():
-			d.close_cursor()
-	def close_dbs(self):
-		print "Closing all dbs"
-		for (key, d) in self.open_dbs.iteritems():
-			d.close()
-		for (key, d) in self.scratch_dbs.iteritems():
-			d.close()
-		self.open_dbs = {}
-		self.scratch_dbs = {}
+		if self.txn is not None:
+			self.txn.abort()
+		self.txn = None
 
 class DatabaseWrapper:
-	def __init__(self,db_config,filename,dbname,transact=True):
+	"""
+	Provides a Python Dictionary-like interface to a single database table.
+	Objects of this class are meant to be created by db_config, not by the user!
+	"""
+	def __init__(self,db_config,filename,dbname,txn_handler=None):
 		self.db_config = db_config
 		self.filename = filename
 		self.dbname = dbname
-		self.transact = transact
+		self.txn_handler = txn_handler
 		
 		self.d = db.DB(self.db_config.dbenv)
 		self.cursor = None
 		
-		print "Opening database filename=%s, dbname=%s" %(filename,dbname)
-		self.d.open(filename, dbname, db.DB_HASH, db.DB_CREATE, txn=self.get_txn())
+		#print "Opening database filename=%s, dbname=%s" %(self.__get_filename(),self.__get_dbname())
+		self.d.open(self.__get_filename(), self.__get_dbname(), db.DB_HASH, db.DB_CREATE, txn=self.__get_txn())
 
-	def get_txn(self):
-		if self.transact:
-			return self.db_config.txn
-		return None
+	def __get_filename(self):
+		return self.filename
+	def __get_dbname(self):
+		return self.dbname
+	def __get_txn(self):
+		if self.txn_handler is None:
+			return None
+		return self.txn_handler.get_txn()
 	#
 	# Access methods
 	#
 	def get(self,key):
-		return self.d.get(str(key), txn=self.get_txn())
+		txn = self.__get_txn()
+		return self.d.get(str(key), txn=txn)
 	def put(self,key,value):
-		self.d.put(str(key),str(value),txn=self.get_txn())
+		self.d.put(str(key),str(value),txn=self.__get_txn())
 	def __getitem__(self,key):
 		return self.get(key)
 	def __setitem__(self,key,value):
 		return self.put(key,value)
 	def __delitem__(self,key):
-		self.d.delete(key,txn=self.get_txn())
+		self.d.delete(key,txn=self.__get_txn())
 	def __len__(self):
-		stat = self.d.stat()
+		stat = self.d.stat(txn=self.__get_txn())
 		return stat['ndata']
 	def has_key(self,key):
 		return self.get(key) != None
@@ -158,7 +147,7 @@ class DatabaseWrapper:
 	# Database cleanup options
 	#
 	def truncate(self):
-		self.d.truncate()
+		self.d.truncate(txn=self.__get_txn())
 	#
 	# Transaction support
 	#
@@ -167,15 +156,15 @@ class DatabaseWrapper:
 			self.cursor.close()
 			self.cursor = None
 	def close(self):
-		print "Closing database filename=%s, dbname=%s" %(self.filename,self.dbname)
+		print "Closing database filename=%s, dbname=%s" %(self.__get_filename(),self.__get_dbname())
 		self.d.close()
 		self.d = None
-		self.filename="deadbeef"
+		self.filename=None
 	#
 	# Iteration support
 	#
 	def __iter__(self):
-		self.cursor = self.d.cursor(self.get_txn())
+		self.cursor = self.d.cursor(self.__get_txn())
 		if self.cursor.first() == None:
 			self.cursor.close()
 			self.cursor = None

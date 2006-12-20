@@ -14,8 +14,8 @@ class BlockCache:
 
 		# These two databases are scratch-only, so they don't need to reliably survive
 		# through program restarts
-		self.requested_blocks = self.backup.db_config.get_scratch_database("manent-scratch."+self.backup.label, ".blocks")
-		self.loaded_blocks = self.backup.db_config.get_scratch_database("manent-scratch."+self.backup.label, ".data")
+		self.requested_blocks = self.backup.db_config.get_scratch_database(".scratch-blocks")
+		self.loaded_blocks = self.backup.db_config.get_scratch_database(".scratch-data")
 		#
 		# It is possible that the program was terminated before the scratch cache was
 		# removed. In that case, it contains junk data
@@ -29,9 +29,9 @@ class BlockCache:
 		self.max_loaded_size = 0
 	def close(self):
 		self.requested_blocks.close()
-		self.requested_blocks.remove()
 		self.loaded_blocks.close()
-		self.loaded_blocks.remove()
+		self.backup.db_config.remove_scratch_database(".scratch-blocks")
+		self.backup.db_config.remove_scratch_database(".scratch-data")
 	#
 	# Methods for the user side of the cache
 	#

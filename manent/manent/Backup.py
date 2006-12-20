@@ -13,7 +13,7 @@ import Nodes
 import Container
 from BlockCache import BlockCache
 from Block import Block
-from Database import DatabaseConfig
+from Database import *
 from StreamAdapter import *
 import manent.utils.Digest as Digest
 
@@ -44,7 +44,7 @@ class SpecialIStream(IStreamAdapter):
 			return ""
 		(idx,digest) = self.digests[0]
 		self.digests = self.digests[1:]
-		data = self.backup.read_block(digest,idx)
+		data = self.backup.blocks_cache.load_block(digest,idx)
 		return data
 
 class Backup:
@@ -55,47 +55,61 @@ class Backup:
 		self.global_config = global_config
 		self.label = label
 
-		self.db_config = DatabaseConfig(self.global_config)
+		self.db_config = DatabaseConfig(self.global_config,"manent.%s.db"%self.label)
+		self.txn_handler = TransactionHandler(self.db_config)
 
+		self.open_files_dbs = {}
 	#
 	# Three initialization methods:
 	# Creation of new Backup, loading from live DB, loading from backups
 	#
 	def configure(self,data_path,container_type,container_params):
-		print "Creating backup", self.label, "type:", container_type, container_params
+		#print "Creating backup", self.label, "type:", container_type, container_params
 		self.data_path = data_path
-		
-		self.blocks_db = self.db_config.get_database("manent."+self.label, ".blocks")
-		
-		self.container_config = Container.create_container_config(container_type)
-		self.container_config.init(self,container_params)
-		
-		self.root = Directory(self,None,self.data_path)
-
-	def load(self,data_path,container_type,container_params):
-		print "Loading backup", self.label
-		self.data_path = data_path
-				
-		self.blocks_db = self.db_config.get_database("manent."+self.label, ".blocks")
-		
-		self.container_config = Container.create_container_config(container_type)
-		self.container_config.init(self,container_params)
-		
-		self.root = Directory(self,None,self.data_path)
+		self.container_type = container_type
+		self.container_params = container_params
 
 	def remove(self):
 		print "Removing backup", self.label
-		self.db_config.remove_database("manent."+self.label)
-		self.db_config.close()
+		try:
+			self.db_config.remove_database()
+		finally:
+			self.db_config.close()
+
+	def create(self):
+		try:
+			self.blocks_db = self.db_config.get_database(".blocks",self.txn_handler)
+			self.txn_handler.commit()
+		except:
+			self.txn_handler.abort()
+			raise
+		finally:
+			self.blocks_db.close()
+			self.db_config.close()
 
 	def reconstruct(self,data_path,container_type,container_params):
+		try:
+			self.blocks_db = self.db_config.get_database(".blocks",self.txn_handler)
+			self.blocks_cache = BlockCache(self)
+			self.container_config = Container.create_container_config(self.container_type)
+			self.container_config.init(self,self.container_params)
+
+			self.do_reconstruct()
+			self.txn_handler.commit()
+		except:
+			self.txn_handler.abort()
+			raise
+		finally:
+			self.blocks_db.close()
+			self.blocks_cache.close()
+			self.container_config.close()
+			self.db_config.close()
+			
+	def do_reconstruct(self,data_path,container_type,container_params):
 		print "Reconstructing backup", self.label, "type:", container_type, container_params
 		self.data_path = data_path
 
-		self.blocks_db = self.db_config.get_database("manent."+self.label, ".blocks")
 		self.inodes_db = {}
-		
-		self.blocks_cache = BlockCache(self)
 		
 		self.container_config = Container.create_container_config(container_type)
 		self.container_config.init(self,container_params)
@@ -122,14 +136,28 @@ class Backup:
 					#print base64.b64encode(digest), "->", block.containers
 			self.container_config.release_container(idx)
 		print
-
-	def close(self):
-		self.db_config.commit()
-		self.db_config.close()
 	#
 	# Functionality for scan mode
 	#
 	def scan(self):
+		try:
+			self.blocks_db = self.db_config.get_database(".blocks",self.txn_handler)
+			self.container_config = Container.create_container_config(self.container_type)
+			self.container_config.init(self,self.txn_handler,self.container_params)
+
+			self.do_scan()
+			self.txn_handler.commit()
+		except:
+			self.txn_handler.abort()
+			raise
+		finally:
+			for key,files_db in self.open_files_dbs.iteritems():
+				files_db.close()
+			self.blocks_db.close()
+			self.container_config.close()
+			self.db_config.close()
+		
+	def do_scan(self):
 		#
 		# Check in which increments we should look
 		#
@@ -142,11 +170,11 @@ class Backup:
 			if f_increment.finalized:
 				# At most one of the prev_increments is supposed to be
 				# finalized, and the final one!
-				self.load_files_db(idx)
-				if f_increment.base_index != 0:
+				self.__load_files_db(idx)
+				if f_increment.base_index != None:
 					last_based_increment = f_increment
-			if self.files_db_loaded(idx):
-				prev_files_dbs.append(self.load_files_db(idx))
+			if self.__files_db_loaded(idx):
+				prev_files_dbs.append(self.__load_files_db(idx))
 				prev_nums.append((len(prev_nums),0,Nodes.NODE_DIR))
 		prev_nums.reverse()
 		print "Previous increments are: ", prev_increments, prev_nums
@@ -155,6 +183,7 @@ class Backup:
 		new_increment = False
 		
 		if last_based_increment != None:
+			print "last based increment", last_based_increment
 			# Only finalized increments can change the base!
 			base_index = last_based_increment.base_index
 			base_diff = last_based_increment.base_diff
@@ -166,26 +195,26 @@ class Backup:
 				# for the updating
 				prev_nums[-1] = (idx,node_num,Nodes.NODE_DIR_BASED)
 			elif base_diff>0.5:
-					# The previous increment is based on somebody, but too big - OK, we'll
-					# make a new one
+					# The previous increment is based on somebody, but too big - OK,
+					# we'll make a new one
 					print "Difference too big. Starting a new increment"
 					new_increment = True
 					#base_index = None
 			else:
 				print "Reusing the same increment", base_index
 				prev_nums.append((len(prev_nums),0,Nodes.NODE_DIR_BASED))
-				prev_files_dbs.append(self.load_files_db(base_index))
+				prev_files_dbs.append(self.__load_files_db(base_index))
 			print "Basing this increment on", base_index
 		
 		base_files_db = None
 		if base_index != None:
-			base_files_db = self.load_files_db(base_index)
+			base_files_db = self.__load_files_db(base_index)
 		
 		#
 		# Do the real work of scanning
 		#
 		increment = self.container_config.start_increment(base_index)
-		new_files_db = self.create_files_db(increment)
+		new_files_db = self.__open_files_db(increment)
 		root = Directory(self,None,self.data_path)
 		root.code = Nodes.NODE_DIR
 		ctx = ScanContext(self,root,base_files_db,prev_files_dbs,new_files_db)
@@ -211,24 +240,40 @@ class Backup:
 		
 		# Upload the special data to the containers
 		self.container_config.finalize_increment(base_diff)
-		self.db_config.commit()
 
+	def restore(self,target_path):
+		try:
+			self.blocks_db = self.db_config.get_database(".blocks",self.txn_handler)
+			self.blocks_cache = BlockCache(self)
+			self.container_config = Container.create_container_config(self.container_type)
+			self.container_config.init(self,self.txn_handler,self.container_params)
+
+			self.do_restore(target_path)
+			self.txn_handler.commit()
+		except:
+			self.txn_handler.abort()
+			raise
+		finally:
+			for key,files_db in self.open_files_dbs.iteritems():
+				files_db.close()
+			self.blocks_db.close()
+			self.blocks_cache.close()
+			self.container_config.close()
+			self.db_config.close()
 	#
 	# Functionality for restore mode
 	#
-	def restore(self,target_path):
+	def do_restore(self,target_path):
 		#
 		# Create the scratch database to precompute block to container requirements
 		#
-		self.blocks_cache = BlockCache(self)
-	
 		increment_idx = self.container_config.last_finalized_increment()
 		if increment_idx != None:
-			files_db = self.load_files_db(increment_idx)
+			files_db = self.__load_files_db(increment_idx)
 			increment = self.container_config.increments[increment_idx]
 			base_files_db = None
 			if increment.base_index != None:
-				base_files_db = self.load_files_db(increment.base_index)
+				base_files_db = self.__load_files_db(increment.base_index)
 		else:
 			raise "No finalized increment found. Nothing to restore"
 
@@ -237,7 +282,7 @@ class Backup:
 		# Compute reference counts for all the blocks required in this restore
 		#
 		print "1. Computing reference counts"
-		self.root.name = target_path
+		self.root = Directory(self,None,target_path)
 		self.root.set_num(0)
 		self.root.code = Nodes.NODE_DIR
 		self.root.request_blocks(ctx,self.blocks_cache)
@@ -255,34 +300,43 @@ class Backup:
 		self.root.name = target_path
 		self.root.restore(ctx)
 
-		#self.blocks_cache.close()
-		#self.db_config.close()
-
 		print "MAX loaded size:", self.blocks_cache.max_loaded_size
-
-	def read_block(self,digest,index=None):
-		"""
-		Return the data for the given digest
-		"""
-		return self.blocks_cache.load_block(digest,index)
 
 	#
 	# Information
 	#
 	def info(self):
-		self.blocks_cache = BlockCache(self)
+		try:
+			self.blocks_db = self.db_config.get_database(".blocks",self.txn_handler)
+			self.blocks_cache = BlockCache(self)
+			self.container_config = Container.create_container_config(self.container_type)
+			self.container_config.init(self,self.txn_handler,self.container_params)
+			
+			self.do_info()
+			self.txn_handler.commit()
+		except:
+			self.txn_handler.abort()
+			raise
+		finally:
+			for key,files_db in self.open_files_dbs.iteritems():
+				files_db.close()
+			self.blocks_db.close()
+			self.blocks_cache.close()
+			self.container_config.close()
+			self.db_config.close()
+	def do_info(self):
 		
 		print "Containers"
 		self.container_config.info()
-
+		print "there are %d increments" % len(self.container_config.increments)
 		for increment in self.container_config.increments:
 			#if not self.database_loaded(i):
 				#print "Increment %d not loaded" % i
 				#continue
-			files_db = self.load_files_db(increment.index)
+			files_db = self.__load_files_db(increment.index)
 			base_files_db = None
 			if increment.base_index != None:
-				base_files_db = self.load_files_db(increment.base_index)
+				base_files_db = self.__load_files_db(increment.base_index)
 
 			ctx = RestoreContext(self,base_files_db,files_db)
 			
@@ -291,20 +345,19 @@ class Backup:
 			self.root.set_num(0)
 			self.root.code = Nodes.NODE_DIR
 			self.root.list_files(ctx)
-			# just to be safe
-
-		#self.db_config.close()
 	#
 	# Files database loading
 	#
-	def files_db_loaded(self,index):
-		db = self.db_config.get_database("manent."+self.label, ".files.%d"%index)
+	def __open_files_db(self,index):
+		if not self.open_files_dbs.has_key(index):
+			db = self.db_config.get_database(".files.%d"%index,self.txn_handler)
+			self.open_files_dbs[index] = db
+		return self.open_files_dbs[index]
+	def __files_db_loaded(self,index):
+		db = self.__open_files_db(index)
 		return len(db)>0
-	def create_files_db(self,index):
-		db = self.db_config.get_database("manent."+self.label, ".files.%d"%index)
-		return db
-	def load_files_db(self,index):
-		db = self.db_config.get_database("manent."+self.label, ".files.%d"%index)
+	def __load_files_db(self,index):
+		db = self.__open_files_db(index)
 		if len(db)==0:
 			# The database is empty - this means that it must be loaded from the backup
 			increment = self.container_config.increments[index]
@@ -324,7 +377,6 @@ class Backup:
 				#print "Read line from stream: [%s:%s]" %(base64.b64decode(key),value)
 				db[base64.b64decode(key)]=base64.b64decode(value)
 		return db
-		#self.new_files_db = self.global_config.get_database("manent."+self.label, ".files%d"%(increment),True)
 
 class ScanContext:
 	def __init__(self,backup,root,base_files_db,prev_files_dbs,new_files_db):
@@ -356,7 +408,7 @@ class ScanContext:
 			# write it to the database
 			print "Committing blocks db for container", container
 			self.root.flush(self)
-			self.backup.db_config.commit()
+			self.backup.txn_handler.commit()
 
 		#
 		# The order is extremely important here - the block can be saved

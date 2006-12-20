@@ -304,7 +304,7 @@ class Container:
 				compression_sizes[last_compression] = size-last_compression
 				last_compression = None
 			if code == CODE_COMPRESSION_BZ2_START:
-				print "See compression start bz2"
+				#print "See compression start bz2"
 				if last_compression != None:
 					compression_sizes[last_compression] = size-last_compression
 				last_compression = size
@@ -404,13 +404,14 @@ class GZIPFileDecompressor(IStreamAdapter):
 class ContainerConfig:
 	def __init__(self):
 		self.new_increment = None
+		self.containers_db = None
 	
 	#
 	# Loading
 	#
-	def init(self,backup):
+	def init(self,backup,txn_handler):
 		self.backup = backup
-		self.containers_db = self.backup.db_config.get_database("manent."+self.backup.label, ".history")
+		self.containers_db = self.backup.db_config.get_database(".history",txn_handler)
 
 		#
 		# See if we are loading the db for the first time
@@ -430,6 +431,10 @@ class ContainerConfig:
 			increment = Increment(self,i)
 			increment.load()
 			self.increments.append(increment)
+	def close(self):
+		if self.containers_db is not None:
+			# It can be none if its initialization fails
+			self.containers_db.close()
 	def info(self):
 		print "Containers:", len(self.containers)
 		print "Increments:"
@@ -701,8 +706,8 @@ class DirectoryContainerConfig(ContainerConfig):
 	def __init__(self):
 		ContainerConfig.__init__(self)
 		self.path = None
-	def init(self,backup,params):
-		ContainerConfig.init(self,backup)
+	def init(self,backup,txn_handler,params):
+		ContainerConfig.init(self,backup,txn_handler)
 		(path,) = params
 		self.path = path
 	def container_size(self):
@@ -785,8 +790,8 @@ class MailContainerConfig(ContainerConfig):
 	def __init__(self):
 		ContainerConfig.__init__(self)
 		self.accounts = []
-	def init(self,backup,params):
-		ContainerConfig.init(self,backup)
+	def init(self,backup,txn_handler,params):
+		ContainerConfig.init(self,backup,txn_handler)
 		self.backup = backup
 		self.username = params[0]
 		self.password = params[1]

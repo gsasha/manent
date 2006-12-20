@@ -215,7 +215,7 @@ class File(Node):
 		file = open(self.path(), "wb")
 		for digest in digests:
 			#print "File", self.path(), "reading digest", base64.b64encode(digest)
-			file.write(self.backup.read_block(digest))
+			file.write(self.backup.blocks_cache.load_block(digest))
 	
 	def request_blocks(self,ctx,block_cache,based):
 		if self.code == NODE_FILE_BASED or based==True:
