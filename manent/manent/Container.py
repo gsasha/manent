@@ -615,8 +615,8 @@ class FTPContainerConfig(ContainerConfig):
 		self.path = None
 
 		self.ftp = None
-	def init(self,backup,params):
-		ContainerConfig.init(self,backup)
+	def init(self,backup,txn_handler,params):
+		ContainerConfig.init(self,backup,txn_handler)
 		(self.server,self.user,self.password,self.path) = params
 	def container_size(self):
 		return 4<<20
