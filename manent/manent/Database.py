@@ -139,7 +139,7 @@ class DatabaseWrapper:
 	def __delitem__(self,key):
 		self.d.delete(key,txn=self.__get_txn())
 	def __len__(self):
-		stat = self.d.stat(txn=self.__get_txn())
+		stat = self.d.stat()
 		return stat['ndata']
 	def has_key(self,key):
 		return self.get(key) != None
