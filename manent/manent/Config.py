@@ -84,7 +84,7 @@ class GlobalConfig:
 		
 		backup = Backup.Backup(self,label)
 		(dataPath,containerType,containerParams) = self.backups[label]
-		print self.backups[label]
+		#print self.backups[label]
 		backup.configure(dataPath,containerType,containerParams)
 		self.open_backups.append(backup)
 		return backup
