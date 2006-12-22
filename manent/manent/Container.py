@@ -649,6 +649,7 @@ class FTPContainerConfig(ContainerConfig):
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
 
 		self.connect()
+		print "Uploading header", filename
 		for i in range(10):
 			try:
 				self.ftp.storbinary("STOR %s" % (filename), open(staging_path,"rb"))
@@ -658,6 +659,7 @@ class FTPContainerConfig(ContainerConfig):
 				traceback.print_tb()
 		else:
 			raise "Uploading failed 10 times. Giving up."
+		print "Uploading data file", filename+".data"
 		for i in range(10):
 			try:
 				self.ftp.storbinary("STOR %s" % (filename+".data"), open(staging_path+".data","rb"))
