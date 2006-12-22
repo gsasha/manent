@@ -666,6 +666,8 @@ class FTPContainerConfig(ContainerConfig):
 			except:
 				print "Error uploading FTP file"
 				traceback.print_exc()
+				self.ftp = None
+				self.connect()
 		else:
 			raise "Uploading failed 10 times. Giving up."
 		print "Uploading data file", filename+".data"
@@ -676,6 +678,8 @@ class FTPContainerConfig(ContainerConfig):
 			except:
 				print "Error uploading FTP file"
 				traceback.print_exc()
+				self.ftp = None
+				self.connect()
 		else:
 			raise "Uploading failed 10 times. Giving up."
 		os.unlink(staging_path)
