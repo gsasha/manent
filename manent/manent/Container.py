@@ -649,8 +649,24 @@ class FTPContainerConfig(ContainerConfig):
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
 
 		self.connect()
-		self.ftp.storbinary("STOR %s" % (filename), open(staging_path,"rb"))
-		self.ftp.storbinary("STOR %s" % (filename+".data"), open(staging_path+".data","rb"))
+		for i in range(10):
+			try:
+				self.ftp.storbinary("STOR %s" % (filename), open(staging_path,"rb"))
+				break
+			except:
+				print "Error uploading FTP file"
+				traceback.print_tb()
+		else:
+			raise "Uploading failed 10 times. Giving up."
+		for i in range(10):
+			try:
+				self.ftp.storbinary("STOR %s" % (filename+".data"), open(staging_path+".data","rb"))
+				break
+			except:
+				print "Error uploading FTP file"
+				traceback.print_tb()
+		else:
+			raise "Uploading failed 10 times. Giving up."
 		os.unlink(staging_path)
 		os.unlink(staging_path+".data")
 	def reconstruct_containers(self):
