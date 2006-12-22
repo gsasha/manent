@@ -3,6 +3,8 @@ import os, os.path, shutil
 import re
 import base64
 import bz2
+import traceback
+import sys
 
 import manent.utils.Digest as Digest
 import manent.utils.Format as Format
@@ -650,23 +652,30 @@ class FTPContainerConfig(ContainerConfig):
 
 		self.connect()
 		print "Uploading header", filename
+		class FileReader:
+			def __init__(self,filename):
+				self.file = open(filename,"rb")
+			def read(self,size):
+				print ".",
+				sys.stdout.flush()
+				return self.file.read(size)
 		for i in range(10):
 			try:
-				self.ftp.storbinary("STOR %s" % (filename), open(staging_path,"rb"))
+				self.ftp.storbinary("STOR %s" % (filename), FileReader(staging_path))
 				break
 			except:
 				print "Error uploading FTP file"
-				traceback.print_tb()
+				traceback.print_exc()
 		else:
 			raise "Uploading failed 10 times. Giving up."
 		print "Uploading data file", filename+".data"
 		for i in range(10):
 			try:
-				self.ftp.storbinary("STOR %s" % (filename+".data"), open(staging_path+".data","rb"))
+				self.ftp.storbinary("STOR %s" % (filename+".data"), FileReader(staging_path+".data"))
 				break
 			except:
 				print "Error uploading FTP file"
-				traceback.print_tb()
+				traceback.print_exc()
 		else:
 			raise "Uploading failed 10 times. Giving up."
 		os.unlink(staging_path)
