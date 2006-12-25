@@ -78,6 +78,8 @@ class Container:
 		self.frozen = False
 		self.compressor = None
 
+		#self.compression_index = 0
+
 	#
 	# Utility functions
 	#
@@ -118,6 +120,13 @@ class Container:
 		self.compressor = bz2.BZ2Compressor(1)
 		self.compressedSize = 0
 		self.uncompressedSize = 0
+
+		#try:
+			#os.mkdir("/tmp/compress-%04d"%self.compression_index)
+		#except:
+			#pass
+		#self.compression_block_index = 0
+		#self.compression_index += 1
 	def finish_compression(self,restart=False):
 		if self.compressor == None:
 			return
@@ -144,6 +153,8 @@ class Container:
 			#
 			self.incrementBlocks.append((data,digest,code))
 		if self.compressor:
+			print "Compressing data", len(data), type(data)
+
 			compressed = self.compressor.compress(data)
 			#print "Compressed data from", len(data), "to", len(compressed)
 			self.compressionSize += len(compressed)
@@ -152,6 +163,13 @@ class Container:
 			self.uncompressedSize += len(data)
 			self.blocks.append((digest,len(data),code))
 			self.dataFile.write(compressed)
+			#try:
+				#of = open("/tmp/compress-%04d/block.%04d" % (self.compression_index, self.compression_block_index), "w")
+				#of.write(data)
+				#of.close()
+				#self.compression_block_index+=1
+			#except:
+				#pass
 			if self.compressionSize > self.backup.container_config.compression_block_size():
 				self.start_compression()
 				self.compressionSize = 0
@@ -203,6 +221,8 @@ class Container:
 		#
 		print "Closing datafile", self.dataFileName
 		self.dataFile.close()
+		# Do the testing
+		self.test_blocks(self.dataFileName)
 		self.dataFileName = None
 	def isempty(self):
 		return len(self.blocks) == 0
@@ -284,6 +304,18 @@ class Container:
 			if blockDigest==digest:
 				return blockData
 		raise "Requested index block not found"
+	def test_blocks(self,filename=None):
+		class TestingBlockCache:
+			def __init__(self):
+				pass
+			def block_needed(self,digest):
+				return True
+			def block_loaded(self,digest,block):
+				new_digest = Digest.dataDigest(block)
+				if new_digest != digest:
+					raise "Critical error: Bad digest in container!"
+		bc = TestingBlockCache()
+		self.read_blocks(bc,filename)
 	def read_blocks(self,block_cache,filename = None):
 		compression_start_offset = None
 		block_offset = 0
