@@ -153,7 +153,7 @@ class Container:
 			#
 			self.incrementBlocks.append((data,digest,code))
 		if self.compressor:
-			print "Compressing data", len(data), type(data)
+			#print "Compressing data", len(data), type(data)
 
 			compressed = self.compressor.compress(data)
 			#print "Compressed data from", len(data), "to", len(compressed)
