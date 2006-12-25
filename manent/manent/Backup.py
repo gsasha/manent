@@ -7,6 +7,7 @@ import base64
 from cStringIO import StringIO
 import struct
 import re
+import traceback
 
 from Nodes import Directory
 import Nodes
@@ -82,6 +83,7 @@ class Backup:
 			self.txn_handler.commit()
 		except:
 			self.txn_handler.abort()
+			traceback.print_exc()
 			raise
 		finally:
 			self.blocks_db.close()
@@ -98,6 +100,7 @@ class Backup:
 			self.txn_handler.commit()
 		except:
 			self.txn_handler.abort()
+			traceback.print_exc()
 			raise
 		finally:
 			self.blocks_db.close()
@@ -149,6 +152,7 @@ class Backup:
 			self.txn_handler.commit()
 		except:
 			self.txn_handler.abort()
+			traceback.print_exc()
 			raise
 		finally:
 			for key,files_db in self.open_files_dbs.iteritems():
@@ -252,6 +256,7 @@ class Backup:
 			self.txn_handler.commit()
 		except:
 			self.txn_handler.abort()
+			traceback.print_exc()
 			raise
 		finally:
 			for key,files_db in self.open_files_dbs.iteritems():
@@ -316,6 +321,7 @@ class Backup:
 			self.txn_handler.commit()
 		except:
 			self.txn_handler.abort()
+			traceback.print_exc()
 			raise
 		finally:
 			for key,files_db in self.open_files_dbs.iteritems():
