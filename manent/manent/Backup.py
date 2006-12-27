@@ -90,11 +90,12 @@ class Backup:
 			self.db_config.close()
 
 	def reconstruct(self,data_path,container_type,container_params):
+		self.configure(data_path,container_type,container_params)
 		try:
 			self.blocks_db = self.db_config.get_database(".blocks",self.txn_handler)
 			self.blocks_cache = BlockCache(self)
 			self.container_config = Container.create_container_config(self.container_type)
-			self.container_config.init(self,self.container_params)
+			self.container_config.init(self,self.txn_handler,self.container_params)
 
 			self.do_reconstruct()
 			self.txn_handler.commit()
@@ -108,15 +109,10 @@ class Backup:
 			self.container_config.close()
 			self.db_config.close()
 			
-	def do_reconstruct(self,data_path,container_type,container_params):
-		print "Reconstructing backup", self.label, "type:", container_type, container_params
-		self.data_path = data_path
-
+	def do_reconstruct(self):
+		print "Reconstructing backup", self.label, "type:", self.container_type, self.container_params
 		self.inodes_db = {}
 		
-		self.container_config = Container.create_container_config(container_type)
-		self.container_config.init(self,container_params)
-
 		self.root = Directory(self,None,self.data_path)
 
 		#
