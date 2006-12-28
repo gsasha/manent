@@ -82,8 +82,8 @@ class Backup:
 			self.blocks_db = self.db_config.get_database(".blocks",self.txn_handler)
 			self.txn_handler.commit()
 		except:
-			self.txn_handler.abort()
 			traceback.print_exc()
+			self.txn_handler.abort()
 			raise
 		finally:
 			self.blocks_db.close()
@@ -100,8 +100,8 @@ class Backup:
 			self.do_reconstruct()
 			self.txn_handler.commit()
 		except:
-			self.txn_handler.abort()
 			traceback.print_exc()
+			self.txn_handler.abort()
 			raise
 		finally:
 			self.blocks_db.close()
@@ -147,8 +147,8 @@ class Backup:
 			self.do_scan()
 			self.txn_handler.commit()
 		except:
-			self.txn_handler.abort()
 			traceback.print_exc()
+			self.txn_handler.abort()
 			raise
 		finally:
 			for key,files_db in self.open_files_dbs.iteritems():
@@ -251,8 +251,8 @@ class Backup:
 			self.do_restore(target_path)
 			self.txn_handler.commit()
 		except:
-			self.txn_handler.abort()
 			traceback.print_exc()
+			self.txn_handler.abort()
 			raise
 		finally:
 			for key,files_db in self.open_files_dbs.iteritems():
@@ -316,8 +316,8 @@ class Backup:
 			self.do_info()
 			self.txn_handler.commit()
 		except:
-			self.txn_handler.abort()
 			traceback.print_exc()
+			self.txn_handler.abort()
 			raise
 		finally:
 			for key,files_db in self.open_files_dbs.iteritems():
