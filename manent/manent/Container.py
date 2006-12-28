@@ -118,7 +118,7 @@ class Container:
 	def start_compression(self):
 		self.finish_compression(restart=True)
 		self.blocks.append((Digest.dataDigest(""),self.totalSize,CODE_COMPRESSION_BZ2_START))
-		self.compressor = bz2.BZ2Compressor(1)
+		self.compressor = bz2.BZ2Compressor(9)
 		self.compressedSize = 0
 		self.uncompressedSize = 0
 
