@@ -1,0 +1,36 @@
+1) Install Python 2.5
+   http://www.python.org/ftp/python/2.5/python-2.5.msi
+2) Install WXPython - Unicode version
+   http://www.wxpython.org/download.php
+3) Install Subversion
+   http://subversion.tigris.org/servlets/ProjectDocumentList?folderID=91
+   http://subversion.tigris.org/files/documents/15/35379/svn-1.4.2-setup.exe ?
+4) Set path to include Python 2.5 executable
+5) Get Manent sources
+   svn co https://www.genady.net/svn_repos/manent/trunk
+   username: *******, password: ****** - ask gsasha
+   Path to 'svn' executable - c:\program files\subversion\bin\svn.exe
+
+6) Usage: Runner.py is the GUI. Manent.py is the cmdline.
+7) Create backup rule
+   python Manent.py create <rule-name> 
+                           <full-path-to-dir-to-back-up, e.g., c:\\tmp> 
+                           ftp 
+                           <server, e.g., ftp.myhost.com>
+                           <ftp-username>
+                           <ftp-password>
+                           <remote-path>
+8) Remove backup rule (if needed to re-create with different settings)
+   python Manent.py remove <rule-name>
+9) Actual backup command
+   python Manent.py backup <rule-name>
+10) Restoring from backup
+   python Manent.py restore <rule-name> <target-dir, e.g., c:\\temp>
+11) Updating sources (from the 'trunk' directory)
+   ../svn update
+
+
+CAVEAT
+a) Do NOT backup data under $HOME (e.g., C:\Documents and
+Settings\gabr\Application Data\manent),
+   else Manent will try to backup its own database recursively ...
