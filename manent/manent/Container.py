@@ -11,6 +11,9 @@ import manent.utils.Format as Format
 from Increment import Increment
 from StreamAdapter import *
 
+compression_index = -1
+compression_root = os.getenv("MANENT_COMPRESSION_LOG_ROOT")
+
 def create_container_config(containerType):
 	if containerType == "directory":
 		return DirectoryContainerConfig()
@@ -78,8 +81,6 @@ class Container:
 		self.frozen = False
 		self.compressor = None
 
-		#self.compression_index = 0
-
 	#
 	# Utility functions
 	#
@@ -121,12 +122,15 @@ class Container:
 		self.compressedSize = 0
 		self.uncompressedSize = 0
 
-		#try:
-			#os.mkdir("/tmp/compress-%04d"%self.compression_index)
-		#except:
-			#pass
-		#self.compression_block_index = 0
-		#self.compression_index += 1
+		try:
+			global compression_root
+			if compression_root != None:
+				global compression_index
+				compression_index += 1
+				os.mkdir("%s/compress-%04d"%(compression_root,compression_index))
+				self.compression_block_index = 0
+		except:
+			pass
 	def finish_compression(self,restart=False):
 		if self.compressor == None:
 			return
@@ -153,9 +157,20 @@ class Container:
 			#
 			self.incrementBlocks.append((data,digest,code))
 		if self.compressor:
-			#print "Compressing data", len(data), type(data)
-
+			try:
+				global compression_root
+				if compression_root != None:
+					global compression_index
+					of_name = "%s/compress-%04d/block.%04d" % (compression_root,compression_index, self.compression_block_index)
+					print "Writing file", of_name
+					of = open(of_name, "w")
+					of.write(data)
+					of.close()
+					self.compression_block_index+=1
+			except:
+				pass
 			compressed = self.compressor.compress(data)
+
 			#print "Compressed data from", len(data), "to", len(compressed)
 			self.compressionSize += len(compressed)
 			self.compressedSize += len(compressed)
@@ -163,13 +178,6 @@ class Container:
 			self.uncompressedSize += len(data)
 			self.blocks.append((digest,len(data),code))
 			self.dataFile.write(compressed)
-			#try:
-				#of = open("/tmp/compress-%04d/block.%04d" % (self.compression_index, self.compression_block_index), "w")
-				#of.write(data)
-				#of.close()
-				#self.compression_block_index+=1
-			#except:
-				#pass
 			if self.compressionSize > self.backup.container_config.compression_block_size():
 				self.start_compression()
 				self.compressionSize = 0
@@ -671,10 +679,19 @@ class FTPContainerConfig(ContainerConfig):
 		print "Loading data for container", index
 		container = Container(self.backup,index)
 
+		class FileWriter:
+			def __init__(self,filename):
+				self.file = open(filename,"wb")
+				self.total = 0
+			def write(self,data):
+				self.total += len(data)
+				sys.stdout.write("%d \r"%self.total)
+				sys.stdout.flush()
+				return self.file.write(data)
 		filename = container.filename()+".data"
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
 		self.connect()
-		self.ftp.retrbinary("RETR %s" % (filename), open(staging_path,"wb").write)
+		self.ftp.retrbinary("RETR %s" % (filename), FileWriter(staging_path).write,100<<10)
 		return staging_path
 	def save_container(self,container):
 		index = container.index
@@ -687,8 +704,10 @@ class FTPContainerConfig(ContainerConfig):
 		class FileReader:
 			def __init__(self,filename):
 				self.file = open(filename,"rb")
+				self.total = 0
 			def read(self,size):
-				print ".",
+				self.total += size
+				sys.stdout.write("%d \r" % self.total)
 				sys.stdout.flush()
 				return self.file.read(size)
 		for i in range(10):
@@ -759,6 +778,7 @@ class FTPContainerConfig(ContainerConfig):
 			return
 		print "Connecting to %s as %s" % (self.server,self.user)
 		self.ftp = FTP(self.server,self.user,self.password)
+		self.ftp.set_pasv(False)
 		self.ftp.cwd(self.path)
 
 
@@ -774,8 +794,9 @@ class DirectoryContainerConfig(ContainerConfig):
 		(path,) = params
 		self.path = path
 	def container_size(self):
-		return 10<<20
-	def reconstruct_containers(self):
+		#return 4<<20
+		return 4<<20
+       	def reconstruct_containers(self):
 		print "Scanning containers:", self.path
 		container_files = {}
 		container_data_files = {}
