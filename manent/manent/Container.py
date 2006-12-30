@@ -10,6 +10,7 @@ import manent.utils.Digest as Digest
 import manent.utils.Format as Format
 from Increment import Increment
 from StreamAdapter import *
+from BandwidthLimiter import *
 
 compression_index = -1
 compression_root = os.getenv("MANENT_COMPRESSION_LOG_ROOT")
@@ -701,13 +702,15 @@ class FTPContainerConfig(ContainerConfig):
 
 		self.connect()
 		print "Uploading header", filename
-		class FileReader:
+		class FileReader(BandwidthLimiter):
 			def __init__(self,filename):
+				BandwidthLimiter.__init__(self,10000.0)
 				self.file = open(filename,"rb")
 				self.total = 0
 			def read(self,size):
 				self.total += size
-				sys.stdout.write("%d \r" % self.total)
+				self.packet(size)
+				sys.stdout.write("%d %f\r" % (self.total,self.get_measured_speed()))
 				sys.stdout.flush()
 				return self.file.read(size)
 		for i in range(10):
