@@ -3,6 +3,7 @@ import time
 class BandwidthLimiter:
 	def __init__(self,speed_limit):
 		self.packets = []
+		self.delays = []
 		self.size = 0
 		self.speed_limit = speed_limit
 		self.measured_speed = 0.0
@@ -30,6 +31,45 @@ class BandwidthLimiter:
 			packet_delay = self.size/self.speed_limit - time_range
 			#print "sleeping for",packet_delay,"seconds"
 			time.sleep(packet_delay)
+			self.delays.append((time.time(), packet_delay))
+		else:
+			self.delays.append((time.time(), 0))
+		# Count data transferred during last second
+		last_time = self.packets[-1][0]
+		second_size = 0
+		for (t,s) in reversed(self.packets):
+			if last_time - t > 1.0:
+				break
+			second_size += s
+		while len(self.delays) > 0 and self.delays[-1][0]-self.delays[0][0] > 10.0:
+			self.delays = self.delays[1:]
+		total_delay = 0.0
+		for t,d in self.delays:
+			total_delay = total_delay*0.8+d*0.2
+		#total_delay = sum([x[1] for x in self.delays])
+		# Decide if we want to decrease or increase the limit
+		if total_delay < 0.05:
+			self.speed_limit = self.speed_limit / 1.03
+			#print "decreasing speed limit to", self.speed_limit
+		elif total_delay < 0.1:
+			self.speed_limit = self.speed_limit / 1.015
+			#print "decreasing speed limit to", self.speed_limit
+		elif total_delay < 0.15:
+			self.speed_limit = self.speed_limit / 1.007
+			#print "decreasing speed limit to", self.speed_limit
+		elif total_delay > 2.0:
+			self.speed_limit = self.speed_limit * 1.05
+		elif total_delay > 1.0:
+			self.speed_limit = self.speed_limit * 1.015
+		elif total_delay > 0.5:
+			self.speed_limit = self.speed_limit * 1.007
+		elif total_delay > 0.3:
+			self.speed_limit = self.speed_limit * 1.003
+		#elif self.measured_speed*1.2 > self.speed_limit:
+			#self.speed_limit = self.speed_limit * 1.01
+			##print "increasing speed limit to", self.speed_limit
+		#print "total_delay",total_delay,"limit",self.speed_limit, "measured",self.measured_speed
+		#print "delays", self.delays
 	def get_measured_speed(self):
 		return self.measured_speed
 

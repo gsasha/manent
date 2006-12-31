@@ -133,6 +133,13 @@ class File(Node):
 					ctx.changed_nodes += 1
 					ctx.new_files_db[key] = old_db[old_key]
 					ctx.new_files_db["S"+key] = old_db["S"+old_key]
+					#
+					# We have used old_db, and created new one out of it.
+					# Old one is no longer needed
+					#
+					del old_db[old_key]
+					del old_db["S"+old_key]
+					
 					self.code = NODE_FILE
 
 				# Before exiting, must check if we have to update inodes_db

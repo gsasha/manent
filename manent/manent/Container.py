@@ -710,7 +710,7 @@ class FTPContainerConfig(ContainerConfig):
 			def read(self,size):
 				self.total += size
 				self.packet(size)
-				sys.stdout.write("%d %f\r" % (self.total,self.get_measured_speed()))
+				sys.stdout.write("%d speed:%3.0f limit:%3.0f\r" % (self.total,self.get_measured_speed(),self.speed_limit))
 				sys.stdout.flush()
 				return self.file.read(size)
 		for i in range(10):
