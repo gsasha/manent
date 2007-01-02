@@ -31,9 +31,11 @@ class BandwidthLimiter:
 			packet_delay = self.size/self.speed_limit - time_range
 			#print "sleeping for",packet_delay,"seconds"
 			time.sleep(packet_delay)
-			self.delays.append((time.time(), packet_delay))
 		else:
-			self.delays.append((time.time(), 0))
+			packet_delay = 0
+		return
+
+		self.delays.append(time.time(), packet_delay)
 		# Count data transferred during last second
 		last_time = self.packets[-1][0]
 		second_size = 0
