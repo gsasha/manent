@@ -28,7 +28,7 @@ class BandwidthLimiter:
 			#return
 		self.measured_speed = self.size / time_range
 		if self.measured_speed > self.speed_limit:
-			packet_delay = self.size/self.speed_limit - time_range
+			packet_delay = (self.size/self.speed_limit - time_range)*time_range/len(self.packets)
 			#print "sleeping for",packet_delay,"seconds"
 			time.sleep(packet_delay)
 		else:
