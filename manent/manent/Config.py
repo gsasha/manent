@@ -21,7 +21,7 @@ class GlobalConfig:
 	def container_file_name(self,label,index):
 		return "manent.%s.%s" % (label,IntegerEncodings.ascii_encode_int_varlen(index))
 	def container_index(self,name,label,suffix):
-		file_regexp = "^manent\\.%s\\.(\w\d+)%s$"%(label,suffix)
+		file_regexp = "^manent\\.%s\\.(\w\w+)%s$"%(label,suffix)
 		match = re.match(file_regexp, name)
 		if not match:
 			return None
