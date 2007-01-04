@@ -663,8 +663,6 @@ class FTPContainerConfig(ContainerConfig):
 		(self.server,self.user,self.password,self.path) = params
 	def container_size(self):
 		return 4<<20
-	def reconstruct_containers(self):
-		raise "FTP reconstruct not implemented yet"
 	def load_container(self,index):
 		print "Loading header for container", index
 		container = Container(self.backup,index)
