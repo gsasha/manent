@@ -20,7 +20,7 @@ class BandwidthLimiter:
 			self.size -= self.packets[0][1]
 			self.packets = self.packets[1:]
 			time_range = self.packets[-1][0] - self.packets[0][0]
-		if self.size < 10*1024 and time_range < 1.0:
+		if self.size < 10*1024 or time_range < 1.0:
 			#print "size too small"
 			return
 		#if time_range < 30.0 and self.size > 10*1024:
