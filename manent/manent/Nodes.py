@@ -363,7 +363,11 @@ class Directory(Node):
 		# that nothing changed
 		self.code = NODE_DIR
 		self.children = []
-		for name in os.listdir(self.path()):
+		if self.path().startswith(self.backup.global_config.home_area()):
+			entries = []
+		else:
+			entries = os.listdir(self.path())
+		for name in entries:
 			if (file=="..") or (file=="."):
 				continue
 			path = os.path.join(self.path(),name)
