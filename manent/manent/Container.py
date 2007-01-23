@@ -10,7 +10,9 @@ import manent.utils.Digest as Digest
 import manent.utils.Format as Format
 from Increment import Increment
 from StreamAdapter import *
-from BandwidthLimiter import *
+from manent.utils.BandwidthLimiter import *
+from manent.utils.RemoteFSHandler import FTPHandler, SFTPHandler
+from manent.utils.FileIO import FileReader, FileWriter
 
 compression_index = -1
 compression_root = os.getenv("MANENT_COMPRESSION_LOG_ROOT")
@@ -21,7 +23,9 @@ def create_container_config(containerType):
 	elif containerType == "mail":
 		return MailContainerConfig()
 	elif containerType == "ftp":
-		return FTPContainerConfig()
+		return FTPContainerConfig(FTPHandler)
+	elif containerType == "sftp":
+		return FTPContainerConfig(SFTPHandler)
 	#elif containerType == "gmail":
 	#	return GmailContainerConfig()
 	#elif containerType == "optical":
@@ -650,99 +654,49 @@ class FTPContainerConfig(ContainerConfig):
 	"""
 	Handler for a FTP site storage
 	"""
-	def __init__(self):
+	def __init__(self,RemoteHandlerClass):
 		ContainerConfig.__init__(self)
-		self.server = None
-		self.user = None
-		self.password = None
-		self.path = None
-
-		self.ftp = None
+		self.RemoteHandlerClass = RemoteHandlerClass
+		self.up_bw_limiter = BandwidthLimiter(10.0E3)
+		self.down_bw_limiter = BandwidthLimiter(100.0E3)
 	def init(self,backup,txn_handler,params):
 		ContainerConfig.init(self,backup,txn_handler)
-		(self.server,self.user,self.password,self.path) = params
+		(host,user,password,path) = params
+		self.fs_handler = self.RemoteHandlerClass(host,user,password,path)
 	def container_size(self):
 		return 4<<20
 	def load_container(self,index):
 		print "Loading header for container", index
 		container = Container(self.backup,index)
-
 		filename = container.filename()
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
-		self.connect()
-		self.ftp.retrbinary("RETR %s" % (filename), open(staging_path,"wb").write)
-		container.load(staging_path)
+		self.fs_handler.download(FileWriter(staging_path,self.down_bw_limiter).write, filename)
 		return container
 	
 	def load_container_data(self,index):
 		print "Loading data for container", index
 		container = Container(self.backup,index)
-
-		class FileWriter:
-			def __init__(self,filename):
-				self.file = open(filename,"wb")
-				self.total = 0
-			def write(self,data):
-				self.total += len(data)
-				sys.stdout.write("%d \r"%self.total)
-				sys.stdout.flush()
-				return self.file.write(data)
 		filename = container.filename()+".data"
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
-		self.connect()
-		self.ftp.retrbinary("RETR %s" % (filename), FileWriter(staging_path).write,100<<10)
+		self.fs_handler.download(FileWriter(staging_path,self.down_bw_limiter).write, filename)
 		return staging_path
+	
 	def save_container(self,container):
 		index = container.index
 		
 		filename = container.filename()
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
-
-		self.connect()
-		print "Uploading header", filename
-		class FileReader(BandwidthLimiter):
-			def __init__(self,filename):
-				BandwidthLimiter.__init__(self,10000.0)
-				self.file = open(filename,"rb")
-				self.total = 0
-			def read(self,size):
-				self.total += size
-				self.packet(size)
-				sys.stdout.write("%d speed:%3.0f limit:%3.0f\r" % (self.total,self.get_measured_speed(),self.speed_limit))
-				sys.stdout.flush()
-				return self.file.read(size)
-		for i in range(10):
-			try:
-				self.ftp.storbinary("STOR %s" % (filename), FileReader(staging_path))
-				break
-			except:
-				print "Error uploading FTP file"
-				traceback.print_exc()
-				self.ftp = None
-				self.connect()
-		else:
-			raise "Uploading failed 10 times. Giving up."
-		print "Uploading data file", filename+".data"
-		for i in range(10):
-			try:
-				self.ftp.storbinary("STOR %s" % (filename+".data"), FileReader(staging_path+".data"))
-				break
-			except:
-				print "Error uploading FTP file"
-				traceback.print_exc()
-				self.ftp = None
-				self.connect()
-		else:
-			raise "Uploading failed 10 times. Giving up."
+		self.fs_handler.upload(FileReader(staging_path,self.up_bw_limiter), filename)
+		self.fs_handler.upload(FileReader(staging_path+".data",self.up_bw_limiter), filename+".data")
 		os.unlink(staging_path)
 		os.unlink(staging_path+".data")
 	def reconstruct_containers(self):
 		print "Scanning containers:", self.path
-		self.connect()
 		container_files = {}
 		container_data_files = {}
-		print "listed files", self.ftp.nlst()
-		for file in self.ftp.nlst():
+		file_list = self.fs_handler.list_files()
+		print "listed files", file_list
+		for file in file_list:
 			container_index = self.backup.global_config.container_index(file,self.backup.label,"")
 			if container_index != None:
 				container_files[container_index] = file
@@ -771,16 +725,6 @@ class FTPContainerConfig(ContainerConfig):
 			self.load_container(index)
 			container.load()
 			self.containers[index] = container
-	#
-	# Internal implementation
-	#
-	def connect(self):
-		if self.ftp != None:
-			return
-		print "Connecting to %s as %s" % (self.server,self.user)
-		self.ftp = FTP(self.server,self.user,self.password)
-		self.ftp.set_pasv(False)
-		self.ftp.cwd(self.path)
 
 
 class DirectoryContainerConfig(ContainerConfig):

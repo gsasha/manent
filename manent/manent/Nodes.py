@@ -5,6 +5,7 @@ import re
 import manent.utils.IntegerEncodings as IntegerEncodings
 import manent.utils.Digest as Digest
 import manent.utils.Format as Format
+from manent.utils.FileIO import read_blocks
 
 import Backup
 
@@ -14,6 +15,7 @@ NODE_SYMLINK       = "S"
 NODE_DIR_BASED     = "E"
 NODE_FILE_BASED    = "G"
 NODE_SYMLINK_BASED = "T"
+
 
 #--------------------------------------------------------
 # CLASS:Node
@@ -157,11 +159,7 @@ class File(Node):
 		#print "File contents differ from any base!"
 		digests = []
 		offset = 0
-		read_handle = open(self.path(), "rb")
-		while True:
-			data = read_handle.read(self.backup.container_config.blockSize())
-			if len(data)==0:
-				break
+		for data in read_blocks(open(self.path(), "rb"), self.backup.container_config.blockSize()):
 			digest = Digest.dataDigest(data)
 			digests.append(digest)
 			ctx.add_block(data,digest)
@@ -210,17 +208,9 @@ class File(Node):
 		#
 		# No, this file is new. Create it.
 		#
-		digests = []
-		digestSize = Digest.dataDigestSize()
-		while True:
-			digest = valueS.read(digestSize)
-			if digest=='':
-				break
-			digests.append(digest)
-		
 		print "Restoring file", self.path()
 		file = open(self.path(), "wb")
-		for digest in digests:
+		for digest in read_blocks(valueS,Digest.dataDigestSize()):
 			#print "File", self.path(), "reading digest", base64.b64encode(digest)
 			file.write(self.backup.blocks_cache.load_block(digest))
 	
@@ -242,10 +232,7 @@ class File(Node):
 		#
 		# Ok, this file is new. Count all its blocks
 		#
-		digestSize = Digest.dataDigestSize()
-		while True:
-			digest = valueS.read(digestSize)
-			if digest == "": break
+		for digest in read_blocks(valueS,Digest.dataDigestSize()):
 			block_cache.request_block(digest)
 	def list_files(self,ctx,based):
 		if self.code == NODE_FILE_BASED or based == True:

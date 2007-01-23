@@ -370,11 +370,8 @@ class Backup:
 
 			stream = SpecialIStream(self,increment_blocks)
 			expr = re.compile(":")
-			while True:
-				line = stream.readline()
+			for line in stream:
 				line = line.rstrip()
-				if len(line)==0:
-					break
 				(key,value) = expr.split(line)
 				#print "Read line from stream: [%s:%s]" %(base64.b64decode(key),value)
 				db[base64.b64decode(key)]=base64.b64decode(value)

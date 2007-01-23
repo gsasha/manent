@@ -22,6 +22,7 @@ class DatabaseConfig:
 		self.dbenv.open(self.__dbenv_dir(), db.DB_RECOVER| db.DB_CREATE |db.DB_INIT_TXN| db.DB_INIT_MPOOL| db.DB_INIT_LOCK|db.DB_THREAD)
 
 	def txn_begin(self):
+		self.dbenv.txn_checkpoint()
 		return self.dbenv.txn_begin(flags=db.DB_DIRTY_READ)
 	
 	def close(self):
