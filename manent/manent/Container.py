@@ -338,6 +338,7 @@ class Container:
 		if filename == None:
 			filename = os.path.join(self.backup.global_config.staging_area(),self.filename()+".data")
 		file = open(filename, "rb")
+		os.unlink(filename)
 		#
 		# Compute compression block sizes. This is necessary because
 		# we cannot give extraneous data to decompressor
@@ -672,6 +673,7 @@ class FTPContainerConfig(ContainerConfig):
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
 		self.fs_handler.download(FileWriter(staging_path,self.down_bw_limiter), filename)
 		container.load(staging_path)
+		os.unlink(staging_path)
 		return container
 	
 	def load_container_data(self,index):
