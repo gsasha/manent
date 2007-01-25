@@ -68,7 +68,14 @@ class IStreamAdapter:
 			if ch == "\n":
 				break
 		return result.getvalue()
-
+	# Support for iterating over lines of a file
+	def __iter__(self):
+		return self
+	def next(self):
+		line = self.readline()
+		if len(line)==0:
+			raise StopIteration
+		return line
 	def read_block(self):
 		raise "read_block must be overridden by the inheriting class"
 
