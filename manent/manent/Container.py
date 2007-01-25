@@ -657,7 +657,7 @@ class FTPContainerConfig(ContainerConfig):
 	def __init__(self,RemoteHandlerClass):
 		ContainerConfig.__init__(self)
 		self.RemoteHandlerClass = RemoteHandlerClass
-		self.up_bw_limiter = BandwidthLimiter(10.0E3)
+		self.up_bw_limiter = BandwidthLimiter(15.0E3)
 		self.down_bw_limiter = BandwidthLimiter(100.0E3)
 	def init(self,backup,txn_handler,params):
 		ContainerConfig.init(self,backup,txn_handler)
@@ -670,7 +670,8 @@ class FTPContainerConfig(ContainerConfig):
 		container = Container(self.backup,index)
 		filename = container.filename()
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
-		self.fs_handler.download(FileWriter(staging_path,self.down_bw_limiter).write, filename)
+		self.fs_handler.download(FileWriter(staging_path,self.down_bw_limiter), filename)
+		container.load(staging_path)
 		return container
 	
 	def load_container_data(self,index):
@@ -678,7 +679,7 @@ class FTPContainerConfig(ContainerConfig):
 		container = Container(self.backup,index)
 		filename = container.filename()+".data"
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
-		self.fs_handler.download(FileWriter(staging_path,self.down_bw_limiter).write, filename)
+		self.fs_handler.download(FileWriter(staging_path,self.down_bw_limiter), filename)
 		return staging_path
 	
 	def save_container(self,container):
@@ -691,7 +692,7 @@ class FTPContainerConfig(ContainerConfig):
 		os.unlink(staging_path)
 		os.unlink(staging_path+".data")
 	def reconstruct_containers(self):
-		print "Scanning containers:", self.path
+		print "Scanning containers:"
 		container_files = {}
 		container_data_files = {}
 		file_list = self.fs_handler.list_files()

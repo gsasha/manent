@@ -328,8 +328,6 @@ class Backup:
 			self.db_config.close()
 	def do_info(self):
 		
-		print "Containers"
-		self.container_config.info()
 		print "there are %d increments" % len(self.container_config.increments)
 		for increment in self.container_config.increments:
 			#if not self.database_loaded(i):
@@ -347,6 +345,8 @@ class Backup:
 			self.root.set_num(0)
 			self.root.code = Nodes.NODE_DIR
 			self.root.list_files(ctx)
+		print "Containers"
+		self.container_config.info()
 	#
 	# Files database loading
 	#
