@@ -658,7 +658,7 @@ class FTPContainerConfig(ContainerConfig):
 		ContainerConfig.__init__(self)
 		self.RemoteHandlerClass = RemoteHandlerClass
 		self.up_bw_limiter = BandwidthLimiter(15.0E3)
-		self.down_bw_limiter = BandwidthLimiter(100.0E3)
+		self.down_bw_limiter = BandwidthLimiter(10000.0E3)
 	def init(self,backup,txn_handler,params):
 		ContainerConfig.init(self,backup,txn_handler)
 		(host,user,password,path) = params

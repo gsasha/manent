@@ -91,15 +91,14 @@ class SFTPHandler(RemoteFSHandler):
 	@retry_decorator(10, "upload")
 	def upload(self,file,remote_name):
 		handle = self.channel.file(os.path.join(self.path,remote_name), "wb")
-		for block in read_blocks(file, 32<<10):
+		for block in read_blocks(file, 128<<10):
 			handle.write(block)
 		handle.close()
 		
 	@retry_decorator(10, "download")
 	def download(self,file,remote_name):
-		print "self.path=",self.path,"remote_name=",remote_name
 		handle = self.channel.file(os.path.join(self.path,remote_name), "rb")
-		for block in read_blocks(handle, 32<<10):
+		for block in read_blocks(handle, 16<<10):
 			file.write(block)
 		handle.close()
 	#

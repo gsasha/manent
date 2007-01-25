@@ -375,6 +375,7 @@ class Backup:
 				(key,value) = expr.split(line)
 				#print "Read line from stream: [%s:%s]" %(base64.b64decode(key),value)
 				db[base64.b64decode(key)]=base64.b64decode(value)
+			self.txn_handler.commit()
 		return db
 
 class ScanContext:

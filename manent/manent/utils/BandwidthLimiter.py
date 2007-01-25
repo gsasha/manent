@@ -16,7 +16,7 @@ class BandwidthLimiter:
 		self.packets.append((time.time(),size))
 		self.size += size
 		time_range = self.packets[-1][0] - self.packets[0][0]
-		while (time_range > 60.0) or self.size > 100*1024:
+		while len(self.packets)>0 and (time_range > 60.0 or self.size > 100*1024):
 			self.size -= self.packets[0][1]
 			self.packets = self.packets[1:]
 			time_range = self.packets[-1][0] - self.packets[0][0]

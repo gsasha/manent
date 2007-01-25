@@ -199,11 +199,11 @@ class File(Node):
 		#
 		if linktype=="H":
 			if ctx.inodes_db.has_key(self.number):
-				otherFile = ctx.inodes_db[num]
+				otherFile = ctx.inodes_db[self.number]
 				print "Restoring hard link from", otherFile, "to", self.path()
 				os.link(otherFile, self.path())
 				return
-			ctx.inodes_db[num] = self.path()
+			ctx.inodes_db[self.number] = self.path()
 
 		#
 		# No, this file is new. Create it.
@@ -225,10 +225,10 @@ class File(Node):
 		linktype = valueS.read(1)
 
 		if linktype=="H":
-			if ctx.inodes_db.has_key(num):
+			if ctx.inodes_db.has_key(self.number):
 				# This file is a hard link, so it needs no blocks
 				return
-			ctx.inodes_db[num] = self.path()
+			ctx.inodes_db[self.number] = self.path()
 		#
 		# Ok, this file is new. Count all its blocks
 		#

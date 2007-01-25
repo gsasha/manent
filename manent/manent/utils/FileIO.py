@@ -24,7 +24,7 @@ class FileWriter:
 	def write(self,data):
 		self.total += len(data)
 		self.bw_limiter.packet(len(data))
-		sys.stdout.write("%d \r"%self.total)
+		sys.stdout.write("%d speed:%3.0f limit:%3.0f\r" % (self.total,self.bw_limiter.get_measured_speed(),self.bw_limiter.speed_limit))
 		sys.stdout.flush()
 		return self.file.write(data)
 
