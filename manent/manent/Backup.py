@@ -141,6 +141,7 @@ class Backup:
 	def scan(self):
 		try:
 			self.blocks_db = self.db_config.get_database(".blocks",self.txn_handler)
+			self.blocks_cache = BlockCache(self)
 			self.container_config = Container.create_container_config(self.container_type)
 			self.container_config.init(self,self.txn_handler,self.container_params)
 
@@ -155,6 +156,7 @@ class Backup:
 				files_db.close()
 			self.blocks_db.close()
 			self.container_config.close()
+			self.blocks_cache.close()
 			self.db_config.close()
 		
 	def do_scan(self):

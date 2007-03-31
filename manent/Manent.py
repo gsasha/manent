@@ -109,3 +109,6 @@ elif sys.argv[1] == "info":
 
 else:
 	print "Unknown command", sys.argv[1]
+
+sys.exit(0)
+

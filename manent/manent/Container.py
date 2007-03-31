@@ -85,6 +85,7 @@ class Container:
 		self.mode = None
 		self.frozen = False
 		self.compressor = None
+		self.blocks = None
 
 	#
 	# Utility functions
@@ -247,7 +248,7 @@ class Container:
 	def load(self,filename=None):
 		if self.mode == "LOAD":
 			return
-		
+
 		self.mode = "LOAD"
 		self.totalSize = 0
 		self.blocks = []
@@ -270,7 +271,8 @@ class Container:
 		if Digest.headerDigest(tableContents) != tableDigest:
 			raise "Manent: header of container file corrupted"
 		tableFile = StringIO(tableContents)
-		for i in range(0,Format.read_int(tableFile)):
+		numBlocks = Format.read_int(tableFile)
+		for i in range(0,numBlocks):
 			blockSize = Format.read_int(tableFile)
 			blockCode = Format.read_int(tableFile)
 			blockDigest = tableFile.read(Digest.dataDigestSize())
@@ -283,6 +285,7 @@ class Container:
 				if Digest.dataDigest(data) != digest:
 					raise "Manent: index block corrupted"
 				self.indexBlocks.append((data,digest,code))
+		self.frozen = True
 	def info(self):
 		print "Manent container #%d of backup %s" % (self.index, self.backup.label)
 		for (digest,size,code) in self.blocks:
@@ -338,7 +341,6 @@ class Container:
 		if filename == None:
 			filename = os.path.join(self.backup.global_config.staging_area(),self.filename()+".data")
 		file = open(filename, "rb")
-		os.unlink(filename)
 		#
 		# Compute compression block sizes. This is necessary because
 		# we cannot give extraneous data to decompressor
@@ -579,6 +581,7 @@ class ContainerConfig:
 		for container in self.containers:
 			if container == None:
 				continue
+			print "Looking for increments in container", container.index
 			start_message = container.find_increment_start()
 			end_message = container.find_increment_end()
 			if start_message != None:
@@ -724,9 +727,7 @@ class FTPContainerConfig(ContainerConfig):
 			if not container_data_files.has_key(index):
 				print "Container", index, "has no data file :("
 				continue
-			container = Container(self.backup,index)
-			self.load_container(index)
-			container.load()
+			container = self.load_container(index)
 			self.containers[index] = container
 
 

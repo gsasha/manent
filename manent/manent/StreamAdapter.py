@@ -76,6 +76,7 @@ class IStreamAdapter:
 		if len(line)==0:
 			raise StopIteration
 		return line
+	
 	def read_block(self):
 		raise "read_block must be overridden by the inheriting class"
 

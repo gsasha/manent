@@ -6,6 +6,7 @@ import manent.utils.IntegerEncodings as IntegerEncodings
 import manent.utils.Digest as Digest
 import manent.utils.Format as Format
 from manent.utils.FileIO import read_blocks
+import traceback
 
 import Backup
 
@@ -420,8 +421,10 @@ class Directory(Node):
 					same = True
 			except OSError:
 				print "OSError accessing", path
+				traceback.print_exc()
 			except IOError, (errno, strerror):
 				print "IOError %s accessing '%s'" % (errno,strerror), path
+				traceback.print_exc()
 
 		if self.same_as_base == True and len(base_nodes) != 0:
 			print "Files remained in directory, so it's not the same"
