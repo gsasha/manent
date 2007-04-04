@@ -77,7 +77,8 @@ class SFTPHandler(RemoteFSHandler):
 	def __init__(self,host,username,password,path):
 		RemoteFSHandler.__init__(self)
 		self.host = host
-		self.path = path
+		#self.path = path
+		self.path = path.replace("\\", "/")
 		self.username = username
 		self.password = password
 		# Internal data
