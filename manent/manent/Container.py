@@ -621,8 +621,11 @@ class ContainerConfig:
 		self.containers[index] = None
 	def add_container(self):
 		if len(self.containers)>0 and self.containers[-1] != None:
-			self.containers[-1].finish_dump()
-			self.save_container(self.containers[-1])
+			if not self.containers[-1].frozen:
+				# The previous container can belong to this increment or to the previous one.
+				# In the second case, it did not start dumping and so does not need to be saved
+				self.containers[-1].finish_dump()
+				self.save_container(self.containers[-1])
 			self.new_increment.add_container(self.containers[-1].index)
 			self.containers_db["Containers"] = str(len(self.containers))
 		container = Container(self.backup,len(self.containers))
