@@ -6,6 +6,14 @@
    http://subversion.tigris.org/servlets/ProjectDocumentList?folderID=91
    http://subversion.tigris.org/files/documents/15/35379/svn-1.4.2-setup.exe ?
 4) Set path to include Python 2.5 executable
+5  Install "paramiko" and "pycrypto". On Linux, just install the relevant packages.
+   On Windows:
+   1) Unpack package
+   2) Run "python setup.py build --compiler=mingw32 bdist_wininst"
+   3) Run the installer created in the "dist" directory
+   4) Verify installation using (python -c "import paramiko") -
+      no complaints means everything is OK
+
 5) Get Manent sources
    svn co https://www.genady.net/svn_repos/manent/trunk
    username: *******, password: ****** - ask gsasha
@@ -30,7 +38,8 @@
    ../svn update
 
 
-CAVEAT
-a) Do NOT backup data under $HOME (e.g., C:\Documents and
-Settings\gabr\Application Data\manent),
-   else Manent will try to backup its own database recursively ...
+UN-CAVEAT
+a) It IS possible already to backup data under $HOME (e.g., C:\Documents and
+Settings\gabr\Application Data\manent)
+
+
