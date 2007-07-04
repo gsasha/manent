@@ -99,7 +99,10 @@ class File(Node):
 			elif file_code == NODE_FILE_BASED:
 				old_db = ctx.base_files_db
 			else:
-				raise "File %s cannot have data of code [%s:%d]" %(self.path(),file_code,ord(file_code))
+				# This file was previously of different type, i.e.,
+				# it could be a directory and now a symlink.
+				# That's fine, but we can't of course base on it anymore
+				break
 
 			# load the old data
 			old_key = self.node_key(file_num)
@@ -260,7 +263,10 @@ class Symlink(Node):
 				# OK, if this is equal, we'll be able to base on it
 				old_db = ctx.base_files_db
 			else:
-				raise "File cannot have data of code", file_code
+				# This file was previously of different type, i.e.,
+				# it could be a directory and now a symlink.
+				# That's fine, but we can't of course base on it anymore
+				break
 
 			if old_db[self.node_key(file_num)] == self.link:
 				self.number = file_num
