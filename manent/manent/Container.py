@@ -724,7 +724,7 @@ class FTPContainerConfig(ContainerConfig):
 		for index in range(0,max_container+1):
 			self.containers.append(None)
 		self.containers_db["Containers"] = str(len(self.containers))
-		
+		print " Before loading we have %d containers " % self.num_containers()
 		print "Loading %d containers:" % max_container
 		for (index, file) in container_files.iteritems():
 			if not container_data_files.has_key(index):

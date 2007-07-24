@@ -123,7 +123,7 @@ class Backup:
 		#
 		# Reconstruct the blocks db
 		#
-		print "Reconstructing blocks database:",
+		print "Reconstructing blocks database from containers %d..%d:" %(0,self.container_config.num_containers()),
 		for idx in range(0,self.container_config.num_containers()):
 			print " ",idx,
 			container = self.container_config.get_container(idx)
@@ -335,6 +335,9 @@ class Backup:
 			#if not self.database_loaded(i):
 				#print "Increment %d not loaded" % i
 				#continue
+			if not increment.is_finalized():
+				print "Increment %d is not finalized, no files db!" % (increment.index)
+				continue
 			files_db = self.__load_files_db(increment.index)
 			base_files_db = None
 			if increment.base_index != None:
