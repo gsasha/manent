@@ -673,7 +673,7 @@ class FTPContainerConfig(ContainerConfig):
 	def container_size(self):
 		return 4<<20
 	def load_container(self,index):
-		print "Loading header for container", index
+		print "Loading header for container", index, "     "
 		container = Container(self.backup,index)
 		filename = container.filename()
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
@@ -683,7 +683,7 @@ class FTPContainerConfig(ContainerConfig):
 		return container
 	
 	def load_container_data(self,index):
-		print "Loading data for container", index
+		print "Loading data for container", index, "     "
 		container = Container(self.backup,index)
 		filename = container.filename()+".data"
 		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
@@ -780,7 +780,7 @@ class DirectoryContainerConfig(ContainerConfig):
 			container = self.load_container(index)
 			self.containers[index] = container
 	def load_container(self,index):
-		print "Loading header for container", index
+		print "Loading header for container", index, "     "
 		container = Container(self.backup,index)
 
 		filename = container.filename()
@@ -790,7 +790,7 @@ class DirectoryContainerConfig(ContainerConfig):
 		return container
 	
 	def load_container_data(self,index):
-		print "Loading data for container", index
+		print "Loading data for container", index, "     "
 		container = Container(self.backup,index)
 
 		filename = container.filename()+".data"
