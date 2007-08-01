@@ -1,4 +1,5 @@
 import IntegerEncodings as IE
+from cStringIO import StringIO
 
 #
 # Value reading/writing
@@ -15,6 +16,15 @@ def read_ints(file):
 def write_ints(file,nums):
 	for num in nums:
 		file.write(IE.binary_encode_int_varlen(num))
+
+def deserialize_ints(string):
+	sio = StringIO(string)
+	return read_ints(sio)
+
+def serialize_ints(nums):
+	sio = StringIO()
+	write_ints(sio,nums)
+	return sio.getvalue()
 
 def write_string(file,str):
 	"""

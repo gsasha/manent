@@ -9,7 +9,7 @@ import struct
 import re
 import traceback
 
-from Nodes import Directory
+#from Nodes import Directory
 import Nodes
 import Container
 from BlockCache import BlockCache
@@ -26,10 +26,14 @@ class SpecialOStream(OStreamAdapter):
 		OStreamAdapter.__init__(self, backup.container_config.blockSize())
 		self.backup = backup
 		self.code = code
+		self.digests = []
 	def write_block(self,data):
 		#print "adding block of code", self.code, "length", len(written)
 		digest = Digest.dataDigest(data)
 		self.backup.container_config.add_block(data,digest,self.code)
+		self.digests.append(digest)
+	def get_digests(self):
+		return self.digests
 
 class SpecialIStream(IStreamAdapter):
 	"""
@@ -59,7 +63,7 @@ class Backup:
 		self.db_config = DatabaseConfig(self.global_config,"manent.%s.db"%self.label)
 		self.txn_handler = TransactionHandler(self.db_config)
 
-		self.open_files_dbs = {}
+		#self.open_files_dbs = {}
 	#
 	# Three initialization methods:
 	# Creation of new Backup, loading from live DB, loading from backups
@@ -123,7 +127,7 @@ class Backup:
 		#
 		# Reconstruct the blocks db
 		#
-		print "Reconstructing blocks database:",
+		print "Reconstructing blocks database from containers %d..%d:" %(0,self.container_config.num_containers()),
 		for idx in range(0,self.container_config.num_containers()):
 			print " ",idx,
 			container = self.container_config.get_container(idx)
@@ -141,86 +145,34 @@ class Backup:
 	def scan(self):
 		try:
 			self.blocks_db = self.db_config.get_database(".blocks",self.txn_handler)
-			self.blocks_cache = BlockCache(self)
+			self.increments_db = self.db_config.get_database(".increments",self.txn_handler)
 			self.container_config = Container.create_container_config(self.container_type)
 			self.container_config.init(self,self.txn_handler,self.container_params)
 
-			self.do_scan()
+			blocks_cache = BlockCache(self)
+			ctx = ScanContext(self,blocks_cache)
+			self.do_scan(ctx)
 			self.txn_handler.commit()
 		except:
 			traceback.print_exc()
 			self.txn_handler.abort()
 			raise
 		finally:
-			for key,files_db in self.open_files_dbs.iteritems():
-				files_db.close()
+			ctx.close()
 			self.blocks_db.close()
+			self.increments_db.close()
 			self.container_config.close()
 			self.blocks_cache.close()
 			self.db_config.close()
 		
-	def do_scan(self):
-		#
-		# Check in which increments we should look
-		#
-		prev_increments = self.container_config.prev_increments()
-		prev_files_dbs = []
-		prev_nums = []
-		last_based_increment = None
-		for idx in prev_increments:
-			f_increment = self.container_config.increments[idx]
-			if f_increment.finalized:
-				# At most one of the prev_increments is supposed to be
-				# finalized, and the final one!
-				self.__load_files_db(idx)
-				if f_increment.base_index != None:
-					last_based_increment = f_increment
-			if self.__files_db_loaded(idx):
-				prev_files_dbs.append(self.__load_files_db(idx))
-				prev_nums.append((len(prev_nums),0,Nodes.NODE_DIR))
-		prev_nums.reverse()
-		print "Previous increments are: ", prev_increments, prev_nums
-
-		base_index = None
-		new_increment = False
-		
-		if last_based_increment != None:
-			print "last based increment", last_based_increment
-			# Only finalized increments can change the base!
-			base_index = last_based_increment.base_index
-			base_diff = last_based_increment.base_diff
-			if base_index == None:
-				# The previous increment is not based on anybody - OK, we base on it
-				base_index = prev_increments[-1]
-				(idx,node_num,code) = prev_nums[-1]
-				# This will upgrade all the nodes in this increment to BASED status
-				# for the updating
-				prev_nums[-1] = (idx,node_num,Nodes.NODE_DIR_BASED)
-			elif base_diff>0.5:
-					# The previous increment is based on somebody, but too big - OK,
-					# we'll make a new one
-					print "Difference too big. Starting a new increment"
-					new_increment = True
-					#base_index = None
-			else:
-				print "Reusing the same increment", base_index
-				prev_nums.append((len(prev_nums),0,Nodes.NODE_DIR_BASED))
-				prev_files_dbs.append(self.__load_files_db(base_index))
-			print "Basing this increment on", base_index
-		
-		base_files_db = None
-		if base_index != None:
-			base_files_db = self.__load_files_db(base_index)
-		
+	def do_scan(self,ctx):
 		#
 		# Do the real work of scanning
 		#
-		increment = self.container_config.start_increment(base_index)
-		new_files_db = self.__open_files_db(increment)
+		self.start_increment(ctx)
 		root = Directory(self,None,self.data_path)
+		ctx.set_root(root)
 		root.code = Nodes.NODE_DIR
-		ctx = ScanContext(self,root,base_files_db,prev_files_dbs,new_files_db)
-		ctx.new_increment = new_increment
 		root.set_num(ctx.next_num())
 		root.scan(ctx,prev_nums)
 
@@ -239,9 +191,92 @@ class Backup:
 		for key,value in ctx.new_files_db:
 			s.write(base64.b64encode(key)+":"+base64.b64encode(value)+"\n")
 		s.flush()
+		#
+		# TODO: Save the stats db
+		#
+		print "Exporting the stats db - implement me"
+		s = SpecialOStream(self,Container.CODE_STATS)
+		s.flush()
 		
 		# Upload the special data to the containers
 		self.container_config.finalize_increment(base_diff)
+		
+
+	def start_increment(self,ctx):
+		if not self.increments_db.has_key("increments"):
+			self.increments_db["increments"] = ""
+			
+		increments = Format.deserialize_ints(self.increments_db["increments"])
+		increment_idx = increments[-1]+1
+		print "Starting increment", increment_idx
+		
+		finalized_increments = {}
+		#
+		# Decide on which increment to base this one
+		#
+		# 1. scan the increments to find out what are the latest
+		#    non-finalized ones
+		last_finalized_increment = None
+		last_scan_base_increments = []
+		for idx in self.increments:
+			if self.increments_db.has_key["i_%d_finalized"%idx]:
+				last_finalized_increment = idx
+				last_scan_base_increments = [idx]
+				finalized_increments[idx] = True
+			else:
+				last_scan_base_increments.append(idx)
+				finalized_increments[idx] = False
+		
+		# 1. find out the base_fs: what we base this fs on, to base the diff
+		#    when saving. What we use is the base fs's of the last finalized
+		#    increment, or the last finalized increment itself.
+		increment_bases = []
+		if last_finalized_increment != None:
+			k = "i_%d_base"%last_finalized_increment
+			if self.increments_db.has_key[k]:
+				increment_bases=Format.deserialize_ints(self.increments_db[k])
+				for idx in increment_bases:
+					finalized_increments[idx] = True
+			else:
+				increment_bases = [last_finalized_increment]
+		print "Basing increment on", increment_bases
+		ctx.set_fs_base(increment_bases)
+		
+		# 2. find out the base_scan_fs: what are the fs's we read, to base the
+		#    scanning on when scanning. What we use is all the last unfinalized increments
+		#    and the last finalized one, if one exists.
+		print "Basing scan on", last_scan_base_increments
+		ctx.set_scan_base(last_scan_base_increments)
+		
+		# Make sure all the increment fs's that might be necessary are loaded
+		for idx in last_scan_base_increments + increment_bases:
+			ctx.load_db(idx)
+		ctx.set_fs_base(finalized_increments)
+		#
+		# Create the new increment
+		#
+		self.cur_increment = Increment(self, increment_idx)
+		self.cur_increment.start()
+		ctx.load_db(increment_idx)
+		ctx.set_new_fs(increment_idx)
+		#
+		# Write down the increment to db
+		#
+		self.increments_db["increments"] = Format.serialize_ints(self.increments)
+		first_container = self.storage_config.next_container()
+		self.increments_db["i_%d_first_container"%increment_idx] = str(first_container)
+	def _finalize_increment(self,context):
+		total_change_percent = 0.0
+		for idx in context.base_increments:
+			change_percent = float(self.increments_db["i_%d_change_percent"%idx])
+			total_change_percent += change_percent
+		total_change_percent += context.change_percent
+		if total_change_percent > 0.5:
+			#
+			# Do the rebasing!
+			#
+			
+			pass
 
 	def restore(self,target_path):
 		try:
@@ -288,7 +323,7 @@ class Backup:
 		self.root = Directory(self,None,target_path)
 		self.root.set_num(0)
 		self.root.code = Nodes.NODE_DIR
-		self.root.request_blocks(ctx,self.blocks_cache)
+		self.root.request_blocks(ctx)
 		# inodes_db must be clean once again when we start restoring the files data
 		ctx.inodes_db = {}
 		# just to free up resources
@@ -335,6 +370,9 @@ class Backup:
 			#if not self.database_loaded(i):
 				#print "Increment %d not loaded" % i
 				#continue
+			if not increment.is_finalized():
+				print "Increment %d is not finalized, no files db!" % (increment.index)
+				continue
 			files_db = self.__load_files_db(increment.index)
 			base_files_db = None
 			if increment.base_index != None:
@@ -380,25 +418,59 @@ class Backup:
 			self.txn_handler.commit()
 		return db
 
-class ScanContext:
-	def __init__(self,backup,root,base_files_db,prev_files_dbs,new_files_db):
+#=========================================================
+# ContextBase
+#=========================================================
+class ContextBase:
+	def __init__(self,backup):
 		self.backup = backup
-		self.root = root
-		self.base_files_db = base_files_db
-		self.prev_files_dbs = prev_files_dbs
+		self.open_files_dbs = {}
+		self.open_stats_dbs = {}
+
+	def close(self):
+		for idx,fs_db in self.open_files_dbs.iteritems():
+			fs_db.close()
+		for idx,st_db in self.open_stats_dbs.iteritems():
+			st_db.close()
+
+	def load_db(self,idx):
+		if self.open_files_dbs.has_key(idx):
+			return
+		files_db = backup.open_files_db(idx)
+		stats_db = backup.open_stats_db(idx)
+		self.open_files_dbs[idx] = files_db
+		self.open_stats_dbs[idx] = stats_db
+		if len(files_db) > 0:
+			# Databases are loaded. Do nothing more
+			return
+		# Try to load db data
+		self.backup.load_files_db_data(files_db,idx)
+		self.backup.load_stats_db_data(stats_db,idx)
+
+#=========================================================
+# ScanContext
+#=========================================================
+class ScanContext(ContextBase):
+	def __init__(self,backup,blocks_cache,new_files_db):
+		ContextBase.__init__(self,backup)
+		self.blocks_cache = blocks_cache
 		self.new_files_db = new_files_db
 
-		self.num = 0
+		self.node_num = 0
 		self.last_container = None
 		self.inodes_db = {}
 
 		self.total_nodes = 0
 		self.changed_nodes = 0
 
-	def next_num(self):
-		result = self.num
-		self.num += 1
+	def set_root(self,root):
+		self.root = root
+
+	def next_node_num(self):
+		result = self.node_num
+		self.node_num += 1
 		return result
+	
 	def add_block(self,data,digest):
 		if self.backup.blocks_db.has_key(digest):
 			return
@@ -406,7 +478,7 @@ class ScanContext:
 		print "  added", base64.b64encode(digest), "to", container, index
 		if container != self.last_container:
 			self.last_container = container
-			# We have finished making a new media.
+			# We have finished making a new container.
 			# write it to the database
 			print "Committing blocks db for container", container
 			self.root.flush(self)
@@ -422,6 +494,9 @@ class ScanContext:
 		block.add_container(container)
 		block.save()
 
+#=========================================================
+# RestoreContext
+#=========================================================
 class RestoreContext:
 	def __init__(self,backup,base_files_db,files_db):
 		self.backup = backup

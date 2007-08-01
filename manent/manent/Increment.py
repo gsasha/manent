@@ -69,6 +69,8 @@ class Increment:
 		self.db["I%d.finalized"%(self.index)] = "1"
 		self.finalized = True
 		self.readonly = True
+	def is_finalized(self):
+		return self.db.has_key("I%d.finalized"%self.index)
 	#
 	# Loading an existing increment from db
 	#

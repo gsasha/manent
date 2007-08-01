@@ -164,7 +164,7 @@ class DatabaseWrapper:
 			self.cursor.close()
 			self.cursor = None
 	def close(self):
-		print "Closing database filename=%s, dbname=%s" %(self.__get_filename(),self.__get_dbname())
+		#print "Closing database filename=%s, dbname=%s" %(self.__get_filename(),self.__get_dbname())
 		self.d.close()
 		self.d = None
 		self.filename=None

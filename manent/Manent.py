@@ -7,17 +7,6 @@
 #   on the results of stat rather than asking several questions on the same filename
 # - remember to destroy the database environment if the program exits normally.
 # - Implement compression and encryption
-# - Add to the file format: new special markers:
-#   0: normal data
-#   1: block data dump
-#   2: filesystem data dump
-#   100: increment start
-#   101: increment end
-#   102: encryption start
-#   103: compression start
-# - consider database optimization: not dumping the block information that was stored
-#   only recently, to reduce the amount of the data stored. Alternatively, make the max
-#   block size configurable.
 #
 
 import sys, os, os.path, stat
