@@ -1,3 +1,4 @@
+# This is the main runner of the GUI.
 from gui.MainFrame import *
 
 class ApplicationUI(wx.App):
