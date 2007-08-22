@@ -104,93 +104,42 @@ class Node:
 		return True
 		
 	#
-	# Support for scanning and restoring operations
-	#
-	# In all the functions, either level or db_num is defined.
-	# - level is defined for a db that is part of the base tree
-	# - db_num is defined for an unfinalized db that is part of the
-	#   prev list.
-	#
-	def get_files_db(self,ctx,db_num,level):
-		assert (db_num is None and level is not None) \
-			or (db_num is not None and level is None)
-		
-		if level is not None:
-			db_num = ctx.base_fs[level]
-		return ctx.open_files_dbs[db_num]
-	
-	def get_stats_db(self,ctx,db_num,level):
-		assert (db_num is None and level is not None) \
-			or (db_num is not None and level is None)
-		
-		if level is not None:
-			db_num = ctx.base_fs[level]
-		return ctx.open_stats_dbs[db_num]
-	
-	def db_level(self,ctx,db_num,level):
-		assert (db_num is None and level is not None) \
-			or (db_num is not None and level is None)
-		
-		if level is not None:
-			return level
-		return ctx.db_level(db_num)
-	
-	def db_finalized(self,ctx,db_num,level):
-		assert (db_num is None and level is not None) \
-			or (db_num is not None and level is None)
-		
-		if level is not None:
-			return True
-		return ctx.is_finalized(db_num)
-	#
 	# Support for scanning in previous increments
 	#
 	def scan_prev(self,ctx,prev_nums):
 		"""
 		Search the node in the upper levels of the tree.
 
-		The input, prev_nums, contains a list of the bases, plus probably
-		one last unfinalized scan (which can exist if the previous scan was
-		terminated in the middle).
+		The input, prev_nums, contains a list of the bases, plus the
+		later scans (which can be either finalized or unfinalized).
 		
 		If the node is found, then self.code and self.num are set to the
 		correct values, and True is returned. Otherwise, False is returned.
 		"""
 		ctx.total_nodes += 1
-		# For checking an assertion
-		DEBUG_finalized_seen = False
 		
-		for (prev_db_num,prev_file_num,prev_file_code) in reversed(prev_nums):
+		for (prev_idx,prev_file_num,prev_file_code) in reversed(prev_nums):
 			#
 			# Get the databases corresponding to this prev node
 			#
 			(prev_node_code,prev_node_level) = node_decode(prev_file_code)
-			prev_db_finalized = self.db_finalized(ctx,prev_db_num,prev_node_level)
-			prev_db_level     = self.db_level    (ctx,prev_db_num,prev_node_level)
-			prev_files_db     = self.get_files_db(ctx,prev_db_num,prev_node_level)
-			prev_stats_db     = self.get_stats_db(ctx,prev_db_num,prev_node_level)
-
-			#
-			# After we have seen one finalized db, the rest must be finalized too
-			#
-			if DEBUG_finalized_seen:
-				assert prev_db_finalized
-			else:
-				DEBUG_finalized_seen = prev_db_finalized
+			prev_base_level   = self.ctx.db_base_level(prev_idx)
+			prev_files_db     = self.ctx.get_files_db(prev_idx)
+			prev_stats_db     = self.ctx.get_stats_db(prev_idx)
 
 			#
 			# Load the old data
 			#
 			prev_key = self.node_key(prev_file_num)
 			if not prev_stats_db.has_key(prev_key):
-				# key is not there, but it can be in an earlier (unfinalized) db
+				# key is not there, but it can be in an earlier db
 				continue
 				
 			#print "Success to load", old_key, "from", db_num, ":", file_num, ":", file_code
 			prev_stat_data = prev_stats_db[prev_key]
 			prev_file_data = prev_files_db[prev_key]
 			
-			if not prev_db_finalized:
+			if not ctx.db_finalized(prev_idx):
 				#
 				# Whether we reuse the old data or not, it is not necessary
 				# anymore:
@@ -225,17 +174,15 @@ class Node:
 			# OK, the old node seems to be the same as this one.
 			# Reuse it.
 			#
-			if prev_node_level is not None:
+			if prev_base_level is not None:
 				# The reference node is already a based one.
 				# Don't write data to current DB, instead, the parent dir
 				# will write a reference to the base file number
-				assert prev_db_finalized
 				self.number = prev_file_num
 				self.code = prev_file_code
 			elif prev_db_level is not None:
 				# The reference node is found in the last finalized DB,
 				# and that DB is nominated to be a base itself.
-				assert prev_db_finalized
 				self.number = prev_file_num
 				self.code = node_encode(prev_node_code,prev_db_level)
 			else:
@@ -244,7 +191,6 @@ class Node:
 				# In this case, we still add the file to current DB, and count it
 				# as changed, to make sure next time we'll probably start an unbased
 				# increment
-				assert not prev_db_finalized
 				ctx.changed_nodes += 1
 				key = self.get_key()
 				ctx.new_files_db[key] = prev_file_data

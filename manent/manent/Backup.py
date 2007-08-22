@@ -433,6 +433,18 @@ class ContextBase:
 		for idx,st_db in self.open_stats_dbs.iteritems():
 			st_db.close()
 
+	#
+	# Prev db querying
+	#
+	def get_stats_db(self,idx):
+		return self.open_files_dbs[idx]
+	def get_files_db(self,idx):
+		return self.open_files_dbs[idx]
+	def db_base_level(self,idx):
+		if self.base_level.has_key(idx):
+			return self.base_level[idx]
+		return None
+	
 	def load_db(self,idx):
 		if self.open_files_dbs.has_key(idx):
 			return
