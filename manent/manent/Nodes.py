@@ -136,19 +136,7 @@ class Node:
 				continue
 				
 			#print "Success to load", old_key, "from", db_num, ":", file_num, ":", file_code
-			prev_stat_data = prev_stats_db[prev_key]
-			prev_file_data = prev_files_db[prev_key]
 			
-			if not ctx.db_finalized(prev_idx):
-				#
-				# Whether we reuse the old data or not, it is not necessary
-				# anymore:
-				# - if we reuse it, we copy the data into the new files db
-				# - if we don't, then it has changed and thus no longer relevant
-				#
-				del prev_stats_db[prev_key]
-				del prev_files_db[prev_key]
-
 			#
 			# Compare the contents of the old database to see if it is
 			# reusable
@@ -174,17 +162,17 @@ class Node:
 			# OK, the old node seems to be the same as this one.
 			# Reuse it.
 			#
-			if prev_base_level is not None:
+			if prev_node_level is not None:
 				# The reference node is already a based one.
 				# Don't write data to current DB, instead, the parent dir
 				# will write a reference to the base file number
 				self.number = prev_file_num
 				self.code = prev_file_code
-			elif prev_db_level is not None:
+			elif prev_base_level is not None:
 				# The reference node is found in the last finalized DB,
 				# and that DB is nominated to be a base itself.
 				self.number = prev_file_num
-				self.code = node_encode(prev_node_code,prev_db_level)
+				self.code = node_encode(prev_node_code,prev_base_level)
 			else:
 				# File contents in the previous increment are different from
 				# those of the base (and thus the file is not of FILE_BASED type).
@@ -193,15 +181,36 @@ class Node:
 				# increment
 				ctx.changed_nodes += 1
 				key = self.get_key()
+				
+				prev_stat_data = prev_stats_db[prev_key]
+				prev_file_data = prev_files_db[prev_key]
 				ctx.new_files_db[key] = prev_file_data
 				ctx.new_stats_db[key] = prev_stat_data
+
+				#
+				# The info in the old db has been copied over.
+				# The old db is obviously not necessary
+				#
+				assert not ctx.db_finalized(prev_idx)
+				del prev_stats_db[prev_key]
+				del prev_files_db[prev_key]
 				
 				self.code = node_encode(self.node_code())
+			
 			return True
 		#
 		# None of the previous nodes matched.
 		# This node must be a new one.
 		#
+		if not ctx.db_finalized(prev_idx):
+			#
+			# Whether we reuse the old data or not, it is not necessary
+			# anymore:
+			# - if we reuse it, we copy the data into the new files db
+			# - if we don't, then it has changed and thus no longer relevant
+			#
+			del prev_stats_db[prev_key]
+			del prev_files_db[prev_key]
 		ctx.changed_nodes += 1
 		return False
 	#
