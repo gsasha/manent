@@ -1,6 +1,7 @@
 #import hashlib
 import os, os.path, sys
 import re
+import ConfigParser
 
 import Backup
 import Container
@@ -14,6 +15,8 @@ class GlobalConfig:
 
 		self.staging_area_exists = False
 		self.home_area_exists = False
+
+		self.excludes_list = None
 
 	#
 	# Filesystem config
@@ -37,7 +40,65 @@ class GlobalConfig:
 			os.mkdir(path)
 			self.home_area_exists = True
 		return path
+
+	def excludes(self):
+		"""
+		Hardcode several paths that we really don't want to backup.
+		Must do more extensive work later, using an explicit filter
+		"""
+		if self.excludes_list != None:
+			return self.excludes_list
+
+		def prefix_check_maker(prefix):
+			"""
+			Generator function that builds a single prefix checker
+			"""
+			def prefix_checker(s):
+				return s.startswith(prefix)
+			return prefix_checker
 		
+		def regexp_check_maker(pattern):
+			"""
+			Generator function that builds a single path checker
+			"""
+			regexp = re.compile(pattern)
+			def match_checker(s):
+				return regexp.match(s)
+			return match_checker
+		
+		if os.name == "nt":
+			base = os.environ["APPDATA"]
+		else:
+			base = os.environ["HOME"]
+
+		cp = ConfigParser.ConfigParser()
+		cp.read([os.path.join(self.home_area(),"excludes")])
+
+		def is_relative(pat):
+			if os.name == "nt":
+				return re.match("\w:",pat)
+			else:
+				return pat.startswith("/")
+
+		self.excludes_list = [prefix_check_maker(os.path.join(self.home_area(),"manent"))]
+		if cp.has_section("EXCLUDE/REGEXP"):
+			for key,val in cp.items("EXCLUDE/REGEXP"):
+				if not is_relative(val):
+					val = os.path.join(base,val)
+				print "excluding regexp",val
+				self.excludes_list += [regexp_check_maker(val)]
+		if cp.has_section("EXCLUDE/PREFIX"):
+			for key,val in cp.items("EXCLUDE/PREFIX"):
+				if not is_relative(val):
+					val = os.path.join(base,val)
+				print "excluding prefix",val
+				self.excludes_list += [prefix_check_maker(val)]
+
+			
+		#regexp_places = [".mozilla/[^/]+/[^/]+/Cache"]
+		#prefix_places = [".google/desktop/repo", "manent", ".thumbnails", ".opera/cache"]
+		return self.excludes_list
+
 	def staging_area(self):
 		if os.name == "nt":
 			path = os.path.join(os.environ["TEMP"], "manent.staging")

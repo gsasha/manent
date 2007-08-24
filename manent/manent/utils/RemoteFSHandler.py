@@ -91,6 +91,8 @@ class SFTPHandler(RemoteFSHandler):
 	
 	@retry_decorator(10, "upload")
 	def upload(self,file,remote_name):
+		#print "Dummy uploading %s" % remote_name
+		#return
 		remote_path = os.path.join(self.path,remote_name)
 		remote_path = remote_path.replace("\\","/")
 		handle = self.channel.file(remote_path, "wb")

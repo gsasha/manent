@@ -370,10 +370,19 @@ class Directory(Node):
 		# that nothing changed
 		self.code = NODE_DIR
 		self.children = []
-		if self.path().startswith(self.backup.global_config.home_area()):
-			entries = []
+
+		excluded = False
+		for checker in self.backup.global_config.excludes():
+			if checker(self.path()):
+				entries = []
+				print "Excluding directory from scan:", self.path()
+				break
 		else:
 			entries = os.listdir(self.path())
+		#if self.path().startswith(self.backup.global_config.home_area()):
+			#entries = []
+		#else:
+			#entries = os.listdir(self.path())
 		for name in entries:
 			if (file=="..") or (file=="."):
 				continue
