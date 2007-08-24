@@ -1,6 +1,6 @@
 #import hashlib
 import os, os.path, sys
-import re
+import re, fnmatch
 import ConfigParser
 
 import Backup
@@ -80,7 +80,11 @@ class GlobalConfig:
 			else:
 				return pat.startswith("/")
 
-		self.excludes_list = [prefix_check_maker(os.path.join(self.home_area(),"manent"))]
+		#
+		# Home are is always excluded from backups!
+		# TODO: replace prefixes and regexps by fnmatch
+		#
+		self.excludes_list = [prefix_check_maker(self.home_area())]
 		if cp.has_section("EXCLUDE/REGEXP"):
 			for key,val in cp.items("EXCLUDE/REGEXP"):
 				if not is_relative(val):
@@ -94,9 +98,6 @@ class GlobalConfig:
 				print "excluding prefix",val
 				self.excludes_list += [prefix_check_maker(val)]
 
-			
-		#regexp_places = [".mozilla/[^/]+/[^/]+/Cache"]
-		#prefix_places = [".google/desktop/repo", "manent", ".thumbnails", ".opera/cache"]
 		return self.excludes_list
 
 	def staging_area(self):
