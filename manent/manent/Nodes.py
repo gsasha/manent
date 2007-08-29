@@ -10,20 +10,24 @@ import traceback
 
 import Backup
 
-NODE_TYPE_DIR = 0
-NODE_TYPE_FILE = 1
+#----------------------------------------------------
+# Node conversion
+#----------------------------------------------------
+NODE_TYPE_DIR     = 0
+NODE_TYPE_FILE    = 1
 NODE_TYPE_SYMLINK = 2
+NODE_TYPE_MAX     = 16
 
 def node_encode(node_type, node_level=None):
 	if node_level == None:
 		return node_type
-	return node_type + 16 * (node_level+1)
+	return node_type + NODE_TYPE_MAX * (node_level+1)
 def node_type(node_code):
-	return node_code % 16
+	return node_code % NODE_TYPE_MAX
 def node_level(node_code):
-	if node_code / 16 == 0:
+	if node_code / NODE_TYPE_MAX == 0:
 		return None
-	return (node_code / 16)-1
+	return (node_code / NODE_TYPE_MAX)-1
 def node_decode(node_code):
 	nt = node_type(node_code)
 	nl = node_level(node_code)
@@ -77,8 +81,11 @@ class Node:
 		if self.file_stat is None:
 			self.file_stat = os.lstat(self.path())
 		return self.file_stat
-	#
-	# Support for scanning hard links
+	#-----------------------------------------------------
+	# Support for scanning hard links:
+	# 
+	# see if the current file is a hard link to another file
+	# that has already been scanned. If so, reuse it.
 	#
 	def scan_hlink(self,ctx):
 		file_stat = self.stat()
