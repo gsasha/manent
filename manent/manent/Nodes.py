@@ -142,8 +142,6 @@ class Node:
 				# key is not there, but it can be in an earlier db
 				continue
 				
-			#print "Success to load", old_key, "from", db_num, ":", file_num, ":", file_code
-			
 			#
 			# Compare the contents of the old database to see if it is
 			# reusable
@@ -198,7 +196,6 @@ class Node:
 				# The info in the old db has been copied over.
 				# The old db is obviously not necessary
 				#
-				assert not ctx.db_finalized(prev_idx)
 				del prev_stats_db[prev_key]
 				del prev_files_db[prev_key]
 				
@@ -208,6 +205,8 @@ class Node:
 		#
 		# None of the previous nodes matched.
 		# This node must be a new one.
+		# The file will have to be rescanned, and thus
+		# the node in the prev increment must be thrown away.
 		#
 		if not ctx.db_finalized(prev_idx):
 			#
@@ -249,11 +248,6 @@ class File(Node):
 	# Scanning and restoring
 	#
 	def scan(self,ctx,prev_nums):
-		if not stat.S_ISREG(self.stat()[stat.ST_MODE]):
-			# TODO: this is strange - a file can change to become a link
-			# or a dir from a regular file
-			raise Exception("File %s does not contain a regular file"%self.path())
-
 		#
 		# Check if we have encountered this file during this scan already
 		#
@@ -352,8 +346,6 @@ class Symlink(Node):
 		return NODE_TYPE_SYMLINK
 	def scan(self,ctx,prev_nums):
 		print "scanning symlink", self.path(), prev_nums
-		if not stat.S_ISLNK(self.stat()[stat.ST_MODE]):
-			raise Exception("File %s does not contain a symlink file"%self.path())
 		
 		if self.scan_hlink(ctx):
 			return
@@ -408,8 +400,6 @@ class Directory(Node):
 		node_name = Format.read_string(file)
 		yield (node_type,node_num,node_name)
 	def scan(self,ctx,prev_nums):
-		if not stat.S_ISDIR(self.stat()[stat.ST_MODE]):
-			raise Exception("File %s does not contain a regular file"%self.path())
 		#
 		# Reload data from previous increments.
 		#
