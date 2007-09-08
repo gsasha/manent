@@ -455,16 +455,6 @@ class Directory(Node):
 				prev_data[node_name] = (db_num,file_num,file_code)
 				if self.base_nodes is not None:
 					self.base_nodes[node_name] = 1
-		#print "Prev data:"
-		#keys = prev_data.keys()
-		#keys.sort()
-		#for key in keys:
-			#print " ", key, prev_data[key]
-		#print "base data:"
-		#keys = base_nodes.keys()
-		#keys.sort()
-		#for key in keys:
-			#print " ", key, base_nodes[key]
 		#
 		# Scan the directory
 		#

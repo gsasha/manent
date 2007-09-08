@@ -8,8 +8,11 @@ TREE_CHILD_IDXS        = "tree.i.%d.child_idx"
 TREE_NODE_PERCENT      = "tree.i.%d.percent"
 TREE_NODE_BASES        = "tree.i.%d.bases"
 
+INCREMENT_BASE_FALLOFF_FACTOR = 0.1
+INCREMENT_REBASE_THRESHOLD = 0.5
+
 #======================================
-#
+# class: IncrementHandlerInterface
 #======================================
 class IncrementHandlerInterface:
 	"""
@@ -32,7 +35,7 @@ class IncrementHandlerInterface:
 		pass
 
 #======================================
-#
+# class: IncrementTreeNode
 #======================================
 class IncrementTreeNode:
 	"""
@@ -44,7 +47,7 @@ class IncrementTreeNode:
 		self.bases = bases
 		self.scan_bases = scan_bases
 #======================================
-#
+# class: IncrementTree
 #======================================
 class IncrementTree:
 	"""
@@ -70,9 +73,19 @@ class IncrementTree:
 	def start_increment(self):
 		"""
 		Start a new increment.
+
+		Returns a node representing the new increment.
+		The increment has a list of bases and a list of scan bases.
+		- The bases are those increments that this one is based upon,
+		  including possibly the one that has just become a new bae.
+		- The scan_bases are all the later increments that might contain
+		  information relevant for this increment. These include:
+		  1. All the bases of the node.
+		  2. The last finalized increment, if it is not in the list of bases already
+		  3. All the unfinalized increments after the last finalized one.
 		"""
 		if self.cur_increment != None:
-			raise Exception("Finalize an increment before starting a new one")
+			raise Exception("Must finalize an increment before starting a new one")
 
 		#
 		# Find the increments that the increment is based upon
@@ -88,7 +101,7 @@ class IncrementTree:
 			# Reuse the last finalized increment
 			l_bases += self.__get_bases(l_f_increment)
 			# Decide if the last finalized increment can become a base too
-			l_min_percent = 0.1 ** (len(l_bases)+1)
+			l_min_percent = INCREMENT_BASE_FALLOFF_FACTOR ** (len(l_bases)+1)
 			l_percent = self.__get_percent(l_f_increment)
 			if l_percent >= l_min_percent:
 				l_bases += [l_f_increment]
@@ -138,10 +151,10 @@ class IncrementTree:
 				# Increment 0 is dummy, parent of everybody!
 				assert percent_change == 1.0
 				break
-			min_percent = 0.1 ** (len(bases)-1)
+			min_percent = INCREMENT_BASE_FALLOFF_FACTOR ** (len(bases)-1)
 			child_percent = self.__get_child_percent(bases[-1])
 			#print "min_percent", min_percent, "child_percent", child_percent
-			if child_percent >= 0.5*min_percent:
+			if child_percent >= INCREMENT_REBASE_THRESHOLD*min_percent:
 				self.__rebase_node(self.cur_increment,bases[:-1])
 				percent_change = handler.rebase_fs(bases[:-1])
 				self.__set_percent(self.cur_increment,percent_change)
