@@ -2,6 +2,7 @@ import unittest
 import random
 import time
 from cStringIO import StringIO
+import stat
 
 # manent imports
 import manent.utils.IntegerEncodings as IE
@@ -14,11 +15,12 @@ from UtilFilesystemCreator import *
 class MockContainerConfig:
 	def blockSize(self):
 		return 32
+
 class MockBackup:
 	def __init__(self):
 		self.container_config = MockContainerConfig()
-		self.blocks = {}
 		self.shared_db = {}
+		self.blocks = {}
 		self.increments = IncrementTree(self.shared_db)
 	def add_block(self,digest,data):
 		self.blocks[digest] = data
@@ -49,6 +51,7 @@ class MockIncrementFSCtx:
 	def create_db(self,idx):
 		self.files_db[idx] = {}
 		self.stats_db[idx] = {}
+
 class MockBlockCtx:
 	def __init__(self,backup):
 		self.backup = backup
@@ -153,8 +156,8 @@ class TestNodes(unittest.TestCase):
 		#
 		self.assertEquals(self.fsc.test_link("file1","file2"),True)
 	def test_File_scan_restore(self):
-		"""
-		Test that scanning and restoring a single file works
+		"""Test that scanning and restoring a single file works
+		We test restoration of both file data and attributes
 		"""
 		ctx = MockCtx(self.backup)
 		ctx.create_db(0)
@@ -167,6 +170,11 @@ class TestNodes(unittest.TestCase):
 		file_data = {"file1":"kuku", "file2":""}
 		self.fsc.cleanup()
 		self.fsc.add_files(file_data)
+		self.fsc.chmod("file1",stat.S_IREAD|stat.S_IRWXO)
+		self.fsc.chmod("file2",stat.S_IRWXU|stat.S_IRGRP)
+		time.sleep(0.1)
+		stat1 = self.fsc.lstat("file1")
+		stat2 = self.fsc.lstat("file2")
 
 		basedir = Directory(self.backup, None, self.fsc.get_home())
 		node1 = File(self.backup,basedir,"file1")
@@ -194,6 +202,8 @@ class TestNodes(unittest.TestCase):
 		node2.restore(ctx)
 
 		self.failUnless(self.fsc.test_files(file_data))
+		self.failUnless(self.fsc.test_lstat("file1",stat1))
+		self.failUnless(self.fsc.test_lstat("file2",stat2))
 	def test_scan_prev_0(self):
 		"""
 		Test that increments are created at all

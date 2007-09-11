@@ -88,3 +88,13 @@ class FilesystemCreator:
 			os.symlink(file1,os.path.join(self.home,file2))
 		else:
 			os.symlink(os.path.join(self.home,file1),os.path.join(self.home,file2))
+	def lstat(self,file):
+		return os.lstat(os.path.join(self.home,file))
+	def test_lstat(self,file,expected_stat):
+		failed = False
+		file_stat = os.lstat(os.path.join(self.home,file))
+		for idx in [stat.ST_MODE, stat.ST_UID, stat.ST_GID, stat.ST_SIZE, stat.ST_ATIME, stat.ST_MTIME, stat.ST_CTIME]:
+			failed |= file_stat[idx] != expected_stat[idx]
+		return not failed
+	def chmod(self,file,mod):
+		os.chmod(os.path.join(self.home,file),mod)

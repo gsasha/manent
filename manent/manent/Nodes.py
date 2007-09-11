@@ -178,6 +178,10 @@ class Node:
 		
 		ctx.changed_nodes += 1
 		return False
+	def restore_stats(self,stats):
+		os.chmod(self.path(),stats[stat.ST_MODE])
+		os.chown(self.path(),stats[stat.ST_UID],stats[stat.ST_GID])
+		os.utime(self.path(),(stats[stat.ST_ATIME],stats[stat.ST_MTIME]))
 	#
 	# Node configuration
 	#
@@ -261,6 +265,7 @@ class File(Node):
 		#
 		# TODO: restore file permissions and other data
 		#
+		self.restore_stats(stats)
 	
 	def request_blocks(self,ctx):
 		"""
@@ -314,10 +319,9 @@ class Symlink(Node):
 		self.code = node_encode(self.get_type(),self.get_level())
 		
 	def restore(self,ctx):
-		print "Restoring symlink in", self.path()
-		db_num = ctx.db_num
-		files_db = self.get_files_db(ctx,ctx.db_num,base_level)
-		stats_db = self.get_stats_db(ctx,ctx.db_num,base_level)
+		#print "Restoring symlink in", self.path()
+		files_db = self.get_files_db(ctx,self.get_level())
+		stats_db = self.get_stats_db(ctx,self.get_level())
 		
 		key = self.get_key()
 		valueS = StringIO(db[key])
@@ -326,9 +330,10 @@ class Symlink(Node):
 			return
 		
 		self.link = db[key]
-		print "Restoring symlink from", self.link, "to", self.path()
+		#print "Restoring symlink from", self.link, "to", self.path()
 		os.symlink(self.link, self.path())
-	def list_files(self,ctx,based):
+		self.restore_stats(stats)
+	def list_files(self,ctx):
 		(node_code,node_level) = node_decode(self.code)
 		if node_level is not None:
 			print "B%d" % node_level,
@@ -607,9 +612,8 @@ class Directory(Node):
 			print "Restoring dir", self.path(), self.number
 			os.mkdir(self.path())
 
-		db_num = ctx.db_num
-		files_db = self.get_files_db(ctx,ctx.db_num,base_level)
-		stats_db = self.get_stats_db(ctx,ctx.db_num,base_level)
+		files_db = self.get_files_db(ctx,self.get_level())
+		stats_db = self.get_stats_db(ctx,self.get_level())
 		key = self.get_key()
 		valueS = StringIO(files_db[key])
 		for (code,number,name) in read_directory_entries(valueS):
@@ -627,6 +631,8 @@ class Directory(Node):
 			node.set_number(number)
 			node.set_level(level)
 			node.restore(ctx)
+		stats = stats_db[key]
+		self.restore_stats(stats)
 
 	def request_blocks(self,ctx):
 		#print "Requesting blocks in", self.path(), "code", self.code, "num", self.number, "based", based
