@@ -93,8 +93,10 @@ class FilesystemCreator:
 	def test_lstat(self,file,expected_stat):
 		failed = False
 		file_stat = os.lstat(os.path.join(self.home,file))
-		for idx in [stat.ST_MODE, stat.ST_UID, stat.ST_GID, stat.ST_SIZE, stat.ST_ATIME, stat.ST_MTIME, stat.ST_CTIME]:
+		for idx in [stat.ST_MODE, stat.ST_UID, stat.ST_GID, stat.ST_SIZE, stat.ST_ATIME, stat.ST_MTIME]:
 			failed |= file_stat[idx] != expected_stat[idx]
+			if file_stat[idx] != expected_stat[idx]:
+				print 'Mismatch in idx=%d: %d != %d' %(idx, file_stat[idx], expected_stat[idx])
 		return not failed
 	def chmod(self,file,mod):
 		os.chmod(os.path.join(self.home,file),mod)

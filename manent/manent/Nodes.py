@@ -179,6 +179,7 @@ class Node:
 		ctx.changed_nodes += 1
 		return False
 	def restore_stats(self,stats):
+		prev_stat = os.lstat(self.path())
 		os.chmod(self.path(),stats[stat.ST_MODE])
 		os.chown(self.path(),stats[stat.ST_UID],stats[stat.ST_GID])
 		os.utime(self.path(),(stats[stat.ST_ATIME],stats[stat.ST_MTIME]))
@@ -262,9 +263,7 @@ class File(Node):
 		for digest in read_blocks(valueS,Digest.dataDigestSize()):
 			#print "File", self.path(), "reading digest", base64.b64encode(digest)
 			file.write(ctx.load_block(digest))
-		#
-		# TODO: restore file permissions and other data
-		#
+		file.close()
 		self.restore_stats(stats)
 	
 	def request_blocks(self,ctx):

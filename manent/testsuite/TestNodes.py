@@ -172,7 +172,7 @@ class TestNodes(unittest.TestCase):
 		self.fsc.add_files(file_data)
 		self.fsc.chmod("file1",stat.S_IREAD|stat.S_IRWXO)
 		self.fsc.chmod("file2",stat.S_IRWXU|stat.S_IRGRP)
-		time.sleep(0.1)
+		time.sleep(1.1)
 		stat1 = self.fsc.lstat("file1")
 		stat2 = self.fsc.lstat("file2")
 
@@ -201,9 +201,10 @@ class TestNodes(unittest.TestCase):
 		node2.set_number(number2)
 		node2.restore(ctx)
 
-		self.failUnless(self.fsc.test_files(file_data))
 		self.failUnless(self.fsc.test_lstat("file1",stat1))
 		self.failUnless(self.fsc.test_lstat("file2",stat2))
+		# test_files will change access times, do it only after test_lstat
+		self.failUnless(self.fsc.test_files(file_data))
 	def test_scan_prev_0(self):
 		"""
 		Test that increments are created at all
