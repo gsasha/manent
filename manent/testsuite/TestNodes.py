@@ -90,39 +90,6 @@ class TestNodes(unittest.TestCase):
 		self.assertEquals(n1.path(), "kuku")
 		self.assertEquals(n2.path(), os.path.join("kuku","bebe"))
 		self.assertEquals(n3.path(), os.path.join("kuku","bebe","mumu.txt"))
-	def test_stat(self):
-		"""Test stat operations"""
-		scratch_node = Directory(self.backup,None,self.fsc.get_home())
-
-		# Test that created single files have correct size and
-		# inode count and non-decreasing timestamps
-		self.fsc.add_files({"file1":"abcdef", "file2":"aaaaa"})
-		file1_node = File(self.backup, scratch_node, "file1")
-		file1_stat = file1_node.stat()
-		self.assertEquals(file1_stat[stat.ST_NLINK], 1)
-		self.assertEquals(file1_stat[stat.ST_SIZE], 6)
-
-		file2_node = File(self.backup, scratch_node, "file2")
-		file2_stat = file2_node.stat()
-		self.assertEquals(file2_stat[stat.ST_NLINK], 1)
-		self.assertEquals(file2_stat[stat.ST_SIZE], 5)
-		
-		self.assertEquals(file1_stat[stat.ST_UID], file2_stat[stat.ST_UID])
-		self.assertEquals(file1_stat[stat.ST_GID], file2_stat[stat.ST_GID])
-		self.failUnless(file1_stat[stat.ST_ATIME] <= file2_stat[stat.ST_ATIME])
-
-		# Test that if we create a hard link, link count goes up
-		self.fsc.link("file1","hardlinked")
-		# need to recreate the node to avoid seeing cached results
-		file1_node = File(self.backup, scratch_node, "file1")
-		file1_stat = file1_node.stat()
-		self.assertEquals(file1_stat[stat.ST_NLINK], 2)
-
-		# Test that hardlinking works and is reported for symlinks
-		self.fsc.symlink("file1","file1.lnk")
-		file1_lnk_node = Symlink(self.backup, scratch_node, "file1.lnk")
-		file1_lnk_stat = file1_lnk_node.stat()
-		self.assertEquals(file1_lnk_stat[stat.ST_NLINK],1)
 	def test_hlink(self):
 		"""Test that hard links are correctly identified and restored"""
 		scratch_node = Directory(self.backup, None, self.fsc.get_home())
