@@ -1,13 +1,15 @@
 import unittest
 import random
-import os, os.path, shutil
-import stat
 import time
 from cStringIO import StringIO
 
+# manent imports
 import manent.utils.IntegerEncodings as IE
 from manent.Nodes import *
 from manent.IncrementTree import *
+
+# test util imports
+from UtilFilesystemCreator import *
 
 class MockContainerConfig:
 	def blockSize(self):
@@ -20,63 +22,16 @@ class MockBackup:
 		self.increments = IncrementTree(self.shared_db)
 	def add_block(self,digest,data):
 		self.blocks[digest] = data
-
-class TestFilesystemCreator:
-	def __init__(self,home):
-		self.home = home
-		try:
-			shutil.rmtree(self.scratch)
-		except:
-			# If we run for the first time, the dir doesn't exists
-			pass
-		os.mkdir(self.home)
-
-	def get_home(self):
-		return self.home
-	
-	def add_files(self,files):
-		self.__add_files(self.home,files)
-	def __add_files(self,prefix,files):
-		for name,contents in files:
-			path = os.path.join(prefix,name)
-			if type(contents) == type({}):
-				try:
-					os.mkdir(path)
-				except:
-					pass
-				self.__add_files(path,contents)
-			else:
-				f = open(path,"w")
-				f.write(contents)
-				f.close()
-	def __remove_files(self,prefix,files):
-		self.__remove_files(self.home,files)
-	def __remove_files(self,prefix,files):
-		for name,contents in files:
-			path = os.path.join(prefix,name)
-			if type(contents) == type({}):
-				self.__add_files(path,contents)
-				if len(os.listdir(path))==0:
-					os.rmdir(path)
-			else:
-				os.unlink(path)
-	def link(self,file1,file2):
-		if file1.startswith("/"):
-			os.link(file1,os.path.join(self.home,file2))
-		else:
-			os.link(os.path.join(self.home,file1),os.path.join(self.home,file2))
-	def symlink(self,file1,file2):
-		os.symlink(file1,os.path.join(self.home,file2))
-	def symlink_absolute(self,file1,file2):
-		if file1.startswith("/"):
-			os.symlink(file1,os.path.join(self.home,file2))
-		else:
-			os.symlink(os.path.join(self.home,file1),os.path.join(self.home,file2))
+	def load_block(self,digest):
+		return self.blocks[digest]
 
 class MockIncrementFSCtx:
 	def __init__(self):
-		pass
+		self.files_db = {}
+		self.stats_db = {}
+	#
 	# Funcionality for scanning
+	#
 	def get_db_level(self,idx):
 		# always say that the new db is not a new base
 		return self.db_level[idx]
@@ -88,24 +43,39 @@ class MockIncrementFSCtx:
 		return self.files_db[idx]
 	def get_stats_db(self,idx):
 		return self.stats_db[idx]
-class MockCtx(MockIncrementFSCtx):
+	#
+	# Functionality for creating mock data
+	#
+	def create_db(self,idx):
+		self.files_db[idx] = {}
+		self.stats_db[idx] = {}
+class MockBlockCtx:
+	def __init__(self,backup):
+		self.backup = backup
+	def add_block(self,digest,data):
+		self.backup.add_block(digest,data)
+	def load_block(self,digest):
+		return self.backup.load_block(digest)
+class MockHlinkCtx:
+	def __init__(self):
+		self.inodes_db = {}
+	
+class MockCtx(MockIncrementFSCtx,MockBlockCtx,MockHlinkCtx):
 	def __init__(self,backup):
 		MockIncrementFSCtx.__init__(self)
-		self.backup = backup
-		self.inodes_db = {}
+		MockBlockCtx.__init__(self,backup)
+		MockHlinkCtx.__init__(self)
 		self.current_num = 0
 		self.total_nodes = 0
 		self.changed_nodes = 0
-	def next_num(self):
+	def next_number(self):
 		self.current_num += 1
 		return self.current_num
-	def add_block(self,data,digest):
-		self.backup.add_block(digest,data)
 
 class TestNodes(unittest.TestCase):
 	def setUp(self):
 		self.backup = MockBackup()
-		self.fsc = TestFilesystemCreator("/tmp/manent.test.scratch.nodes")
+		self.fsc = FilesystemCreator("/tmp/manent.test.scratch.nodes")
 	def tearDown(self):
 		pass
 
@@ -124,8 +94,8 @@ class TestNodes(unittest.TestCase):
 		# Test that created single files have correct size and
 		# inode count and non-decreasing timestamps
 		self.fsc.add_files({"file1":"abcdef", "file2":"aaaaa"})
-		file_node = File(self.backup, scratch_node, "file1")
-		file_stat = file1_node.stat()
+		file1_node = File(self.backup, scratch_node, "file1")
+		file1_stat = file1_node.stat()
 		self.assertEquals(file1_stat[stat.ST_NLINK], 1)
 		self.assertEquals(file1_stat[stat.ST_SIZE], 6)
 
@@ -141,7 +111,7 @@ class TestNodes(unittest.TestCase):
 		# Test that if we create a hard link, link count goes up
 		self.fsc.link("file1","hardlinked")
 		# need to recreate the node to avoid seeing cached results
-		file1_node = File(self.backup, scratch_node, self.file1_name)
+		file1_node = File(self.backup, scratch_node, "file1")
 		file1_stat = file1_node.stat()
 		self.assertEquals(file1_stat[stat.ST_NLINK], 2)
 
@@ -150,21 +120,20 @@ class TestNodes(unittest.TestCase):
 		file1_lnk_node = Symlink(self.backup, scratch_node, "file1.lnk")
 		file1_lnk_stat = file1_lnk_node.stat()
 		self.assertEquals(file1_lnk_stat[stat.ST_NLINK],1)
-
-		os.link(os.path.join(self.scratch, "file1.lnk"), os.path.join(self.scratch,"file2.lnk"))
 	def test_hlink(self):
-		scratch_node = Directory(self.backup, None, self.scratch)
+		"""Test that hard links are correctly identified and restored"""
+		scratch_node = Directory(self.backup, None, self.fsc.get_home())
 		#
-		# Create two files lining to the same inode
+		# Create two files linking to the same inode
 		#
 		ctx = MockCtx(self.backup)
-		self.fsc.add_files({"file1",""})
+		self.fsc.add_files({"file1":""})
 		self.fsc.link("file1","file2")
 		
 		file1_node = File(self.backup, scratch_node, "file1")
-		file1_node.set_num(ctx.next_num())
+		file1_node.set_number(ctx.next_number())
 		file2_node = File(self.backup, scratch_node, "file2")
-		file2_node.set_num(ctx.next_num())
+		file2_node.set_number(ctx.next_number())
 		file1_stat = file1_node.stat()
 		file2_stat = file2_node.stat()
 		#
@@ -176,14 +145,55 @@ class TestNodes(unittest.TestCase):
 		# Test that restore works...
 		#
 		ctx = MockCtx(self.backup)
-		os.unlink(self.file2_path)
+		self.fsc.remove_files({"file2":""})
 		self.assertEquals(file1_node.restore_hlink(ctx,file1_stat), False)
 		self.assertEquals(file2_node.restore_hlink(ctx,file2_stat), True)
 		#
 		# Test that the linked file exists and that it is a hard link
 		#
-		tmp_node = File(self.backup,scratch_node, self.file2_name)
-		self.assertEquals(tmp_node.stat()[stat.ST_NLINK], 2)
+		self.assertEquals(self.fsc.test_link("file1","file2"),True)
+	def test_File_scan_restore(self):
+		"""
+		Test that scanning and restoring a single file works
+		"""
+		ctx = MockCtx(self.backup)
+		ctx.create_db(0)
+		ctx.new_files_db = ctx.get_files_db(0)
+		ctx.new_stats_db = ctx.get_stats_db(0)
+
+		#
+		# Scan the files
+		#
+		file_data = {"file1":"kuku", "file2":""}
+		self.fsc.cleanup()
+		self.fsc.add_files(file_data)
+
+		basedir = Directory(self.backup, None, self.fsc.get_home())
+		node1 = File(self.backup,basedir,"file1")
+		node1.set_level(0)
+		node1.set_number(ctx.next_number())
+		node1.scan(ctx,[])
+		number1 = node1.number
+		node2 = File(self.backup,basedir,"file2")
+		node2.set_level(0)
+		node2.set_number(ctx.next_number())
+		node2.scan(ctx,[])
+		number2 = node2.number
+		#
+		# Restore the files and see if everything is in place
+		#
+		self.fsc.cleanup()
+		restore_node = Directory(self.backup, None, self.fsc.get_home())
+		node1 = File(self.backup,restore_node,"file1")
+		node1.set_level(0)
+		node1.set_number(number1)
+		node1.restore(ctx)
+		node2 = File(self.backup,restore_node,"file2")
+		node2.set_level(0)
+		node2.set_number(number2)
+		node2.restore(ctx)
+
+		self.failUnless(self.fsc.test_files(file_data))
 	def test_scan_prev_0(self):
 		"""
 		Test that increments are created at all
@@ -312,28 +322,3 @@ class TestNodes(unittest.TestCase):
 		self.assertEquals(file1_node.scan_prev(ctx,prev_nums_1),False)
 		self.assertEquals(file2_node.scan_prev(ctx,prev_nums_2),False)
 	
-	def test_File_scan_restore(self):
-		"""
-		Test that scanning and restoring a single file works
-		"""
-		scratch_node = Directory(self.backup, None, self.scratch)
-		ctx = MockCtx(self.backup)
-		ctx.new_files_db = {}
-		ctx.new_stats_db = {}
-		
-		file1 = open(self.file1_path,"w")
-		file1.write("kuku")
-		file1.close()
-		file1_node = File(self.backup,scratch_node,self.file1_name)
-
-		file1_node.set_num(ctx.next_num())
-		file1_node.scan(ctx,[])
-		restore_path = os.path.join(self.scratch,"restore")
-		os.mkdir(restore_path)
-		restore_node = Directory(self.backup, None, restore_path)
-		file2_node = File(self.backup,restore_node,self.file1_name)
-		file2_node.set_num(file1_node.number)
-		file2_node.restore(ctx,None)
-
-		file2 = open(os.path.join(restore_path,file1_name),"r")
-		self.assertEquals(file2.read(), "kuku")

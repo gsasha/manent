@@ -52,9 +52,10 @@ class Node:
 		self.cached_stat = None
 
 	def get_type(self):
-		return node_type(self.code)
+		# Should be overridden by derived classes
+		return None
 	def get_level(self):
-		return node_level(self.code)
+		return self.level
 	def set_level(self,level):
 		self.level = level
 	def get_number(self):
@@ -137,7 +138,7 @@ class Node:
 			#
 			# Load the old data
 			#
-			prev_key = compute_key(prev_number)
+			prev_key = self.compute_key(prev_number)
 			if not prev_stats_db.has_key(prev_key):
 				# key is not there, but it can still be in an earlier db
 				continue
@@ -180,11 +181,11 @@ class Node:
 	#
 	# Node configuration
 	#
-	def compute_key(num):
+	def compute_key(self,num):
 		return IntegerEncodings.binary_encode_int_varlen(num)
 
 	def get_key(self):
-		return compute_key(self.number)
+		return self.compute_key(self.number)
 
 #--------------------------------------------------------
 # CLASS:File
@@ -198,7 +199,7 @@ class Node:
 class File(Node):
 	def __init__(self,backup,parent,name):
 		Node.__init__(self,backup,parent,name)
-	def node_type(self):
+	def get_type(self):
 		return NODE_TYPE_FILE
 	#
 	# Scanning and restoring
@@ -221,7 +222,7 @@ class File(Node):
 		
 		for data in read_blocks(open(self.path(), "rb"), self.backup.container_config.blockSize()):
 			digest = Digest.dataDigest(data)
-			ctx.add_block(data,digest)
+			ctx.add_block(digest,data)
 			valueS.write(digest)
 			
 		# --- Serialize to the filesystem db
@@ -229,7 +230,7 @@ class File(Node):
 		ctx.new_files_db[key] = valueS.getvalue()
 		ctx.new_stats_db[key] = Format.serialize_ints(self.stat())
 
-		self.code = node_encode(self.node_type())
+		self.code = node_encode(self.get_type(), self.get_level())
 		
 	def restore(self,ctx):
 		"""
@@ -244,19 +245,19 @@ class File(Node):
 		# Check if the file has already been processed
 		# during this pass
 		#
-		stats = Format.unserialize_ints(stats_db[key])
+		stats = Format.deserialize_ints(stats_db[key])
 		if self.restore_hlink(ctx,stats):
 			return
 
 		#
 		# No, this file is new. Create it.
 		#
-		print "Restoring file", self.path()
+		#print "Restoring file", self.path()
 		valueS = StringIO(files_db[key])
 		file = open(self.path(), "wb")
 		for digest in read_blocks(valueS,Digest.dataDigestSize()):
 			#print "File", self.path(), "reading digest", base64.b64encode(digest)
-			file.write(ctx.blocks_cache.load_block(digest))
+			file.write(ctx.load_block(digest))
 		#
 		# TODO: restore file permissions and other data
 		#
@@ -268,7 +269,7 @@ class File(Node):
 		files_db = ctx.get_files_db(self.get_level())
 		stats_db = ctx.get_stats_db(self.get_level())
 		key = self.get_key()
-		stats = Format.unserialize_ints(stats_db[key])
+		stats = Format.deserialize_ints(stats_db[key])
 
 		#
 		# Check if the file has already been processed
@@ -282,7 +283,7 @@ class File(Node):
 		#
 		valueS = StringIO(db[key])
 		for digest in read_blocks(valueS,Digest.dataDigestSize()):
-			ctx.blocks_cache.request_block(digest)
+			ctx.request_block(digest)
 	def list_files(self,ctx):
 		(node_code,node_level) = node_decode(self.code)
 		print "B%d" % node_level, self.path(), self.number
@@ -293,7 +294,7 @@ class File(Node):
 class Symlink(Node):
 	def __init__(self,backup,parent,name):
 		Node.__init__(self,backup,parent,name)
-	def node_type(self):
+	def get_type(self):
 		return NODE_TYPE_SYMLINK
 	def scan(self,ctx,prev_nums):
 		print "scanning symlink", self.path(), prev_nums
@@ -310,7 +311,7 @@ class Symlink(Node):
 		ctx.new_files_db[key] = self.link
 		ctx.new_stats_db[key] = Format.serialize_ints(self.stat())
 
-		self.code = node_encode(self.node_type(),??? where to take the level from?)
+		self.code = node_encode(self.get_type(),self.get_level())
 		
 	def restore(self,ctx):
 		print "Restoring symlink in", self.path()
@@ -320,7 +321,7 @@ class Symlink(Node):
 		
 		key = self.get_key()
 		valueS = StringIO(db[key])
-		stats = Format.unserialize_ints(stats_db[key])
+		stats = Format.deserialize_ints(stats_db[key])
 		if self.restore_hlink(ctx,stats):
 			return
 		
@@ -341,7 +342,7 @@ class Symlink(Node):
 class Directory(Node):
 	def __init__(self,backup,parent,name):
 		Node.__init__(self,backup,parent,name)
-	def node_type(self):
+	def get_type(self):
 		return NODE_TYPE_DIR
 	def read_directory_entries(file):
 		node_code = Format.read_int(file)
@@ -398,7 +399,7 @@ class Directory(Node):
 			prev_files_db = self.ctx.get_files_db(prev_idx)
 			prev_stats_db = self.ctx.get_stats_db(prev_idx)
 
-			prev_key = compute_key(prev_number)
+			prev_key = self.compute_key(prev_number)
 			if not prev_files_db.has_key(prev_key):
 				print "Prev DB %d doesn't have key [%s]"  % (prev_idx,base64.b64encode(prev_key))
 				continue
@@ -454,7 +455,7 @@ class Directory(Node):
 				if ctx.is_base_db(prev_idx):
 					# Note that here we use the level for comparison, since this is actual
 					# information read from the db
-					prev_level_data[prev_base_level][node_name] = (level,node_type,number)
+					prev_level_data[prev_base_level][name] = (level,the_type,number)
 
 		#
 		# Initialize scanning data
@@ -611,22 +612,23 @@ class Directory(Node):
 		stats_db = self.get_stats_db(ctx,ctx.db_num,base_level)
 		key = self.get_key()
 		valueS = StringIO(files_db[key])
-		for (node_code,node_num,node_name) in read_directory_entries(valueS):
-			file_type = node_type(node_code)
-			if file_type == NODE_TYPE_DIR:
-				node = Directory(self.backup,self, node_name)
-			elif file_type == NODE_TYPE_FILE:
-				node = File(self.backup,self,node_name)
-			elif file_type == NODE_TYPE_SYMLINK:
-				node = Symlink(self.backup,self,node_name)
+		for (code,number,name) in read_directory_entries(valueS):
+			the_type = node_type(code)
+			level = node_level(code)
+			if the_type == NODE_TYPE_DIR:
+				node = Directory(self.backup,self,name)
+			elif the_type == NODE_TYPE_FILE:
+				node = File(self.backup,self,name)
+			elif the_type == NODE_TYPE_SYMLINK:
+				node = Symlink(self.backup,self,name)
 			else:
-				raise "Unknown node type [%s]"%node_type
+				raise "Unknown node type [%s]"%the_type
 
-			node.set_number(node_num)
-			node.code = node_type
-			node.restore(ctx,based)
+			node.set_number(number)
+			node.set_level(level)
+			node.restore(ctx)
 
-	def request_blocks(self,ctx,block_cache,based=False):
+	def request_blocks(self,ctx):
 		#print "Requesting blocks in", self.path(), "code", self.code, "num", self.number, "based", based
 		db_num = ctx.db_num
 		files_db = self.get_files_db(ctx,ctx.db_num,base_level)
@@ -646,9 +648,9 @@ class Directory(Node):
 				raise "Unknown node type [%s]"%node_type
 			node.set_number(node_num)
 			node.code = node_type
-			node.request_blocks(ctx,block_cache,based)
+			node.request_blocks(ctx,based)
 
-	def list_files(self,ctx,based=False):
+	def list_files(self,ctx):
 		files_db = self.get_files_db(self.code, default_db = ctx.files_db)
 		stats_db = self.get_stats_db(self.code, default_db = ctx.stats_db)
 			
