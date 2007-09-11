@@ -488,6 +488,7 @@ class Directory(Node):
 		# Scan the directory
 		#
 		print "starting scan for", self.path()
+		entries = os.listdir(self.path())
 		for name in entries:
 			# Exclude nonessential names automatically
 			if (name=="..") or (name=="."):
@@ -515,7 +516,7 @@ class Directory(Node):
 				if stat.S_ISLNK(file_mode):
 					node = Symlink(self.backup,self,name)
 					node.set_level(self.get_level())
-					node.set_number(ctx.next_num())
+					node.set_number(ctx.next_number())
 					node.scan(ctx,cur_prev_nums)
 					self.cur_data[name] = (node.get_level(),node.get_type(),node.get_number())
 					if node.get_level() >= self.get_level():
@@ -525,7 +526,7 @@ class Directory(Node):
 				elif stat.S_ISREG(file_mode):
 					node = File(self.backup,self,name)
 					node.set_level(self.get_level())
-					node.set_number(ctx.next_num())
+					node.set_number(ctx.next_number())
 					same = node.scan(ctx,cur_prev_nums)
 					self.cur_data[name] = (node.get_level(),node.get_type(),node.get_number())
 					if node.get_level() >= self.get_level():
@@ -534,7 +535,7 @@ class Directory(Node):
 				elif stat.S_ISDIR(file_mode):
 					node = Directory(self.backup,self,name)
 					node.set_level(self.get_level())
-					node.set_number(ctx.next_num())
+					node.set_number(ctx.next_number())
 					# The order of append and scan is different here,
 					# to make sure that the intermediate dir info is saved.
 					self.subdirs.append(node)
@@ -596,9 +597,9 @@ class Directory(Node):
 		valueS = StringIO()
 		# sorting is an optimization to make everybody access files in the same order,
 		# TODO: measure if this really makes things faster (probably will with a btree db)
-		for name in sorted(self.cur_data.items()):
+		for name in sorted(self.cur_data.keys()):
 			(level,the_type,number) = self.cur_data[name]
-			Format.write_int(valueS,node.encode(the_type,level))
+			Format.write_int(valueS,node_encode(the_type,level))
 			Format.write_int(valueS,number)
 			Format.write_string(valueS,name)
 			

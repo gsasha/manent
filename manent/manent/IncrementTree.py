@@ -2,12 +2,14 @@
 #
 # String constants for the tree node formatting
 #
-TREE_NEXT_INCREMENT    = "tree.next_increment"
-TREE_FIRST_UNFINALIZED = "tree.first_unfinalized_increment"
-TREE_CHILD_IDXS        = "tree.i.%d.child_idx"
-TREE_NODE_PERCENT      = "tree.i.%d.percent"
-TREE_NODE_BASES        = "tree.i.%d.bases"
-
+TREE_NEXT_INCREMENT      = "tree.next_increment"
+TREE_FIRST_UNFINALIZED   = "tree.first_unfinalized_increment"
+TREE_CHILD_IDXS          = "tree.i%d.child_idx"
+TREE_NODE_PERCENT        = "tree.i%d.percent"
+TREE_NODE_BASES          = "tree.i%d.bases"
+TREE_INCREMENT_COMMENT   = "tree.i%d.comment"
+TREE_INCREMENT_STARTED   = "tree.i%d.started"
+TREE_INCREMENT_FINALIZED = "tree.i%d.finalized"
 INCREMENT_BASE_FALLOFF_FACTOR = 0.1
 INCREMENT_REBASE_THRESHOLD = 0.5
 
@@ -70,7 +72,7 @@ class IncrementTree:
 			self.__create_node(0,[])
 			
 
-	def start_increment(self):
+	def start_increment(self,comment):
 		"""
 		Start a new increment.
 
@@ -123,6 +125,7 @@ class IncrementTree:
 		# scan_bases are all the unfinalized bases
 		scan_bases += range(l_f_increment+1,self.cur_increment)
 
+		self.db[TREE_INCREMENT_COMMENT%self.cur_increment] = comment
 		return IncrementTreeNode(self,self.cur_increment,l_bases,scan_bases)
 	def finalize_increment(self,percent_change,handler):
 		"""
@@ -174,6 +177,8 @@ class IncrementTree:
 		assert(self.db.has_key(TREE_NODE_BASES%idx))
 		f_increment = int(self.db[TREE_FIRST_UNFINALIZED])
 		return idx < f_increment
+	def get_comment(self,idx):
+		return self.db[TREE_INCREMENT_COMMENT%idx]
 	def info(self):
 		#print self.db
 		n_increment = int(self.db[TREE_NEXT_INCREMENT])
@@ -181,7 +186,7 @@ class IncrementTree:
 			if not self.db.has_key(TREE_CHILD_IDXS%idx):
 				continue
 			prefix = " |"*self.__get_level(idx)
-			print prefix+"-Increment", idx, "bases", self.__get_bases(idx), "change", self.__get_percent(idx)
+			print prefix+"-Increment", idx, "[", self.get_comment(idx), "] bases", self.__get_bases(idx), "change", self.__get_percent(idx)
 	#-----------------------------------------------------------------
 	# Utility functions for maintaining the tree structure as kept in DB
 	#

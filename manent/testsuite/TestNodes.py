@@ -16,21 +16,13 @@ class MockContainerConfig:
 	def blockSize(self):
 		return 32
 
-class MockBackup:
-	def __init__(self):
-		self.container_config = MockContainerConfig()
-		self.shared_db = {}
-		self.blocks = {}
-		self.increments = IncrementTree(self.shared_db)
-	def add_block(self,digest,data):
-		self.blocks[digest] = data
-	def load_block(self,digest):
-		return self.blocks[digest]
+class MockGlobalConfig:
+	def excludes(self):
+		return []
 
 class MockIncrementFSCtx:
-	def __init__(self):
-		self.files_db = {}
-		self.stats_db = {}
+	def __init__(self,backup):
+		self.backup = backup
 	#
 	# Funcionality for scanning
 	#
@@ -38,19 +30,13 @@ class MockIncrementFSCtx:
 		# always say that the new db is not a new base
 		return self.db_level[idx]
 	def is_db_base(self,idx):
-		return self.is_base(idx)
+		return idx in self.bases
 	def is_db_finalized(self,idx):
-		return self.is_finalized(idx)
+		return self.backup.is_increment_finalized(idx)
 	def get_files_db(self,idx):
-		return self.files_db[idx]
+		return self.backup.files_db[idx]
 	def get_stats_db(self,idx):
-		return self.stats_db[idx]
-	#
-	# Functionality for creating mock data
-	#
-	def create_db(self,idx):
-		self.files_db[idx] = {}
-		self.stats_db[idx] = {}
+		return self.backup.stats_db[idx]
 
 class MockBlockCtx:
 	def __init__(self,backup):
@@ -59,50 +45,102 @@ class MockBlockCtx:
 		self.backup.add_block(digest,data)
 	def load_block(self,digest):
 		return self.backup.load_block(digest)
+
 class MockHlinkCtx:
 	def __init__(self):
 		self.inodes_db = {}
 	
-class MockCtx(MockIncrementFSCtx,MockBlockCtx,MockHlinkCtx):
-	def __init__(self,backup):
-		MockIncrementFSCtx.__init__(self)
-		MockBlockCtx.__init__(self,backup)
-		MockHlinkCtx.__init__(self)
+class MockNumberCtx:
+	def __init__(self):
 		self.current_num = 0
-		self.total_nodes = 0
-		self.changed_nodes = 0
 	def next_number(self):
 		self.current_num += 1
 		return self.current_num
+	
+class MockScanCtx(MockIncrementFSCtx,MockBlockCtx,MockHlinkCtx,MockNumberCtx):
+	def __init__(self,backup):
+		MockIncrementFSCtx.__init__(self,backup)
+		MockBlockCtx.__init__(self,backup)
+		MockHlinkCtx.__init__(self)
+		MockNumberCtx.__init__(self)
+		self.total_nodes = 0
+		self.changed_nodes = 0
+
+class MockRestoreCtx(MockIncrementFSCtx,MockBlockCtx,MockHlinkCtx):
+	def __init__(self,backup):
+		MockIncrementFSCtx.__init__(self,backup)
+		MockBlockCtx.__init__(self,backup)
+		MockHlinkCtx.__init__(self)
+
+class MockBackup:
+	def __init__(self):
+		self.container_config = MockContainerConfig()
+		self.global_config = MockGlobalConfig()
+		self.config_db = {}
+		self.blocks_db = {}
+		self.files_db = {}
+		self.stats_db = {}
+		self.increments = IncrementTree(self.config_db)
+	def start_increment(self,comment):
+		increment = self.increments.start_increment(comment)
+		ctx = MockScanCtx(self)
+		ctx.new_files_db = {}
+		ctx.new_stats_db = {}
+		self.files_db[increment.idx] = ctx.new_files_db
+		self.stats_db[increment.idx] = ctx.new_stats_db
+		ctx.bases = increment.bases
+		ctx.scan_bases = increment.scan_bases
+		return ctx
+	def finalize_increment(self,percent_change):
+		class Handler:
+			def __init__(self,backup):
+				self.backup = backup
+			def remove_increment(self,idx):
+				del self.files_db[idx]
+				del self.stats_db[idx]
+			def rebase_fs(self,idx):
+				print "rebasing something to ", idx
+		self.increments.finalize_increment(percent_change,Handler(self))
+	def start_restore(self,idx):
+		ctx = MockRestoreCtx(self)
+		return ctx
+	def is_increment_finalized(self,idx):
+		return self.increments.is_increment_finalized(idx)
+	def add_block(self,digest,data):
+		self.blocks_db[digest] = data
+	def load_block(self,digest):
+		return self.blocks_db[digest]
+
 
 class TestNodes(unittest.TestCase):
 	def setUp(self):
-		self.backup = MockBackup()
 		self.fsc = FilesystemCreator("/tmp/manent.test.scratch.nodes")
 	def tearDown(self):
 		pass
 
 	def test_path(self):
 		"""Test that path is computed correctly"""
-		n1 = Node(self.backup, None, "kuku")
-		n2 = Node(self.backup, n1, "bebe")
-		n3 = Node(self.backup, n2, "mumu.txt")
+		backup = MockBackup()
+		n1 = Node(backup, None, "kuku")
+		n2 = Node(backup, n1, "bebe")
+		n3 = Node(backup, n2, "mumu.txt")
 		self.assertEquals(n1.path(), "kuku")
 		self.assertEquals(n2.path(), os.path.join("kuku","bebe"))
 		self.assertEquals(n3.path(), os.path.join("kuku","bebe","mumu.txt"))
 	def test_hlink(self):
 		"""Test that hard links are correctly identified and restored"""
-		scratch_node = Directory(self.backup, None, self.fsc.get_home())
+		backup = MockBackup()
 		#
 		# Create two files linking to the same inode
 		#
-		ctx = MockCtx(self.backup)
+		ctx = backup.start_increment("")
 		self.fsc.add_files({"file1":""})
 		self.fsc.link("file1","file2")
 		
-		file1_node = File(self.backup, scratch_node, "file1")
+		root_node = Directory(backup, None, self.fsc.get_home())
+		file1_node = File(backup, root_node, "file1")
 		file1_node.set_number(ctx.next_number())
-		file2_node = File(self.backup, scratch_node, "file2")
+		file2_node = File(backup, root_node, "file2")
 		file2_node.set_number(ctx.next_number())
 		file1_stat = file1_node.stat()
 		file2_stat = file2_node.stat()
@@ -111,10 +149,11 @@ class TestNodes(unittest.TestCase):
 		#
 		self.assertEquals(file1_node.scan_hlink(ctx), False)
 		self.assertEquals(file2_node.scan_hlink(ctx), True)
+		backup.finalize_increment(1.0)
 		#
 		# Test that restore works...
 		#
-		ctx = MockCtx(self.backup)
+		ctx = backup.start_restore(0)
 		self.fsc.remove_files({"file2":""})
 		self.assertEquals(file1_node.restore_hlink(ctx,file1_stat), False)
 		self.assertEquals(file2_node.restore_hlink(ctx,file2_stat), True)
@@ -126,10 +165,8 @@ class TestNodes(unittest.TestCase):
 		"""Test that scanning and restoring a single file works
 		We test restoration of both file data and attributes
 		"""
-		ctx = MockCtx(self.backup)
-		ctx.create_db(0)
-		ctx.new_files_db = ctx.get_files_db(0)
-		ctx.new_stats_db = ctx.get_stats_db(0)
+		backup = MockBackup()
+		ctx = backup.start_increment("for restoring")
 
 		#
 		# Scan the files
@@ -143,13 +180,13 @@ class TestNodes(unittest.TestCase):
 		stat1 = self.fsc.lstat("file1")
 		stat2 = self.fsc.lstat("file2")
 
-		basedir = Directory(self.backup, None, self.fsc.get_home())
-		node1 = File(self.backup,basedir,"file1")
+		basedir = Directory(backup, None, self.fsc.get_home())
+		node1 = File(backup,basedir,"file1")
 		node1.set_level(0)
 		node1.set_number(ctx.next_number())
 		node1.scan(ctx,[])
 		number1 = node1.number
-		node2 = File(self.backup,basedir,"file2")
+		node2 = File(backup,basedir,"file2")
 		node2.set_level(0)
 		node2.set_number(ctx.next_number())
 		node2.scan(ctx,[])
@@ -158,12 +195,12 @@ class TestNodes(unittest.TestCase):
 		# Restore the files and see if everything is in place
 		#
 		self.fsc.cleanup()
-		restore_node = Directory(self.backup, None, self.fsc.get_home())
-		node1 = File(self.backup,restore_node,"file1")
+		restore_node = Directory(backup, None, self.fsc.get_home())
+		node1 = File(backup,restore_node,"file1")
 		node1.set_level(0)
 		node1.set_number(number1)
 		node1.restore(ctx)
-		node2 = File(self.backup,restore_node,"file2")
+		node2 = File(backup,restore_node,"file2")
 		node2.set_level(0)
 		node2.set_number(number2)
 		node2.restore(ctx)
@@ -176,15 +213,18 @@ class TestNodes(unittest.TestCase):
 		"""
 		Test that increments are created at all
 		"""
-		ctx = MockCtx(self.backup)
-		self.backup.start_increment()
+		backup = MockBackup()
+		ctx = backup.start_increment("stam1")
 		self.fsc.add_files({"file1":"file1_contents", "file2":"file2_contents"})
-		root_node = Directory(self.backup,self.fsc.get_home())
-		root_node.scan()
-		self.backup.finalize_increment()
+		root_node = Directory(backup,None,self.fsc.get_home())
+		root_node.set_level(0)
+		root_node.set_number(ctx.next_number())
+		root_node.scan(ctx,[])
+		backup.finalize_increment(1.0)
 	def prepare_test_scan_prev(self):
 		# Prepare the context
-		ctx = MockCtx(self.backup)
+		backup = MockBackup()
+		ctx = backup.start_increment("")
 		ctx.base_fs = {0:0,1:5}
 		(f1,f2,f3) = ({},{},{})
 		(s1,s2,s3) = ({},{},{})
