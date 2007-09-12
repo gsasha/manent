@@ -1,3 +1,4 @@
+from manent.Nodes import *
 from manent.IncrementTree import *
 
 class MockContainerConfig:
@@ -44,17 +45,27 @@ class MockNumberCtx:
 	def next_number(self):
 		self.current_num += 1
 		return self.current_num
-	
-class MockScanCtx(MockIncrementFSCtx,MockBlockCtx,MockHlinkCtx,MockNumberCtx):
+
+class MockChangeCtx:
+	def __init__(self):
+		self.total_nodes = 0
+		self.changed_nodes = 0
+	def get_change_percent(self):
+		if self.total_nodes == 0:
+			return 0.0
+		percent = float(self.changed_nodes)/self.total_nodes
+		return percent
+		
+class MockScanCtx(MockIncrementFSCtx,MockBlockCtx,MockHlinkCtx,MockNumberCtx,MockChangeCtx):
 	def __init__(self,backup):
 		MockIncrementFSCtx.__init__(self,backup)
 		MockBlockCtx.__init__(self,backup)
 		MockHlinkCtx.__init__(self)
 		MockNumberCtx.__init__(self)
-		self.total_nodes = 0
-		self.changed_nodes = 0
+		MockChangeCtx.__init__(self)
 	def get_level(self):
-		return self.backup.get_level()
+		# Assume that backup filled that in
+		return self.level
 
 class MockRestoreCtx(MockIncrementFSCtx,MockBlockCtx,MockHlinkCtx):
 	def __init__(self,backup):
@@ -63,7 +74,7 @@ class MockRestoreCtx(MockIncrementFSCtx,MockBlockCtx,MockHlinkCtx):
 		MockHlinkCtx.__init__(self)
 
 class MockBackup:
-	def __init__(self):
+	def __init__(self,home):
 		self.container_config = MockContainerConfig()
 		self.global_config = MockGlobalConfig()
 		self.config_db = {}
@@ -71,6 +82,7 @@ class MockBackup:
 		self.files_db = {}
 		self.stats_db = {}
 		self.increments = IncrementTree(self.config_db)
+		self.home = home
 	def start_increment(self,comment):
 		increment = self.increments.start_increment(comment)
 		ctx = MockScanCtx(self)
@@ -81,16 +93,21 @@ class MockBackup:
 		ctx.bases = increment.bases
 		ctx.scan_bases = increment.scan_bases
 		ctx.level = self.get_db_level(increment.idx)
+
+		self.ctx = ctx
+		self.root_node = Directory(self,None,self.home)
 		return ctx
 	def finalize_increment(self,percent_change):
 		class Handler:
 			def __init__(self,backup):
 				self.backup = backup
 			def remove_increment(self,idx):
-				del self.files_db[idx]
-				del self.stats_db[idx]
-			def rebase_fs(self,idx):
-				print "rebasing something to ", idx
+				del self.backup.files_db[idx]
+				del self.backup.stats_db[idx]
+			def rebase_fs(self,bases):
+				print "rebasing last increment to ", bases
+				ctx = MockChangeCtx()
+				self.root_node.rebase(ctx,bases)
 		self.increments.finalize_increment(percent_change,Handler(self))
 	def start_restore(self,idx):
 		ctx = MockRestoreCtx(self)

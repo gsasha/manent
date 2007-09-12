@@ -21,7 +21,7 @@ class TestNodes(unittest.TestCase):
 
 	def test_path(self):
 		"""Test that path is computed correctly"""
-		backup = MockBackup()
+		backup = MockBackup(self.fsc.get_home())
 		n1 = Node(backup, None, "kuku")
 		n2 = Node(backup, n1, "bebe")
 		n3 = Node(backup, n2, "mumu.txt")
@@ -30,7 +30,7 @@ class TestNodes(unittest.TestCase):
 		self.assertEquals(n3.path(), os.path.join("kuku","bebe","mumu.txt"))
 	def test_hlink(self):
 		"""Test that hard links are correctly identified and restored"""
-		backup = MockBackup()
+		backup = MockBackup(self.fsc.get_home())
 		#
 		# Create two files linking to the same inode
 		#
@@ -66,7 +66,7 @@ class TestNodes(unittest.TestCase):
 		"""Test that scanning and restoring a single file works
 		We test restoration of both file data and attributes
 		"""
-		backup = MockBackup()
+		backup = MockBackup(self.fsc.get_home())
 		ctx = backup.start_increment("for restoring")
 
 		#
@@ -110,32 +110,22 @@ class TestNodes(unittest.TestCase):
 		self.failUnless(self.fsc.test_lstat("file2",stat2))
 		# test_files will change access times, do it only after test_lstat
 		self.failUnless(self.fsc.test_files(file_data))
-	def test_scan_prev_0(self):
-		"""
-		Test that increments are created at all
-		"""
-		backup = MockBackup()
-		ctx = backup.start_increment("stam1")
-		self.fsc.add_files({"file1":"file1_contents", "file2":"file2_contents"})
-		root_node = Directory(backup,None,self.fsc.get_home())
-		root_node.set_level(0)
-		root_node.set_number(ctx.next_number())
-		root_node.scan(ctx,[])
-		backup.finalize_increment(1.0)
 	def test_scan_prev_file(self):
 		"""Test that file is found in the history"""
-		backup = MockBackup()
+		backup = MockBackup(self.fsc.get_home())
 		self.fsc.reset()
 		#
 		# First increment. File1 is there
 		#
 		self.fsc.add_files({"file1":"file1_contents"})
 		ctx = backup.start_increment("")
+		ctx.backup.increments.info()
 		root_node = Directory(backup,None,self.fsc.get_home())
 		root_node.set_level(ctx.get_level())
 		root_node.set_number(ctx.next_number())
 		root_node.scan(ctx,[])
 		backup.finalize_increment(ctx.get_change_percent())
+		ctx.backup.increments.info()
 		level1 = ctx.get_level()
 		#
 		# Second increment. File2 is there
@@ -146,6 +136,7 @@ class TestNodes(unittest.TestCase):
 		root_node.set_level(ctx.get_level())
 		root_node.set_number(ctx.next_number())
 		root_node.scan(ctx,[])
+		p = ctx.get_change_percent()
 		backup.finalize_increment(ctx.get_change_percent())
 		level2 = ctx.get_level()
 		#

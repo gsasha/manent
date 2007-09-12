@@ -178,6 +178,39 @@ class Node:
 		
 		ctx.changed_nodes += 1
 		return False
+	def rebase(self,ctx,bases):
+		"""Rebase the node to a given list of bases.
+		The list of bases specifies the maximum level, so the level of the
+		current node can be reduced, but never increased.
+		"""
+		ctx.total_nodes += 1
+		max_level = len(bases)
+		if self.get_level() < max_level:
+			# All is OK, this node is permitted to be based
+			return
+		if self.ctx.new_files_db.has_key(self.get_key()):
+			# Node is in this db, meaning that it is already
+			# new. No need to copy it, but set its level to the
+			# req'd one
+			self.set_level(max_level)
+			# The node is still changed, as in "it appears in this db"
+			ctx.changed_nodes += 1
+		else:
+			# Node is based, and we need to unbase it. This is done
+			# by copying its contents from the base db
+			files_db = self.ctx.get_files_db(self.get_level())
+			stats_db = self.ctx.get_stats_db(self.get_level())
+			# Assign a new number to the node to avoid conflicting
+			# with existing nodes in this increment
+			old_key = self.get_key()
+			self.set_number(ctx.next_number())
+			new_key = self.get_key()
+			# Perform copying of the data
+			self.ctx.new_files_db[new_key] = files_db[old_key]
+			self.ctx.new_stats_db[new_key] = stats_db[old_key]
+			# And of course, the node is still changed
+			ctx.changed_nodes += 1
+			
 	def restore_stats(self,stats):
 		prev_stat = os.lstat(self.path())
 		os.chmod(self.path(),stats[stat.ST_MODE])
@@ -355,6 +388,55 @@ class Directory(Node):
 		node_num = Format.read_int(file)
 		node_name = Format.read_string(file)
 		yield (node_code,node_num,node_name)
+	def rebase(self,ctx,bases):
+		"""Rebase the directory to a given list of bases.
+		The list of bases specifies the maximum level, so the level of the
+		current node can be reduced, but never increased.
+		"""
+		max_level = len(bases)
+		if self.get_level() < max_level:
+			# If the directory itself is based at a certain level,
+			# definitely its nodes are going to be based on at most
+			# that level too
+			return
+		if self.ctx.new_files_db.has_key(self.get_key()):
+			# We may need to rewrite the directory contents, but keep the same number
+			file_data = self.ctx.new_files_db[self.get_key()]
+			stat_data = self.ctx.new_stats_db[self.get_key()]
+		else:
+			# We need to copy the directory from a base fs. Must assign a new number
+			files_db = self.ctx.get_files_db(self.get_level())
+			stats_db = self.ctx.get_stats_db(self.get_level())
+			file_data = files_db[self.get_key()]
+			stat_data = stats_db[self.get_key()]
+			self.set_number(ctx.next_number())
+		#
+		# Rebase all the child nodes
+		#
+		cur_data = {}
+		valueS = StringIO(file_data)
+		for (code,number,name) in read_directory_entries(valueS):
+			the_type = node_type(code)
+			level = node_level(code)
+			if the_type == NODE_TYPE_DIR:
+				node = Directory(self.backup,self,name)
+			elif the_type == NODE_TYPE_FILE:
+				node = File(self.backup,self,name)
+			elif the_type == NODE_TYPE_SYMLINK:
+				node = Symlink(self.backup,self,name)
+			else:
+				raise "Unknown node type [%s]"%the_type
+
+			node.set_number(number)
+			node.set_level(level)
+			node.rebase(ctx,bases)
+			cur_data[name] = (node.get_level(),node.get_type(),node.get_number())
+		#
+		# The file data is recomputed
+		#
+		self.write_files(ctx,cur_data)
+		# The stat data is just copied
+		self.ctx.new_stats_db[self.get_key()] = stat_data
 	def scan(self,ctx,prev_nums):
 		"""
 		Scan the node, considering data in all the previous increments
@@ -591,20 +673,25 @@ class Directory(Node):
 			self.dirty = False
 
 	def write(self,ctx):
+		self.write_files(ctx,self.cur_data)
+		self.write_stats(ctx,self.stat())
+	def write_files(self,ctx,files_data):
 		"""
 		Write the info of the current dir to database
 		"""
 		valueS = StringIO()
 		# sorting is an optimization to make everybody access files in the same order,
 		# TODO: measure if this really makes things faster (probably will with a btree db)
-		for name in sorted(self.cur_data.keys()):
-			(level,the_type,number) = self.cur_data[name]
+		for name in sorted(files_data.keys()):
+			(level,the_type,number) = files_data[name]
 			Format.write_int(valueS,node_encode(the_type,level))
 			Format.write_int(valueS,number)
 			Format.write_string(valueS,name)
 			
 		key = self.get_key()
 		ctx.new_files_db[key] = valueS.getvalue()
+	def write_stats(self,ctx,stat_data):
+		key = self.get_key()
 		ctx.new_stats_db[key] = Format.serialize_ints(self.stat())
 		
 	def restore(self,ctx):
