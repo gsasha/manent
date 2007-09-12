@@ -185,7 +185,7 @@ class IncrementTree:
 		for idx in range(0,n_increment):
 			if not self.db.has_key(TREE_CHILD_IDXS%idx):
 				continue
-			prefix = " |"*self.__get_level(idx)
+			prefix = " |"*self.get_level(idx)
 			print prefix+"-Increment", idx, "[", self.get_comment(idx), "] bases", self.__get_bases(idx), "change", self.__get_percent(idx)
 	#-----------------------------------------------------------------
 	# Utility functions for maintaining the tree structure as kept in DB
@@ -222,7 +222,7 @@ class IncrementTree:
 	def __get_bases(self,idx):
 		assert idx >= 0
 		return [int(x) for x in self.db[TREE_NODE_BASES%idx].split()]
-	def __get_level(self,idx):
+	def get_level(self,idx):
 		assert idx >= 0
 		return len(self.__get_bases(idx))
 	def __get_children(self,idx):

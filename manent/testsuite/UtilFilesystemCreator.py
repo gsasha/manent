@@ -11,7 +11,7 @@ class FilesystemCreator:
 			pass
 		os.mkdir(self.home)
 
-	def cleanup(self):
+	def reset(self):
 		try:
 			shutil.rmtree(self.home)
 		except:
