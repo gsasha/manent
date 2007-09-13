@@ -48,7 +48,7 @@ class BlockReaderIStream(IStreamAdapter):
 			return ""
 		return self.backup.load_block(digest)
 
-class DigestLister:
+class PackerDigestLister:
 	def __init__(self,backup,digest):
 		self.backup = backup
 
@@ -72,6 +72,7 @@ class DigestLister:
 		if len(digest) == 0:
 			raise StopIteration
 		return digest
+
 class PackerIStream(IStreamAdapter):
 	"""
 	This istream reads its data from a stream of containers
@@ -80,7 +81,7 @@ class PackerIStream(IStreamAdapter):
 		IStreamAdapter.__init__(self)
 		
 		self.backup = backup
-		self.digest_lister = DigestLister(self.backup,digest)
+		self.digest_lister = PackerDigestLister(self.backup,digest)
 	def read_block(self):
 		try:
 			digest = self.digest_lister.next()
