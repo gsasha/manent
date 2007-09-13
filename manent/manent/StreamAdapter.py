@@ -14,11 +14,11 @@ class IStreamAdapter:
 	#
 	# Functions for the user
 	#
-	def read(self,size):
+	def read(self,size=None):
 		resultS = StringIO()
 		result_size = 0
 
-		while result_size < size:
+		while size is None or result_size < size:
 			if self.buf == None:
 				block = self.read_block()
 				if len(block) == 0:
@@ -37,6 +37,15 @@ class IStreamAdapter:
 			resultS.write(data)
 			result_size += len(data)
 		return resultS.getvalue()
+			
+	def unread(self,data):
+		"""Return data to the stream, so it will be available again
+		on next read"""
+		if self.buf == None:
+			self.buf = StringIO(data)
+			return
+		next_data = self.buf.read()
+		self.buf = StringIO(data+next_data)
 
 	def seek(self, offset, whence=1):
 		if whence != 1:
@@ -78,7 +87,7 @@ class IStreamAdapter:
 		return line
 	
 	def read_block(self):
-		raise "read_block must be overridden by the inheriting class"
+		raise Exception("read_block must be overridden by the inheriting class")
 
 class OStreamAdapter:
 	def __init__(self,max_block_size):
@@ -105,7 +114,7 @@ class OStreamAdapter:
 		"""
 		Inheriting class must override this
 		"""
-		print "write_block must be implemented!"
+		raise Exception("write_block must be implemented!")
 		
 	#
 	# Implementation

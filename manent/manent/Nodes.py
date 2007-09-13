@@ -16,18 +16,8 @@ import Backup
 NODE_TYPE_DIR     = 0
 NODE_TYPE_FILE    = 1
 NODE_TYPE_SYMLINK = 2
-NODE_TYPE_MAX     = 8
 
-def node_encode(node_type, node_level):
-	return node_type + NODE_TYPE_MAX * (node_level)
-def node_type(node_code):
-	return node_code % NODE_TYPE_MAX
-def node_level(node_code):
-	return node_code / NODE_TYPE_MAX
-def node_decode(node_code):
-	nt = node_type(node_code)
-	nl = node_level(node_code)
-	return (nt, nl)
+STAT_PRESERVED_MODES = [stat.ST_MODE,stat.ST_UID,stat.ST_GID,stat.ST_MTIME,stat.ST_CTIME,stat.ST_ATIME]
 
 #--------------------------------------------------------
 # CLASS:Node
@@ -44,26 +34,14 @@ class Node:
 		self.cached_path = None
 		self.cached_stat = None
 
-		self.code = None
 
 	def uncache(self):
 		""" For debugging only: uncache all the cached data """
 		self.cached_path = None
 		self.cached_stat = None
 
-	def get_type(self):
-		# Should be overridden by derived classes
-		return None
-	def get_level(self):
-		return self.level
-	def set_level(self,level):
-		self.level = level
-	def get_number(self):
-		return self.number
-	def set_number(self,number):
-		self.number = number
 	#
-	# Path compuations
+	# Path computations
 	#
 	def path(self):
 		"""
@@ -77,13 +55,19 @@ class Node:
 				node = node.parent
 			self.cached_path = os.path.join(*reversed(pathElements))
 		return self.cached_path
-	def stat(self):
+	#
+	# Stat handling
+	#
+	def compute_stat(self):
 		"""
 		Compute the os.stat data for the current file
 		"""
-		if self.cached_stat is None:
-			self.cached_stat = os.lstat(self.path())
-		return self.cached_stat
+		self.stats = {}
+		node_stat = os.lstat(self.path())
+		for mode in STAT_PRESERVED_MODES:
+			self.stats[mode] = node_stat[mode]
+	def set_stats(self,stats):
+		self.stats = stats
 	#-----------------------------------------------------
 	# Support for scanning hard links:
 	# 
@@ -91,24 +75,23 @@ class Node:
 	# that has already been scanned. If so, reuse it.
 	#
 	def scan_hlink(self,ctx):
-		file_stat = self.stat()
-		nlink = file_stat[stat.ST_NLINK]
+		nlink = self.stats[stat.ST_NLINK]
 		if nlink == 1:
 			return False
-		inode_num = file_stat[stat.ST_INO]
+		inode_num = self.stats[stat.ST_INO]
 		if not ctx.inodes_db.has_key(inode_num):
 			ctx.inodes_db[inode_num] = (self.code,self.number)
 			return False
 		# inode found, so reuse it
 		(self.code,self.number) = ctx.inodes_db[inode_num]
 		return True
-	def restore_hlink(self,ctx,stats,restore=True):
-		if stats[stat.ST_NLINK] == 1:
+	def restore_hlink(self,ctx,dryrun=False):
+		if self.stats[stat.ST_NLINK] == 1:
 			return False
 		if not ctx.inodes_db.has_key(self.number):
 			ctx.inodes_db[self.number] = self.path()
 			return False
-		if restore:
+		if not dryrun:
 			otherFile = ctx.inodes_db[self.number]
 			os.link(otherFile, self.path())
 		return True
@@ -118,47 +101,20 @@ class Node:
 	#
 	def scan_prev(self,ctx,prev_nums):
 		"""
-		Search the node in the upper levels of the tree.
-
-		The input, prev_nums, contains a list of the bases, plus the
-		later scans (which can be either finalized or unfinalized).
-		
-		If the node is found, then self.code and self.num are set to the
-		correct values, and True is returned. Otherwise, False is returned.
 		"""
 		ctx.total_nodes += 1
 		
-		for (prev_idx,prev_type,prev_number) in reversed(prev_nums):
-			#
-			# Get the databases corresponding to this prev node
-			#
-			prev_files_db = ctx.get_files_db(prev_idx)
-			prev_stats_db = ctx.get_stats_db(prev_idx)
-
-			#
-			# Load the old data
-			#
-			prev_key = self.compute_key(prev_number)
-			if not prev_stats_db.has_key(prev_key):
-				# key is not there, but it can still be in an earlier db
-				continue
-				
-			#
-			# Compare the contents of the old database to see if it is
-			# reusable
-			#
-			prev_stat = Format.deserialize_ints(prev_stats_db[prev_key])
-			cur_stat = self.stat()
-			if stat.S_IFMT(cur_stat[stat.ST_MODE]) != stat.S_IFMT(prev_stat[stat.ST_MODE]):
+		for (prev_stat,prev_digest) in reversed(prev_nums):
+			if stat.S_IFMT(self.stats[stat.ST_MODE]) != stat.S_IFMT(prev_stat[stat.ST_MODE]):
 				#print "  Node type differs"
 				break
-			if cur_stat[stat.ST_INO] != prev_stat[stat.ST_INO]:
+			if self.stats[stat.ST_INO] != prev_stat[stat.ST_INO]:
 				#print "  Inode number differs: was %d, now %d" % (file_stat[stat.ST_INO],old_stat[stat.ST_INO]), file_stat
 				break
-			if cur_stat[stat.ST_MTIME] != prev_stat[stat.ST_MTIME]:
+			if self.stats[stat.ST_MTIME] != prev_stat[stat.ST_MTIME]:
 				#print "  Mtime differs"
 				break
-			if time.time() - file_stat[stat.ST_MTIME] <= 1.0:
+			if time.time() - self.stats[stat.ST_MTIME] <= 1.0:
 				# The time from the last change is less than the resolution
 				# of time() functions
 				#print "  File too recent",file_stat[stat.ST_MTIME],time.time()
@@ -168,71 +124,18 @@ class Node:
 			# OK, the prev node seems to be the same as this one.
 			# Reuse it.
 			#
-			if ctx.is_base_level(prev_idx):
-				# The reference node is already a based one.
-				# Don't write data to current DB, instead, the parent dir
-				# will write a reference to the base file number
-				self.level = ctx.get_level(prev_idx)
-				self.number = prev_number
-				return True
+			self.stats = prev_stat
+			self.digest = prev_digest
+			return True
 		
-		ctx.changed_nodes += 1
 		return False
-	def rebase(self,ctx,bases):
-		"""Rebase the node to a given list of bases.
-		The list of bases specifies the maximum level, so the level of the
-		current node can be reduced, but never increased.
-		"""
-		ctx.total_nodes += 1
-		max_level = len(bases)
-		if self.get_level() < max_level:
-			# All is OK, this node is permitted to be based
-			return
-		if self.ctx.new_files_db.has_key(self.get_key()):
-			# Node is in this db, meaning that it is already
-			# new. No need to copy it, but set its level to the
-			# req'd one
-			self.set_level(max_level)
-			# The node is still changed, as in "it appears in this db"
-			ctx.changed_nodes += 1
-		else:
-			# Node is based, and we need to unbase it. This is done
-			# by copying its contents from the base db
-			files_db = self.ctx.get_files_db(self.get_level())
-			stats_db = self.ctx.get_stats_db(self.get_level())
-			# Assign a new number to the node to avoid conflicting
-			# with existing nodes in this increment
-			old_key = self.get_key()
-			self.set_number(ctx.next_number())
-			new_key = self.get_key()
-			# Perform copying of the data
-			self.ctx.new_files_db[new_key] = files_db[old_key]
-			self.ctx.new_stats_db[new_key] = stats_db[old_key]
-			# And of course, the node is still changed
-			ctx.changed_nodes += 1
-			
-	def restore_stats(self,stats):
-		prev_stat = os.lstat(self.path())
-		os.chmod(self.path(),stats[stat.ST_MODE])
-		os.chown(self.path(),stats[stat.ST_UID],stats[stat.ST_GID])
-		os.utime(self.path(),(stats[stat.ST_ATIME],stats[stat.ST_MTIME]))
-	#
-	# Node configuration
-	#
-	def compute_key(self,num):
-		return IntegerEncodings.binary_encode_int_varlen(num)
-
-	def get_key(self):
-		return self.compute_key(self.number)
+	def restore_stats(self):
+		os.chmod(self.path(),self.stats[stat.ST_MODE])
+		os.chown(self.path(),self.stats[stat.ST_UID],self.stats[stat.ST_GID])
+		os.utime(self.path(),(self.stats[stat.ST_ATIME],self.stats[stat.ST_MTIME]))
 
 #--------------------------------------------------------
 # CLASS:File
-#
-# Semantics of level:
-# There are two numbers that identify a db in the ctx: idx and level
-# - the database corresponding to them is the same one for all idxs that are
-#   bases.
-# - for dbs that are not bases, the allows access of the db from ctx, and level is invalid.
 #--------------------------------------------------------
 class File(Node):
 	def __init__(self,backup,parent,name):
@@ -243,6 +146,7 @@ class File(Node):
 	# Scanning and restoring
 	#
 	def scan(self,ctx,prev_nums):
+		self.compute_stat()
 		#
 		# Check if we have encountered this file during this scan already
 		#
@@ -256,55 +160,41 @@ class File(Node):
 			return
 		
 		# --- File not yet in database, process it
-		valueS = StringIO()
-		
+		packer = PackerOStream(self.backup,Container.CODE_DATA)
 		for data in read_blocks(open(self.path(), "rb"), self.backup.container_config.blockSize()):
-			digest = Digest.dataDigest(data)
-			ctx.add_block(digest,data)
-			valueS.write(digest)
+			packer.write(data)
 			
-		# --- Serialize to the filesystem db
-		key = self.get_key()
-		ctx.new_files_db[key] = valueS.getvalue()
-		ctx.new_stats_db[key] = Format.serialize_ints(self.stat())
-
-		self.code = node_encode(self.get_type(), self.get_level())
+		self.digest = packer.get_digest()
 		
 	def restore(self,ctx):
 		"""
 		Recreate the data from the information stored in the
 		backup
 		"""
-		files_db = ctx.get_files_db(self.get_level())
-		stats_db = ctx.get_stats_db(self.get_level())
-		key = self.get_key()
-
+		
 		#
 		# Check if the file has already been processed
 		# during this pass
 		#
-		stats = Format.deserialize_ints(stats_db[key])
-		if self.restore_hlink(ctx,stats):
+		if self.restore_hlink(ctx):
 			return
 
 		#
 		# No, this file is new. Create it.
 		#
-		#print "Restoring file", self.path()
-		valueS = StringIO(files_db[key])
+		packer = PackerIStream(self.backup,self.digest)
 		file = open(self.path(), "wb")
-		for digest in read_blocks(valueS,Digest.dataDigestSize()):
+		for data in read_blocks(packer,Digest.dataDigestSize()):
 			#print "File", self.path(), "reading digest", base64.b64encode(digest)
-			file.write(ctx.load_block(digest))
+			file.write(data)
 		file.close()
-		self.restore_stats(stats)
+		
+		self.restore_stats()
 	
 	def request_blocks(self,ctx):
 		"""
 		Put requests for the blocks of the file into the blocks cache
 		"""
-		files_db = ctx.get_files_db(self.get_level())
-		stats_db = ctx.get_stats_db(self.get_level())
 		key = self.get_key()
 		stats = Format.deserialize_ints(stats_db[key])
 
@@ -312,7 +202,7 @@ class File(Node):
 		# Check if the file has already been processed
 		# during this pass
 		#
-		if self.restore_hlink(ctx,stats,restore=False):
+		if self.restore_hlink(ctx,stats,dryrun=True):
 			return
 		
 		#
@@ -335,6 +225,7 @@ class Symlink(Node):
 		return NODE_TYPE_SYMLINK
 	def scan(self,ctx,prev_nums):
 		print "scanning symlink", self.path(), prev_nums
+		self.compute_stats()
 		
 		if self.scan_hlink(ctx):
 			return
@@ -345,26 +236,21 @@ class Symlink(Node):
 		self.link = os.readlink(self.path())
 
 		key = self.get_key()
-		ctx.new_files_db[key] = self.link
-		ctx.new_stats_db[key] = Format.serialize_ints(self.stat())
+		packer = PackerOStream(self.backup, Container.CODE_DATA)
+		packer.write(self.link)
 
-		self.code = node_encode(self.get_type(),self.get_level())
+		self.digest = packer.get_digest()
 		
 	def restore(self,ctx):
-		#print "Restoring symlink in", self.path()
-		files_db = self.get_files_db(ctx,self.get_level())
-		stats_db = self.get_stats_db(ctx,self.get_level())
-		
-		key = self.get_key()
-		valueS = StringIO(db[key])
-		stats = Format.deserialize_ints(stats_db[key])
-		if self.restore_hlink(ctx,stats):
+		if self.restore_hlink(ctx):
 			return
-		
-		self.link = db[key]
+
+		packer = PackerIStream(self.backup, self.digest)
+		self.link = packer.read()
 		#print "Restoring symlink from", self.link, "to", self.path()
 		os.symlink(self.link, self.path())
-		self.restore_stats(stats)
+		self.restore_stats()
+
 	def list_files(self,ctx):
 		(node_code,node_level) = node_decode(self.code)
 		if node_level is not None:
@@ -381,190 +267,34 @@ class Directory(Node):
 		Node.__init__(self,backup,parent,name)
 	def get_type(self):
 		return NODE_TYPE_DIR
-	def read_directory_entries(file):
-		node_code = Format.read_int(file)
-		if node_code is None:
-			raise StopIteration
-		node_num = Format.read_int(file)
-		node_name = Format.read_string(file)
-		yield (node_code,node_num,node_name)
-	def rebase(self,ctx,bases):
-		"""Rebase the directory to a given list of bases.
-		The list of bases specifies the maximum level, so the level of the
-		current node can be reduced, but never increased.
-		"""
-		max_level = len(bases)
-		if self.get_level() < max_level:
-			# If the directory itself is based at a certain level,
-			# definitely its nodes are going to be based on at most
-			# that level too
-			return
-		if self.ctx.new_files_db.has_key(self.get_key()):
-			# We may need to rewrite the directory contents, but keep the same number
-			file_data = self.ctx.new_files_db[self.get_key()]
-			stat_data = self.ctx.new_stats_db[self.get_key()]
-		else:
-			# We need to copy the directory from a base fs. Must assign a new number
-			files_db = self.ctx.get_files_db(self.get_level())
-			stats_db = self.ctx.get_stats_db(self.get_level())
-			file_data = files_db[self.get_key()]
-			stat_data = stats_db[self.get_key()]
-			self.set_number(ctx.next_number())
-		#
-		# Rebase all the child nodes
-		#
-		cur_data = {}
-		valueS = StringIO(file_data)
-		for (code,number,name) in read_directory_entries(valueS):
-			the_type = node_type(code)
-			level = node_level(code)
-			if the_type == NODE_TYPE_DIR:
-				node = Directory(self.backup,self,name)
-			elif the_type == NODE_TYPE_FILE:
-				node = File(self.backup,self,name)
-			elif the_type == NODE_TYPE_SYMLINK:
-				node = Symlink(self.backup,self,name)
-			else:
-				raise "Unknown node type [%s]"%the_type
-
-			node.set_number(number)
-			node.set_level(level)
-			node.rebase(ctx,bases)
-			cur_data[name] = (node.get_level(),node.get_type(),node.get_number())
-		#
-		# The file data is recomputed
-		#
-		self.write_files(ctx,cur_data)
-		# The stat data is just copied
-		self.ctx.new_stats_db[self.get_key()] = stat_data
 	def scan(self,ctx,prev_nums):
+		"""Scan the node, considering data in all the previous increments
 		"""
-		Scan the node, considering data in all the previous increments
-
-		algorithm:
-		1. Scan the previous nodes. Prepare the following data structure "prev_data":
-		  - for every file name in the previous database nums, keep the list of:
-		    1. database idx
-		    2. file number
-		  Prepare the following data structure "prev_dir_data":
-		  - for every base directory level, keep the map of name->(level,code)
-		2. Scan the files in the directory. For every file, check if it is in prev_data:
-		  1. if it is the same as in prev_data[-1], use it as a base or as a copy.
-		  2. if it is not the same or not found in prev_data, scan the file recursively
-		     and note that a change is taking place.
-		  3. During the scan, compute serialization of the current info.
-		     - If there is no change, do not write the serialization
-			 - If a change was noted, do the writing using exponential falloff
-		3. After the scan has completed:
-		  1. If the last level is a based one...
-		  TODO!!!
-		"""
+		self.compute_stat()
 		#
 		# Reload data from previous increments.
 		#
+		
 		print "Path", self.path(), "found in previous increments:", prev_nums
-		#
-		# Get the data from the reference databases, and delete it
-		# from there if possible.
-		#
 		# prev data indexed by file, for directory scan
 		prev_name_data = {}
-		# prev data indexed by level, for search of base dir
-		prev_level_data = {}
-		prev_level_file_info = {}
 		
-		for (prev_idx,prev_type,prev_number) in prev_nums:
-			#
-			# Get the databases corresponding to this prev node
-			#
+		for (prev_type,prev_stat,prev_digest) in prev_nums:
 			if prev_type != self.get_type():
-				# The same file name previously was of another type.
-				# It definitely can't serve as a base
-				continue
-			
-			prev_files_db = self.ctx.get_files_db(prev_idx)
-			prev_stats_db = self.ctx.get_stats_db(prev_idx)
-
-			prev_key = self.compute_key(prev_number)
-			if not prev_files_db.has_key(prev_key):
-				print "Prev DB %d doesn't have key [%s]"  % (prev_idx,base64.b64encode(prev_key))
-				continue
-
-			prev_stat_data = prev_stats_db[prev_key]
-			prev_file_data = prev_files_db[prev_key]
-			# TODO!!! Since we write into db only where we see difference, it's OK
-			#      to delete unfinalized dbs only when one is finalized. Or not!
-
-			#
-			# Compare the filesystem contents to the old database to see if it is
-			# reusable
-			#
-			prev_stat = Format.deserialize_ints(prev_stat_data)
-			if stat.S_IFMT(self.stat()[stat.ST_MODE]) != stat.S_IFMT(prev_stat[stat.ST_MODE]):
-				#print "  Node type differs"
-				# Previous node is not a directory, nothing to do with it.
+				# This previous entry is not a directory.
+				# Definitely shouldn't read it.
 				break
-			# Do not check inode and acces time like in scan_prev,
-			# as directory can be a base even when it has been changed somewhat
-			
-			#
-			# Parse the base directory data
-			#
-			if ctx.is_base_db(prev_idx):
-				# prev_level_data is computed only for base dbs
-				assert prev_idx == ctx.get_level(prev_idx)
-				prev_level_file_info[prev_level] = (prev_idx,prev_num)
-				prev_level_data[prev_level] = {}
 
-			valueS = StringIO(prev_file_data)
-			for (code,number,name) in read_directory_entries(valueS):
-				#---------------------------------------
-				# Process construction of prev_name_data
-				#---------------------------------------
+			dir_stream = PackerIStream(self.backup, prev_digest)
+			for type_str,name,stat_str,digest in self.read_directory_entries(dir_stream):
 				if not prev_name_data.has_key(name):
 					prev_name_data[name] = []
-				the_type, level = node_decode(code)
-				# If the file listed in the directory is based, its index is same as
-				# its level. Otherwise, its index is same as the directory index
-				if ctx.get_node_level(prev_idx) > level:
-					idx = level
-				else:
-					idx = prev_idx
-				# It is possible for several directories to point to the same version
-				# of a linked file. In this case, store it only once in the prev information
-				if not (idx,the_type,number) in prev_name_data[name]:
-					prev_name_data[name].append((prev_idx,the_type,number))
-				#----------------------------------------
-				# Process construction of prev_level_data
-				#----------------------------------------
-				# prev_level_data is collected only for dbs that are bases
-				if ctx.is_base_db(prev_idx):
-					# Note that here we use the level for comparison, since this is actual
-					# information read from the db
-					prev_level_data[prev_base_level][name] = (level,the_type,number)
+				prev_name_data[name].append((int(type_str),stat_str,digest))
 
 		#
 		# Initialize scanning data
 		#
-		self.modified = False
-		self.dirty = False
-		self.cur_data = {}
-		# The list of children is used for flushing
-		self.subdirs = []
-
-		#
-		# Check if this directory must be excluded.
-		# If so, operate as if it's empty.
-		# TODO: exclude individual files too!
-		#
-		# The following is not necessary since the directory should be excluded as a file
-		#for checker in self.backup.global_config.excludes():
-			#if checker(self.path()):
-				#entries = []
-				#print "Excluding directory from scan:", self.path()
-				#break
-		#else:
-			#entries = os.listdir(self.path())
+		self.children = []
 		
 		#
 		# Scan the directory
@@ -588,48 +318,29 @@ class Directory(Node):
 			if excluded: continue
 			
 			file_mode = os.lstat(path)[stat.ST_MODE]
-			
-			if prev_name_data.has_key(name):
-				cur_prev_nums = prev_name_data[name]
+
+			if name_data.has_key(name):
+				cur_prev_nums = name_data[name]
 			else:
 				cur_prev_nums = []
-			
+				
 			try:
 				if stat.S_ISLNK(file_mode):
 					node = Symlink(self.backup,self,name)
-					node.set_level(self.get_level())
-					node.set_number(ctx.next_number())
 					node.scan(ctx,cur_prev_nums)
-					self.cur_data[name] = (node.get_level(),node.get_type(),node.get_number())
-					if node.get_level() >= self.get_level():
-						# If node is not based, then it is new
-						self.modified = True
-					self.dirty = True
+					self.children.append(node)
 				elif stat.S_ISREG(file_mode):
 					node = File(self.backup,self,name)
-					node.set_level(self.get_level())
-					node.set_number(ctx.next_number())
-					same = node.scan(ctx,cur_prev_nums)
-					self.cur_data[name] = (node.get_level(),node.get_type(),node.get_number())
-					if node.get_level() >= self.get_level():
-						self.modified = True
-					self.dirty = True
+					node.scan(ctx,cur_prev_nums)
+					self.children.append(node)
 				elif stat.S_ISDIR(file_mode):
 					node = Directory(self.backup,self,name)
-					node.set_level(self.get_level())
-					node.set_number(ctx.next_number())
-					# The order of append and scan is different here,
-					# to make sure that the intermediate dir info is saved.
-					self.subdirs.append(node)
-					# The written level and number are temporary, the directory might
-					# decide that it is based during its scan, in which case its level
-					# and number will change
-					self.cur_data[name] = (node.get_level(),node.get_type(),node.get_number())
-					same = node.scan(ctx,cur_prev_nums)
-					self.cur_data[name] = (node.get_level(),node.get_type(),node.get_number())
-					if node.get_level() >= self.get_level():
-						self.modified = True
-					self.dirty = True
+					#
+					# The order is different here, and it's all because directory can
+					# produce temporary digest of its contents during scanning
+					#
+					self.children.append(node)
+					node.scan(ctx,cur_prev_nums)
 				else:
 					print "Ignoring unrecognized file type", path
 			except OSError:
@@ -639,113 +350,72 @@ class Directory(Node):
 				print "IOError %s accessing '%s'" % (errno,strerror), path
 				traceback.print_exc()
 
-		#
-		# Consider all the children scanned so far
-		#
-		self.base_level = None
-		if self.modified:
-			# OK, modification already noticed. No need for additional checks
-			self.write(ctx)
-		else:
-			# scan the previous versions of this dir, to find which of them have
-			# the same contents as this one. Base on the latest one that is basable
-			equal_levels = [level for level,data in prev_level_data.iteritems()
-				if ctx.is_base_level(level) and data==cur_data]
-			assert len(equal_levels) <= 1
-			if len(equal_levels) == 1:
-				# Found a prev dir to base on!
-				self.level,self.number = prev_level_file_info(equal_levels[0])
-			else:
-				self.write(ctx)
-
-		# Remove the subdirs list to avoid holding them all in memory
-		self.subdirs = None
+		self.write(ctx)
+		self.children = None
 	def flush(self,ctx):
 		"""
 		Flush the contents of the current node.
 		Called when a container is completed.
 		"""
-		if self.modified:
-			# Nothing has happened since last flush
-			for subdir in self.subdirs:
-				subdir.flush(ctx)
+		dirty = False
+		for child in self.children:
+			if child.get_type() == NODE_TYPE_DIR:
+				prev_digest = child.get_digest()
+				child.flush()
+				curr_digest = child.get_digest()
+				if prev_digest != curr_digest:
+					dirty = True
+		if dirty:
 			self.write(ctx)
-			self.dirty = False
 
-	def write(self,ctx):
-		self.write_files(ctx,self.cur_data)
-		self.write_stats(ctx,self.stat())
-	def write_files(self,ctx,files_data):
+	def read_directory_entries(self,file):
+		node_type = Format.read_int(file)
+		if node_code is None:
+			raise StopIteration
+		node_name = Format.read_string(file)
+		node_digest = file.read(Digest.dataDigestSize())
+		node_stat = {}
+		for mode in STAT_PRESERVED_MODES:
+			val = Format.read_int(file)
+			node_stat[mode] = self.stats[mode]+val
+		yield (node_type,node_name,node_digest,node_stat)
+	def write(self):
 		"""
 		Write the info of the current dir to database
 		"""
-		valueS = StringIO()
+		packer = PackerOStream(self.backup,Container.CODE_DIR)
 		# sorting is an optimization to make everybody access files in the same order,
 		# TODO: measure if this really makes things faster (probably will with a btree db)
-		for name in sorted(files_data.keys()):
-			(level,the_type,number) = files_data[name]
-			Format.write_int(valueS,node_encode(the_type,level))
-			Format.write_int(valueS,number)
-			Format.write_string(valueS,name)
-			
-		key = self.get_key()
-		ctx.new_files_db[key] = valueS.getvalue()
-	def write_stats(self,ctx,stat_data):
-		key = self.get_key()
-		ctx.new_stats_db[key] = Format.serialize_ints(self.stat())
+		for child in self.children:
+			Format.write_int(packer,child.get_type())
+			Format.write_string(packer,child.get_name())
+			packer.write(child.get_digest())
+			child_stat = child.get_stat()
+			for mode in STAT_PRESERVED_MODES:
+				Format.write_int(child.get_stat()[mode]-self.get_stat()[mode])
+		self.digest = packer.get_digest()
 		
 	def restore(self,ctx):
 		if self.parent != None:
 			print "Restoring dir", self.path(), self.number
 			os.mkdir(self.path())
 
-		files_db = self.get_files_db(ctx,self.get_level())
-		stats_db = self.get_stats_db(ctx,self.get_level())
-		key = self.get_key()
-		valueS = StringIO(files_db[key])
-		for (code,number,name) in read_directory_entries(valueS):
-			the_type = node_type(code)
-			level = node_level(code)
-			if the_type == NODE_TYPE_DIR:
-				node = Directory(self.backup,self,name)
-			elif the_type == NODE_TYPE_FILE:
-				node = File(self.backup,self,name)
-			elif the_type == NODE_TYPE_SYMLINK:
-				node = Symlink(self.backup,self,name)
-			else:
-				raise "Unknown node type [%s]"%the_type
-
-			node.set_number(number)
-			node.set_level(level)
-			node.restore(ctx)
-		stats = stats_db[key]
-		self.restore_stats(stats)
-
-	def request_blocks(self,ctx):
-		#print "Requesting blocks in", self.path(), "code", self.code, "num", self.number, "based", based
-		db_num = ctx.db_num
-		files_db = self.get_files_db(ctx,ctx.db_num,base_level)
-		#stats_db = self.get_stats_db(ctx,ctx.db_num,base_level)
-		key = self.get_key()
-		valueS = StringIO(files_db[key])
-		for (node_code,node_num,node_name) in read_directory_entries(valueS):
-			file_type = node_type(node_code)
-			if file_type == NODE_TYPE_DIR:
+		packer = PackerIStream(self.backup,self.get_digest())
+		for (node_type,node_name,node_digest,node_stat) in self.read_directory_entries(packer):
+			if node_type == NODE_TYPE_DIR:
 				node = Directory(self.backup,self,node_name)
-			elif file_type == NODE_TYPE_FILE:
+			elif node_type == NODE_TYPE_FILE:
 				node = File(self.backup,self,node_name)
-			elif file_type == NODE_TYPE_SYMLINK:
-				# Nothing to do for symlinks
-				continue
+			elif node_type == NODE_TYPE_SYMLINK:
+				node = Symlink(self.backup,self,node_name)
 			else:
-				raise "Unknown node type [%s]"%node_type
-			node.set_number(node_num)
-			node.code = node_type
-			node.request_blocks(ctx,based)
+				raise Exception("Unknown node type [%s]"%node_type)
+			node.set_stat(node_stat)
+			node.set_digest(node_digest)
+			node.restore(ctx)
+		self.restore_stats()
 
 	def list_files(self,ctx):
-		files_db = self.get_files_db(self.code, default_db = ctx.files_db)
-		stats_db = self.get_stats_db(self.code, default_db = ctx.stats_db)
 			
 		print self.path(), self.number
 		key = self.get_key()

@@ -42,16 +42,26 @@ class NoopCompressor:
 # Codes for the different block types
 #
 CODE_DATA                  =  0
-CODE_FILES                 =  1
-CODE_STATS                 =  2
-
-CODE_CONTAINER_START       = 32
-CODE_INCREMENT_START       = 33
-CODE_INCREMENT_END         = 34
+CODE_DATA_PACKER           =  1
+CODE_DIR                   =  2
+CODE_DIR_PACKER            =  3
+CODE_INCREMENT             =  4
+CODE_INCREMENT_PACKER      =  5
 
 CODE_COMPRESSION_END       = 48
 CODE_COMPRESSION_BZ2_START = 49
 CODE_COMPRESSION_GZIP_START= 50
+
+def compute_packer_code(code):
+	assert code < CODE_COMPRESSION_END
+	if code % 2 == 0:
+		return code+1
+	else:
+		return code
+
+def is_packer_code(code):
+	assert code < CODE_COMPRESSION_END
+	return code%2==1
 
 class Container:
 	"""
