@@ -4,34 +4,34 @@ from cStringIO import StringIO
 import struct
 
 from Block import Block
+import Container
 
-class BlockCache:
-	"""
-	Manage loading and unloading medias from containers
-	"""
-	def __init__(self,backup):
-		self.backup = backup
+class BlockDatabase:
+	def __init__(self, db_config, repository):
+		self.db_config = db_config
+		self.block_repository = repository
 
 		# These two databases are scratch-only, so they don't need to reliably survive
 		# through program restarts
-		self.requested_blocks = self.backup.db_config.get_scratch_database(".scratch-blocks")
-		self.loaded_blocks = self.backup.db_config.get_scratch_database(".scratch-data")
+		self.requested_data_blocks = self.db_config.get_scratch_database(".scratch-blocks")
+		self.loaded_data_blocks = self.db_config.get_scratch_database(".scratch-blocks-data")
+		self.cached_blocks = self.db_config.get_database(".blocks-data")
+		self.block_type_db = self.db_config.get_database(".blocks-types")
 		#
 		# It is possible that the program was terminated before the scratch cache was
 		# removed. In that case, it contains junk data
 		#
-		self.requested_blocks.truncate()
-		self.loaded_blocks.truncate()
+		self.requested_data_blocks.truncate()
+		self.loaded_data_blocks.truncate()
 		
 		self.containers = None
-
-		self.loaded_size = 0
-		self.max_loaded_size = 0
 	def close(self):
-		self.requested_blocks.close()
-		self.loaded_blocks.close()
-		self.backup.db_config.remove_scratch_database(".scratch-blocks")
-		self.backup.db_config.remove_scratch_database(".scratch-data")
+		self.requested_data_blocks.close()
+		self.loaded_data_blocks.close()
+		self.cached_blocks.close()
+		self.block_type_db.close()
+		self.db_config.remove_scratch_database(".scratch-blocks")
+		self.db_config.remove_scratch_database(".scratch-data")
 	#
 	# Methods for the user side of the cache
 	#
@@ -44,67 +44,66 @@ class BlockCache:
 			self.requested_blocks[digest] = str(int(self.requested_blocks[digest])+1)
 		else:
 			self.requested_blocks[digest] = "1"
-	def analyze(self):
-		"""
-		Must be called after all the requests have been posted, to precompute
-		the precedence order of the containers
-		"""
-		self.containers = {}
-		for key,count in self.requested_blocks:
-			block = Block(self.backup,key)
-			for idx in block.containers:
-				if self.containers.has_key(idx):
-					self.containers[idx] = self.containers[idx]+int(count)
-				else:
-					self.containers[idx] = int(count)
-	def load_block(self,digest,container_idx = None):
+	def add_block(self,digest,data,code):
+		self.repository.add_block(digest,data,code)
+		if code != Container.CODE_DATA:
+			self.block_type_db[digest] = code
+			self.cached_blocks[digest] = data
+	def load_block(self,digest):
 		"""
 		Actually perform loading of the block. Assumes that the block
 		was reported by request_block, and was loaded not more times than it was
 		requested.
 		"""
-		block = Block(self.backup,digest)
+		if self.cached_blocks.has_key(digest):
+			#
+			# Blocks that sit in self.cached_blocks are never unloaded
+			#
+			return self.cached_blocks[digest]
+		if self.loaded_data_blocks.has_key(digest):
+			data = self.loaded_data_blocks[digest]
+			#
+			# See if we can unload this block
+			#
+			if self.requested_blocks.has_key(digest):
+				refcount = int(self.requested_data_blocks[digest])-1
+				if refcount == 0:
+					del self.requested_blocks[digest]
+					del self.loaded_data_blocks[digest]
+				else:
+					self.requested_data_blocks[digest] = str(refcount)
+			return data
+		#
+		# OK, block is not found anywhere. Load it from the container
+		#
+		block_type = self.get_block_type(digest)
 		
-		if not self.loaded_blocks.has_key(digest):
-			if container_idx == None:
-				# Load the block
-				candidates = [(self.containers[x],x) for x in block.containers]
-				candidates.sort()
-				#print "Candidate containers", candidates
-				container_idx = candidates[-1][1] # select the container with max refcount
-				#print "loading block from container", container_idx
-			print "Block found in container", container_idx
-			container = self.backup.container_config.get_container(container_idx)
-			path = self.backup.container_config.load_container_data(container_idx)
-			report = container.read_blocks(self,path)
-
-		data = self.loaded_blocks[digest]
-		if data == None:
-			raise "Ouch! Cache doesn't have data for block %s"%(base64.b64encode(digest))
-		
-		rcount = int(self.requested_blocks[digest])
-		if rcount > 1:
-			self.requested_blocks[digest] = str(rcount-1)
+		self.repository.load_block(digest, BlockHandler(self))
+		if self.block_type_db.has_key(digest):
+			data = self.cached_blocks[digest]
 		else:
-			self.loaded_size -= len(data)
-			del self.requested_blocks[digest]
-			del self.loaded_blocks[digest]
-
-		for idx in block.containers:
-			self.containers[idx] -= 1
-
+			data = self.loaded_data_blocks[digest]
 		return data
-	#
-	# Methods for the supplier side of the cache
-	#
-	def block_needed(self,digest):
-		if self.loaded_blocks.has_key(digest):
-			return False
-		return self.requested_blocks.has_key(digest)
+	def get_block_type(self,digest):
+		if self.block_type_db.has_key(digest):
+			return int(self.block_type_db[digest])
+		else:
+			return Container.CODE_DATA
+		
+class BlockLoadHandler:
+	"""Callback class used by repository to return loaded blocks to the database"""
+	def __init__(self,blocks_db):
+		self.blocks_db = blocks_db
+	def is_block_necessary(self,digest):
+		if self.requested_blocks.has_key(digest):
+			# Data blocks must be specifically requested
+			return True
+		if self.block_type_db.has_key(digest):
+			# Other kinds of blocks are cached always
+			return True
+		return False
 	def block_loaded(self,digest,data):
-		if self.loaded_blocks.has_key(digest):
-			raise "Reloading block %s that is already in the cache" % base64.b64encode(digest)
-		self.loaded_blocks[digest] = data
-		self.loaded_size += len(data)
-		if self.max_loaded_size < self.loaded_size:
-			self.max_loaded_size = self.loaded_size
+		if self.blocks_db.has_key(digest):
+			self.cached_blocks[digest] = data
+		else:
+			self.loaded_data_blocks[digest] = data
