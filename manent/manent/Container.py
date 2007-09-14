@@ -23,19 +23,95 @@ class NoopCompressor:
 	def flush(self):
 		return ""
 
+#---------------------------------------------------
+# Container file format:
 #
-# Codes for the different block types
+# Each container consists of two files, the header and the body.
+# The header contains its own header and blocks that encode metadata
+# One of the blocks is the BLOCK_TABLE that describes the blocks stored
+# in the body
+#
+# Header file format:
+# 1. magic number "MNNT"
+# 2. version number
+# 3. digest of the header's header
+# 4. header table length
+# 5. header table entries in format:
+#    5.1 entry size
+#    5.2 entry code
+#    5.3 entry digest
+# 6. entries, encoded according to the header table
+#
+# Body file format:
+# 1. entries, encoding according to the body table
+#
+# Table encoding
+# Table contains three types of tags:
+# 1. Compression control
+#    COMPRESSION_START_<ALGORITHM>
+#     The following entries are compressed by the given algorithm.
+#      - size field gives the offset from which to read the compressed data
+#      - digest is unused
+#    COMPRESSION_END
+#     The following entries are no longer compressed.
+#      - size gives the total size of the *compressed* data
+#      - digest is unused
+#    Compression blocks should not be nested
+# 2. Encryption control
+#    We assume that the encryption does not change the size of the encrypted data.
+#    ENCRYPTION_START_<ALGORITHM>
+#     The following entries are encrypted by the given algorithm.
+#      - size field is the starting offset of the data
+#      - digest field gives the seed used for the encryption.
+#        Data for the digest should be taken from a random source.
+#        For example, for arc4 encryption:
+#        key = Digest(seed+password)
+#        encryptor = ARC4(key)
+#     The start tag should always be closed with an END tag.
+#    ENCRYPTION_END
+#     The following entries are no longer encrypted.
+#      - size field is the size of the encrypted data
+#      - digest field gives the hash of the plain data, used to verify that
+#        the decryption was successful.
+#    Compression blocks can be nested within encryption blocks.
+#    The reverse is not a good idea (encrypted data would not compress).
+# 3. Data blocks
+#    Data blocks can have different codes, which are irrelevant here but have
+#    a meaning for the application.
+#     - size field is the starting offset of the data.
+#       If the block is nested in a Compression block, then the offset is within
+#       the uncompressed data (but of course! There is no meaning to offset within
+#       the compressed data).
+#     - digest field gives the digest of the data, for use by the application
+#       and for verification
+#---------------------------------------------------
+
+#
+# Codes for blocks stored in the body
 #
 CODE_DATA                  =  0
 CODE_DATA_PACKER           =  1
 CODE_DIR                   =  2
 CODE_DIR_PACKER            =  3
-CODE_INCREMENT             =  4
-CODE_INCREMENT_PACKER      =  5
 
+#
+# Codes for blocks stored in the header
+#
+CODE_CONTAINER_DESCRIPTOR  = 16
+CODE_BLOCK_TABLE           = 17
+CODE_INCREMENT_START       = 18
+CODE_INCREMENT_INTERMEDIATE= 19
+CODE_INCREMENT_END         = 20
+
+#
+# Codes for both kinds of blocks
+#
 CODE_COMPRESSION_END       = 48
 CODE_COMPRESSION_BZ2_START = 49
 CODE_COMPRESSION_GZIP_START= 50
+
+CODE_ENCRYPTION_END        = 64
+CODE_ENCRYPTION_ARC4_PWD   = 65
 
 def compute_packer_code(code):
 	assert code < CODE_COMPRESSION_END
@@ -59,7 +135,7 @@ class Container:
 	            out, or its blocks can be read back.
 
 	Container can have its contents encrypted - TODO
-	Container can have its contents compressed - TODO
+	Container can have its contents compressed
 
 	The container data consists of blocks that contain the following data:
 	(digest, size, code). The code can be 0 (regular data) or special data.
