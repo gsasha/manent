@@ -4,6 +4,10 @@ test_loader = unittest.TestLoader()
 
 from testsuite.TestPacker import TestPacker
 suite_Packer = test_loader.loadTestsFromTestCase(TestPacker)
+
+from testsuite.TestContainer import TestContainer
+suite_Container = test_loader.loadTestsFromTestCase(TestContainer)
+
 import testsuite.TestIncrementTree
 suite_ITree = test_loader.loadTestsFromTestCase(testsuite.TestIncrementTree.TestIncrementTree)
 import testsuite.TestFormat
@@ -15,6 +19,6 @@ suite_DB = test_loader.loadTestsFromTestCase(testsuite.TestDatabase.TestDatabase
 import testsuite.TestNodes
 suite_Nodes = test_loader.loadTestsFromTestCase(testsuite.TestNodes.TestNodes)
 
-suite = unittest.TestSuite([suite_Packer])
+suite = unittest.TestSuite([suite_Packer,suite_Container])
 #suite = unittest.TestSuite([suite_Nodes, suite_ITree, suite_Format, suite_Block, suite_DB])
 unittest.TextTestRunner(verbosity=2).run(suite)

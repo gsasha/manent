@@ -12,7 +12,7 @@ import traceback
 #from Nodes import Directory
 import Nodes
 import Container
-from BlockCache import BlockCache
+from BlockDatabase import BlockDatabase
 from Block import Block
 from Database import *
 from StreamAdapter import *

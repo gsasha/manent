@@ -2,9 +2,10 @@ from cStringIO import StringIO
 import os, os.path, shutil
 import re
 import base64
-import bz2
+import bz2,zlib
 import traceback
 import sys
+import Crypto.Cipher.ARC4
 
 import manent.utils.Digest as Digest
 import manent.utils.Format as Format
@@ -70,7 +71,8 @@ class NoopCompressor:
 #     The start tag should always be closed with an END tag.
 #    ENCRYPTION_END
 #     The following entries are no longer encrypted.
-#      - size field is the size of the encrypted data
+#      - size field is the size of the encrypted data (padding might have been used
+#        for some encryption algorithms
 #      - digest field gives the hash of the plain data, used to verify that
 #        the decryption was successful.
 #    Compression blocks can be nested within encryption blocks.
@@ -103,15 +105,16 @@ CODE_INCREMENT_START       = 18
 CODE_INCREMENT_INTERMEDIATE= 19
 CODE_INCREMENT_END         = 20
 
+CODE_CONTROL_START         = 48
 #
 # Codes for both kinds of blocks
 #
 CODE_COMPRESSION_END       = 48
-CODE_COMPRESSION_BZ2_START = 49
-CODE_COMPRESSION_GZIP_START= 50
+CODE_COMPRESSION_BZ2       = 49
+CODE_COMPRESSION_GZIP      = 50
 
 CODE_ENCRYPTION_END        = 64
-CODE_ENCRYPTION_ARC4_PWD   = 65
+CODE_ENCRYPTION_ARC4       = 65
 
 def compute_packer_code(code):
 	assert code < CODE_COMPRESSION_END
@@ -124,6 +127,328 @@ def is_packer_code(code):
 	assert code < CODE_COMPRESSION_END
 	return code%2==1
 
+#-------------------------------------------------------------------
+# Dump creation and reading utilities
+#-------------------------------------------------------------------
+class DataDumper:
+	def __init__(self,file):
+		self.file = file
+		self.blocks = []
+
+		self.total_size = 0
+		
+		self.encryptor = None
+		self.compressor = None
+
+	def add_block(self,digest,data,code):
+		self.blocks.append((digest,len(data),code))
+		print "Adding block %d:%s[%s]" % (code,base64.b64encode(digest),base64.b16encode(data))
+		print "File position", self.total_size, self.file.tell()
+		print "Plain data: ", base64.b16encode(data)
+		if self.compressor is not None:
+			data = self.__compress(data)
+			print "Compressed data: ", base64.b16encode(data)
+		if self.encryptor is not None:
+			data = self.__encrypt(data)
+			print "Encrypted data : ", base64.b16encode(data)
+		self.file.write(data)
+		self.total_size += len(data)
+
+	#
+	# Encryption support
+	#
+	def start_encryption(self,algorithm_code,seed,password):
+		"""
+		Encryption can be started only when compression is inactive
+		"""
+		assert self.encryptor is None
+		assert self.compressor is None
+		
+		self.blocks.append((seed,0,algorithm_code))
+		print "%s CODE_ENCRYPTION_ARC4 start" % (base64.b64encode(seed))
+		print "file position", self.total_size, self.file.tell()
+		if algorithm_code == CODE_ENCRYPTION_ARC4:
+			key = Digest.dataDigest(seed+password)
+			self.encryptor = Crypto.Cipher.ARC4.new(key)
+		self.encrypted_data_size = 0
+		self.encrypted_data_digest = Digest.DataDigestAccumulator()
+	def stop_encryption(self):
+		assert self.encryptor is not None
+		assert self.compressor is None
+
+		self.blocks.append((self.encrypted_data_digest.digest(),
+		                    self.encrypted_data_size,CODE_ENCRYPTION_END))
+		self.encryptor = None
+	def __encrypt(self,data):
+		self.encrypted_data_digest.update(data)
+		print "Encryption position", self.encrypted_data_size
+		self.encrypted_data_size += len(data)
+		return self.encryptor.encrypt(data)
+	#
+	# Compression support
+	#
+	def start_compression(self,algorithm_code):
+		"""
+		Compression can be started under encryption
+		"""
+		assert self.compressor is None
+
+		digest = Digest.dataDigest(str(len(self.blocks)))
+		print "Starting compression %s" % (base64.b64encode(digest))
+		print "file position", self.total_size, self.file.tell()
+		self.blocks.append((digest,0,algorithm_code))
+		if algorithm_code == CODE_COMPRESSION_BZ2:
+			self.compressor = bz2.BZ2Compressor(9)
+		elif algorithm_code == CODE_COMPRESSION_GZIP:
+			self.compressor = zlib.compressobj()
+		else:
+			raise Exception("Unsupported compression algorithm")
+		self.compressor_algorithm = algorithm_code
+		self.uncompressed_size = 0
+		self.compressed_size = 0
+
+	def stop_compression(self):
+		assert self.compressor is not None
+		tail = self.compressor.flush()
+		self.compressed_size += len(tail)
+		
+		print "Compressed data: ", base64.b16encode(tail)
+		print "file position", self.total_size, self.file.tell()
+		if self.encryptor is not None:
+			tail = self.__encrypt(tail)
+			print "Encrypted data: ", base64.b16encode(tail)
+		self.file.write(tail)
+		self.total_size += len(tail)
+		print "Wrote data to file"
+		print "file position", self.total_size, self.file.tell()
+		self.blocks.append((Digest.dataDigest(""),self.compressed_size,CODE_COMPRESSION_END))
+		self.compressor = None
+
+	def __compress(self,data):
+		self.uncompressed_size += len(data)
+		compressed = self.compressor.compress(data)
+		self.compressed_size += len(compressed)
+		# The following should be necessary according to the documentation on zlib module
+		# However, I don't see that the compressor has unconsumed_tail attribute!
+		#if self.compressor_algorithm == CODE_COMPRESSION_GZIP:
+			#while self.compressor.unconsumed_tail != "":
+				#print "Feeding unconsumed tail of length %d to the compressor" % len(self.compressor.unconsumed_tail)
+				#compressed += self.compressor.compress(self.compressor.unconsumed_tail)
+		return compressed
+	#
+	# Result
+	#
+	def get_blocks(self):
+		return self.blocks
+
+class DataDumpLoader:
+	"""The only mode of loading blocks from a container is through a handler.
+	The handler can determine, given a digest and a code, whether a given block
+	should be loaded. If the block is loaded, the handler returns it back to the
+	handler through callback."""
+	def __init__(self,file,blocks,password):
+		self.file = file
+		self.blocks = blocks
+		self.password = password
+
+		self.uncompressor = None
+		self.decryptor = None
+
+	def load_blocks(self,handler):
+		total_offset = 0
+		uncompressed_offset = 0
+		skip_until = None
+		for i in range(len(self.blocks)):
+			(digest,size,code) = self.blocks[i]
+			if code == CODE_ENCRYPTION_ARC4:
+				# Since encryption blocks are not nested in anything,
+				# we can't see start of encryption when skipping
+				assert skip_until is None
+				print "file position", self.file.tell()
+				# find out if any of the blocks contained within
+				# the section is actually needed
+				requested = False
+				for j in range(i+1,len(self.blocks)):
+					(s_digest,s_size,s_code) = self.blocks[j]
+					if s_code == CODE_ENCRYPTION_END:
+						break
+					if handler.is_requested(s_digest,s_code):
+						print "Requested block %d:%s" % (s_code, base64.b64encode(s_digest))
+						requested = True
+				else:
+					raise Exception("Block table error: encryption start without end")
+
+				print "%s CODE_ENCRYPTION_ARC4 goes for %d rounds" % (base64.b64encode(digest), j-i),
+				if requested:
+					print "has requested blocks"
+				else:
+					print "has no requested blocks"
+
+				if not requested:
+					skip_until = CODE_ENCRYPTION_END
+
+				# We always perform decryption, even when it's needed only for checking
+				key = Digest.dataDigest(digest+self.password)
+				self.decryptor = Crypto.Cipher.ARC4.new(key)
+				self.decryptor_data_digest = Digest.DataDigestAccumulator()
+				self.decrypted_bytes = 0
+				
+			elif code == CODE_ENCRYPTION_END:
+				# Encryption cannot be nested in compression
+				assert skip_until != CODE_COMPRESSION_END
+				print "CODE_ENCRYPTION_END"
+				if skip_until == CODE_ENCRYPTION_END:
+					print "reading %d from position %d" % (size,self.file.tell())
+					skipped = self.file.read(size)
+					print "Decrypting skipped data", base64.b16encode(skipped)
+					skipped = self.decryptor.decrypt(skipped)
+					self.decrypted_bytes += len(skipped)
+					print "Decrypted skipped data", base64.b16encode(skipped)
+					self.decryptor_data_digest.update(skipped)
+					skip_until = None
+				assert self.decryptor_data_digest.digest() == digest
+				self.decryptor = None
+				self.decryptor_data_digest = None
+			
+			#
+			# Process compression tags
+			#
+			elif code == CODE_COMPRESSION_BZ2:
+				if skip_until is not None:
+					assert skip_until == CODE_ENCRYPTION_END
+					print "%s CODE_COMPRESSION_BZ2 skipping" % base64.b64encode(digest), self.file.tell()
+					continue
+				# find out if any of the blocks contained within
+				# the section is actually needed
+				requested = False
+				for j in range(i+1,len(self.blocks)):
+					s_digest,s_size,s_code = self.blocks[j]
+					if s_code == CODE_COMPRESSION_END:
+						self.uncompress_bytes = s_size
+						break
+					if handler.is_requested(s_digest,s_code):
+						requested = True
+				else:
+					raise Exception("Block table error: compression start without end")
+
+				print "%s CODE_COMPRESSION_BZ2 goes for %d rounds" % (base64.b64encode(digest), j-i),
+				if requested:
+					print "has requested blocks"
+				else:
+					print "has no requested blocks"
+
+				if requested:
+					self.uncompressor = bz2.BZ2Decompressor()
+					self.uncompressed_buf = ""
+				else:
+					skip_until = CODE_COMPRESSION_END
+			elif code == CODE_COMPRESSION_GZIP:
+				if skip_until is not None:
+					assert skip_until == CODE_ENCRYPTION_END
+					print "%s CODE_COMPRESSION_GZIP skipping" % base64.b64encode(digest),self.file.tell()
+					continue
+				# find out if any of the blocks contained within
+				# the section is actually needed
+				requested = False
+				for j in range(i+1,len(self.blocks)):
+					s_digest,s_size,s_code = self.blocks[j]
+					if s_code == CODE_COMPRESSION_END:
+						self.uncompress_bytes = s_size
+						break
+					if handler.is_requested(s_digest,s_code):
+						requested = True
+				else:
+					raise Exception("Block table error: compression start without end")
+
+				print "%s CODE_COMPRESSION_GZIP goes for %d rounds" % (base64.b64encode(digest), j-i),
+				if requested:
+					print "has requested blocks"
+				else:
+					print "has no requested blocks"
+
+				if requested:
+					self.uncompressor = zlib.decompressobj()
+					self.uncompressed_buf = ""
+				else:
+					skip_until = CODE_COMPRESSION_END
+			
+			elif code == CODE_COMPRESSION_END:
+				if skip_until == CODE_ENCRYPTION_END:
+					assert self.uncompressor is None
+					print "%s CODE_COMPRESSION_END skipping" % base64.b64encode(digest)
+					continue
+				print "CODE_COMPRESSION_END"
+				if skip_until == CODE_COMPRESSION_END:
+					data = self.file.read(size)
+					if self.decryptor is not None:
+						data = self.decryptor.decrypt(data)
+						self.decryptor_data_digest.update(data)
+					skip_until = None
+				else:
+					if self.uncompress_bytes != 0:
+						chunk = self.file.read(self.uncompress_bytes)
+						print "reading %d unused compressor bytes" % self.uncompress_bytes
+						print "file position", self.file.tell()
+						if self.decryptor is not None:
+							print "Decrypting unused bytes"
+							chunk = self.decryptor.decrypt(chunk)
+							print "Decryption position", self.decrypted_bytes
+							self.decrypted_bytes += len(chunk)
+							self.decryptor_data_digest.update(chunk)
+						else:
+							print "No decryptor found"
+				self.uncompressor = None
+				self.uncompressed_buf = ""
+			#
+			# Read normal data
+			#
+			else:
+				if skip_until is not None:
+					print "Skipping until", skip_until
+					continue
+				#print "normaldata:",self.decryptor
+				# If we're not skipping, we must also read, to preserve
+				# consistency of the blocks
+				print "Data block"
+				print "file position", self.file.tell()
+				# Uncompress data if necessary
+				if self.uncompressor is not None:
+					data = ""
+					while len(data) < size:
+						if len(self.uncompressed_buf) > 0:
+							portion = min(size-len(data),len(self.uncompressed_buf))
+							data += self.uncompressed_buf[:portion]
+							self.uncompressed_buf = self.uncompressed_buf[portion:]
+						else:
+							toread = min(8192, self.uncompress_bytes)
+							self.uncompress_bytes -= toread
+							chunk = self.file.read(toread)
+							if self.decryptor is not None:
+								print "decrypting chunk", base64.b16encode(chunk)
+								chunk = self.decryptor.decrypt(chunk)
+								self.decryptor_data_digest.update(chunk)
+								print "Decryption position", self.decrypted_bytes
+								self.decrypted_bytes += len(data)
+							if len(chunk) < toread:
+								raise Exception("Cannot read data expected in the container")
+							print "uncompressing chunk", base64.b16encode(chunk)
+							self.uncompressed_buf = self.uncompressor.decompress(chunk)
+				else:
+					data = self.file.read(size)
+					print "reading chunk", base64.b16encode(data)
+					if self.decryptor is not None:
+						data = self.decryptor.decrypt(data)
+						self.decryptor_data_digest.update(data)
+						print "Decryption position", self.decrypted_bytes
+						self.decrypted_bytes += len(data)
+						print "decrypted chunk", base64.b16encode(data)
+
+				if handler.is_requested(digest,code):
+					print "block %s:%d is requested" %(base64.b64encode(digest),code)
+					handler.loaded(digest,data,code)
+				else:
+					print "block %s:%d is not requested" %(base64.b64encode(digest),code)
+					pass
 class Container:
 	"""
 	Represents one contiguous container that can be saved somewhere, i.e.,
@@ -150,9 +475,11 @@ class Container:
 	CODE_INCREMENT_END: same
 	CODE_FILES: Special descriptors used for Backup
 	"""
-	def __init__(self,backup,index):
+	def __init__(self,storage,header_file_name,body_file_name):
 		# Configuration data
-		self.backup = backup
+		self.storage = storage
+		self.header_file_name = header_file_name
+		self.body_file_name = body_file_name
 		self.index = index
 		self.mode = None
 		self.frozen = False
@@ -195,7 +522,7 @@ class Container:
 		
 	def start_compression(self):
 		self.finish_compression(restart=True)
-		self.blocks.append((Digest.dataDigest(""),self.totalSize,CODE_COMPRESSION_BZ2_START))
+		self.blocks.append((Digest.dataDigest(""),self.totalSize,CODE_COMPRESSION_BZ2))
 		self.compressor = bz2.BZ2Compressor(9)
 		self.compressedSize = 0
 		self.uncompressedSize = 0
@@ -369,9 +696,9 @@ class Container:
 				print " CONTAINER_START [%6d]" % (size)
 			elif code == CODE_COMPRESSION_END:
 				print " COMPRESSION END AT %d" % (size)
-			elif code == CODE_COMPRESSION_BZ2_START:
+			elif code == CODE_COMPRESSION_BZ2:
 				print " BZ2 START AT %d" % (size)
-			elif code == CODE_COMPRESSION_GZIP_START:
+			elif code == CODE_COMPRESSION_GZIP:
 				print " GZIP START AT %d" % (size)
 			elif code == CODE_INCREMENT_START:
 				print " INCREMENT START [%6d]" % (size)
@@ -425,7 +752,7 @@ class Container:
 					raise "OOPS: Compression end tag without corresponding start"
 				compression_sizes[last_compression] = size-last_compression
 				last_compression = None
-			if code == CODE_COMPRESSION_BZ2_START:
+			if code == CODE_COMPRESSION_BZ2:
 				#print "See compression start bz2"
 				if last_compression != None:
 					compression_sizes[last_compression] = size-last_compression
@@ -437,14 +764,14 @@ class Container:
 		for (digest,size,code) in self.blocks:
 			if code == CODE_COMPRESSION_END:
 				decompressor = None
-			elif code == CODE_COMPRESSION_BZ2_START:
+			elif code == CODE_COMPRESSION_BZ2:
 				compression_start_offset = size
 				block_offset = 0
 				last_read_offset = 0
 				file.seek(size)
 				#print "Starting bzip2 decompressor"
 				decompressor = BZ2FileDecompressor(file,compression_sizes[size])
-			elif code == CODE_COMPRESSION_GZIP_START:
+			elif code == CODE_COMPRESSION_GZIP:
 				compression_start_offset = size
 				block_offset = 0
 				last_read_offset = 0
@@ -474,7 +801,7 @@ class Container:
 				block_offset += size
 			
 			else:
-				# All the blocks except CODE_COMPRESSION_BZ2_START use size for really size
+				# All the blocks except CODE_COMPRESSION_BZ2 use size for really size
 				block_offset += size
 
 
