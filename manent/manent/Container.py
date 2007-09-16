@@ -15,15 +15,6 @@ from manent.utils.BandwidthLimiter import *
 from manent.utils.RemoteFSHandler import FTPHandler, SFTPHandler
 from manent.utils.FileIO import FileReader, FileWriter
 
-compression_index = -1
-compression_root = os.getenv("MANENT_COMPRESSION_LOG_ROOT")
-
-class NoopCompressor:
-	def compress(self,data):
-		return data
-	def flush(self):
-		return ""
-
 #---------------------------------------------------
 # Container file format:
 #
@@ -126,6 +117,23 @@ def compute_packer_code(code):
 def is_packer_code(code):
 	assert code < CODE_COMPRESSION_END
 	return code%2==1
+
+def unserialize_blocks(file):
+	blocks = []
+	while True:
+		digest = header_table_io.read(Digest.dataDigestSize())
+		if digest == "":
+			break
+		size = Format.read_int(header_table_io)
+		code = Format.read_int(header_table_io)
+		blocks.append((digest,size,code))
+	return blocks
+
+def serialize_blocks(file, blocks):
+	for (digest,size,code) in blocks:
+		file.write(digest)
+		Format.write_int(file,size)
+		Format.write_int(file,code)
 
 #-------------------------------------------------------------------
 # Dump creation and reading utilities
@@ -386,6 +394,7 @@ class DataDumpLoader:
 
 				if handler.is_requested(digest,code):
 					handler.loaded(digest,data,code)
+
 class Container:
 	"""
 	Represents one contiguous container that can be saved somewhere, i.e.,
@@ -396,266 +405,175 @@ class Container:
 	2. Frozen - in this state, the container is completed. It can be written
 	            out, or its blocks can be read back.
 
-	Container can have its contents encrypted - TODO
-	Container can have its contents compressed
-
-	The container data consists of blocks that contain the following data:
-	(digest, size, code). The code can be 0 (regular data) or special data.
-	The aim of "size" for special code can carry a different meaning: for instance,
-	for compression, it is the offset in the data file itself, so that scanning can be
-	restarted there.
-	
-	CODE_CONTAINER_START: Must be the first one in a container. Contains a human-
-	readable description of the container
-	CODE_INCREMENT_START: The descriptor of an increment. Contains machine-readable data
-	used for backup rescanning
-	CODE_INCREMENT_END: same
-	CODE_FILES: Special descriptors used for Backup
 	"""
 	def __init__(self,storage,header_file_name,body_file_name):
 		# Configuration data
 		self.storage = storage
 		self.header_file_name = header_file_name
 		self.body_file_name = body_file_name
-		self.index = index
+		
 		self.mode = None
-		self.frozen = False
-		self.compressor = None
-		self.blocks = None
-
-	#
-	# Utility functions
-	#
-	def filename(self):
-		return self.backup.global_config.container_file_name(self.backup.label, self.index)
-	def __repr__(self):
-		return "Container totalsize=%d, %d blocks" % (self.totalSize, len(self.blocks))
 
 	#
 	# Dumping mode implementation
 	#
 	def start_dump(self):
 		self.mode = "DUMP"
-		self.totalSize = 0
-		self.compressionSize = 0
-		# Each block will contain a tuple of (digest, size, code)
-		self.blocks = []
-		self.incrementBlocks = []
-		self.dataFileName = os.path.join(self.backup.global_config.staging_area(),self.filename()+".data")
 		try:
-			os.unlink(self.dataFileName)
+			os.unlink(self.body_file_name)
 		except:
 			#it's OK if the file does not exist
 			pass
-		self.dataFile = open(self.dataFileName, "wb")
+		self.body_file = open(self.body_file_name, "wb")
 
+		self.body_dumper = DataDumper(self.body_file_name)
+		self.header_dump_os = StringIO()
+		self.header_dumper = DataDumper(self.header_dump_os)
+
+		if self.storage.get_password() != "":
+			self.encryption_active = True
+			self.body_dumper.start_encryption(CODE_ENCRYPTION_ARC4,self.storage.get_password())
+			self.header_dumper.start_encryption(CODE_ENCRYPTION_ARC4,self.storage.get_password())
+		else:
+			self.encryption_active = False
+
+		self.body_dumper.start_compression(CODE_COMPRESSION_BZ2)
+		self.compression_active = True
+		
 		# Add the "container start" special block
 		message = "Manent container #%d of backup '%s'\n\0x1b" % (self.index, self.backup.label)
-		self.dataFile.write(message)
-		self.totalSize += len(message)
-		self.blocks.append((Digest.dataDigest(message),len(message),CODE_CONTAINER_START))
+		self.header_dumper.add_block(Digest.dataDigest(message),len(message),CODE_CONTAINER_START)
 
-		self.start_compression()
-		
 	def start_compression(self):
-		self.finish_compression(restart=True)
-		self.blocks.append((Digest.dataDigest(""),self.totalSize,CODE_COMPRESSION_BZ2))
-		self.compressor = bz2.BZ2Compressor(9)
-		self.compressedSize = 0
-		self.uncompressedSize = 0
-
-		try:
-			global compression_root
-			if compression_root != None:
-				global compression_index
-				compression_index += 1
-				os.mkdir("%s/compress-%04d"%(compression_root,compression_index))
-				self.compression_block_index = 0
-		except:
-			pass
-	def finish_compression(self,restart=False):
-		if self.compressor == None:
-			return
-		remainder = self.compressor.flush()
-		self.dataFile.write(remainder)
-		self.totalSize += len(remainder)
-		self.compressedSize += len(remainder)
-		if not restart:
-			self.blocks.append((Digest.dataDigest(""),self.totalSize,CODE_COMPRESSION_END))
-		#print "Compressed remainder of size", len(remainder)
-		#print "Total compressed  ", self.compressedSize, self.totalSize
-		#print "Total uncompressed", self.uncompressedSize
-		self.compressor = None
+		pass
+	def stop_compression(self):
+		pass
 	def can_append(self,data):
 		# TODO: Take into account the size of the data table, which would be relevant for
 		#       very small files
 		current_size = self.totalSize + 64*len(self.blocks)
 		return current_size+len(data) <= self.backup.container_config.container_size()
-	def append(self,data,digest,code):
-		if (code==CODE_INCREMENT_START) or (code==CODE_INCREMENT_END):
-			#
-			# Increment start and increment end blocks are stored in the
-			# header file, in addition to the data file
-			#
-			self.incrementBlocks.append((data,digest,code))
-		if self.compressor:
-			try:
-				global compression_root
-				if compression_root != None:
-					global compression_index
-					of_name = "%s/compress-%04d/block.%04d" % (compression_root,compression_index, self.compression_block_index)
-					print "Writing file", of_name
-					of = open(of_name, "w")
-					of.write(data)
-					of.close()
-					self.compression_block_index+=1
-			except:
-				pass
-			compressed = self.compressor.compress(data)
-
-			#print "Compressed data from", len(data), "to", len(compressed)
-			self.compressionSize += len(compressed)
-			self.compressedSize += len(compressed)
-			self.totalSize += len(compressed)
-			self.uncompressedSize += len(data)
-			self.blocks.append((digest,len(data),code))
-			self.dataFile.write(compressed)
-			if self.compressionSize > self.backup.container_config.compression_block_size():
-				self.start_compression()
-				self.compressionSize = 0
-		else:
-			self.blocks.append((digest,len(data),code))
-			self.dataFile.write(data)
-		#self.totalSize += len(compressed)
-		return len(self.blocks)
 	
-	def finish_dump(self):
-		self.finish_compression(restart=False)
-		filepath = os.path.join(self.backup.global_config.staging_area(),self.filename())
-		try:
-			os.unlink(filepath)
-		except:
-			# do nothing! We don't really expect the file to be there
-			pass
+	def append(self,data,digest,code):
+		self.body_dumper.add_block(digest,data,code)
+	
+	def finish_dump(self,index):
+
+		self.index = index
+
+		if self.compression_active:
+			self.body_dumper.stop_compression()
+			self.compression_active = False
+		if self.encryption_active:
+			self.body_dumper.stop_encryption()
+		#
+		# Serialize the body block table
+		#
+		body_table_io = StringIO()
+		body_blocks = self.body_dumper.get_blocks()
+		serialize_blocks(body_table_io,body_blocks)
+		body_table_str = body_table_io.getvalue()
+
+		self.body_file.close()
+
+		#
+		# Serialize the header table
+		#
+		self.header_dumper.add_block(Digest.dataDigest(body_table_str),table_str,CODE_BLOCK_TABLE)
+
+		if self.encryption_active:
+			self.header_dumper.stop_encryption()
+			self.encryption_active = False
+
+		header_blocks = header_dumper.get_blocks()
+		header_table_io = StringIO()
+		serialize_blocks(header_table_io,header_blocks)
+		header_table_str = header_table_io.getvalue()
 		
-		file = open(filepath, "wb")
 		#
 		# Write the header
 		#
+		try:
+			os.unlink(self.header_file_name)
+		except:
+			# do nothing! We don't really expect the file to be there
+			pass
+		header_file = open(self.header_file_name, "wb")
+		
 		MAGIC = "MNNT"
-		VERSION = 1
+		VERSION = 2
+		header_file.write(MAGIC)
+		Format.write_int(header_file,VERSION)
+		Format.write_int(header_file,self.index)
+		Format.write_int(header_file, len(header_table_str))
+		header_file.write(Digest.dataDigest(header_table_str))
+		header_file.write(header_table_str)
+		header_file.write(body_table_str)
 
-		file.write(MAGIC)
-		Format.write_int(file,VERSION)
-		Format.write_int(file,self.index)
-
-		table = StringIO()
-		Format.write_int(table, len(self.blocks))
-		for (digest,size,code) in self.blocks:
-			Format.write_int(table,size)
-			Format.write_int(table,code)
-			table.write(digest)
-
-		tableContents = table.getvalue()
-		table.close()
-		Format.write_int(file,len(tableContents))
-		file.write(Digest.headerDigest(tableContents))
-		file.write(tableContents)
+		header_file.close()
 		#
-		# Store the increment blocks in the file
+		# Test that the container data is correct
 		#
-		for (data,digest,code) in self.incrementBlocks:
-			file.write(data)
-		#
-		# Copy the contents from the data file to the container file
-		#
-		print "Closing datafile", self.dataFileName
-		self.dataFile.close()
-		# Do the testing
 		self.test_blocks(self.dataFileName)
-		self.dataFileName = None
-	def isempty(self):
-		return len(self.blocks) == 0
-	def numblocks(self):
-		return len(self.blocks)
+	
+	#def isempty(self):
+		#return len(self.blocks) == 0
+	#def numblocks(self):
+		#return len(self.blocks)
 	#
 	# Loading mode implementation
 	#
-	def load(self,filename=None):
+	def load(self):
 		if self.mode == "LOAD":
 			return
 
 		self.mode = "LOAD"
-		self.totalSize = 0
-		self.blocks = []
-		self.block_infos = {}
 
-		if filename == None:
-			filename = os.path.join(self.backup.global_config.staging_area(),self.filename())
-		file = open(filename, "rb")
-		MAGIC = file.read(4)
+		header_file = open(self.header_file_name, "rb")
+		MAGIC = header_file.read(4)
 		if MAGIC != "MNNT":
 			raise "Manent: magic didn't happen..."
-		VERSION = Format.read_int(file)
-		index = Format.read_int(file)
+		version = Format.read_int(header_file)
+		if version != 2:
+			raise Exception("Container %d has unsupported version" % self.index)
+		index = Format.read_int(header_file)
 		if index != self.index:
 			raise "Manent: wrong index of container file. Expected %s, found %s" % (str(self.index),str(index))
 		
-		tableBytes = Format.read_int(file)
-		tableDigest = file.read(Digest.headerDigestSize())
-		tableContents = file.read(tableBytes)
-		if Digest.headerDigest(tableContents) != tableDigest:
+		header_table_size = Format.read_int(header_file)
+		header_table_digest = header_file.read(Digest.headerDigestSize())
+		header_table_str = header_file.read(header_table_size)
+		if Digest.headerDigest(header_table_str) != header_table_digest:
 			raise "Manent: header of container file corrupted"
-		tableFile = StringIO(tableContents)
-		numBlocks = Format.read_int(tableFile)
-		for i in range(0,numBlocks):
-			blockSize = Format.read_int(tableFile)
-			blockCode = Format.read_int(tableFile)
-			blockDigest = tableFile.read(Digest.dataDigestSize())
-			self.blocks.append((blockDigest,blockSize,blockCode))
-		self.indexBlocks = []
-		for (digest,size,code) in self.blocks:
-			if (code==CODE_INCREMENT_START) or (code==CODE_INCREMENT_END):
-				# We assume that the blocks are just appended there
-				data = file.read(size)
-				if Digest.dataDigest(data) != digest:
-					raise "Manent: index block corrupted"
-				self.indexBlocks.append((data,digest,code))
-		self.frozen = True
+		header_body_str = header_file.read()
+		
+		header_table_io = StringIO(header_table_str)
+		header_blocks = unserialize_blocks(header_table_io)
+
+		class Handler:
+			def __init__(self):
+				self.body_table_str = None
+			def is_requested(self,digest,code):
+				if code == CODE_BLOCK_TABLE:
+					return True
+			def loaded(self,digest,data,code):
+				assert code == CODE_BLOCK_TABLE
+				self.body_table_str = data
+
+		handler = Handler()
+		header_dump_loader = DataDumpLoader(header_blocks,header_file,password=self.storage.get_password())
+		header_dump_loader.load_blocks(handler)
+
+		body_table_io = StringIO(body_table_str)
+		self.body_blocks = unserialize_blocks(body_table_io)
+
+	def load_body(self):
+		body_file = open(self.body_file_name, "rb")
+		self.body_dump_loader = DataDumpLoader(self.body_blocks,body_file,password=self.storage.get_password())
+
 	def info(self):
-		print "Manent container #%d of backup %s" % (self.index, self.backup.label)
-		for (digest,size,code) in self.blocks:
-			if code == CODE_DATA:
-				print " DATA  [%6d] %s" % (size, base64.b64encode(digest))
-			elif code == CODE_FILES:
-				print " FILES [%6d] %s" % (size, base64.b64encode(digest))
-			elif code == CODE_CONTAINER_START:
-				print " CONTAINER_START [%6d]" % (size)
-			elif code == CODE_COMPRESSION_END:
-				print " COMPRESSION END AT %d" % (size)
-			elif code == CODE_COMPRESSION_BZ2:
-				print " BZ2 START AT %d" % (size)
-			elif code == CODE_COMPRESSION_GZIP:
-				print " GZIP START AT %d" % (size)
-			elif code == CODE_INCREMENT_START:
-				print " INCREMENT START [%6d]" % (size)
-			elif code == CODE_INCREMENT_END:
-				print " INCREMENT END [%6d]" % (size)
-	def find_increment_start(self):
-		for (digest,size,code) in self.blocks:
-			if code == CODE_INCREMENT_START:
-				return self.get_index_block(digest)
-		return None
-	def find_increment_end(self):
-		for (digest,size,code) in self.blocks:
-			if code == CODE_INCREMENT_END:
-				return self.get_index_block(digest)
-		return None
-	def get_index_block(self,digest):
-		for (blockData,blockDigest,blockCode) in self.indexBlocks:
-			if blockDigest==digest:
-				return blockData
-		raise "Requested index block not found"
+		print "Manent container #%d of storage %s" % (self.index, self.storage.get_label())
+	
 	def test_blocks(self,filename=None):
 		class TestingBlockCache:
 			def __init__(self):
@@ -668,122 +586,6 @@ class Container:
 					raise "Critical error: Bad digest in container!"
 		bc = TestingBlockCache()
 		self.read_blocks(bc,filename)
-	def read_blocks(self,block_cache,filename = None):
-		compression_start_offset = None
-		block_offset = 0
-		last_read_offset = 0
-		decompressor = None
-		print "Unpacking container", self.index
-		if filename == None:
-			filename = os.path.join(self.backup.global_config.staging_area(),self.filename()+".data")
-		file = open(filename, "rb")
-		#
-		# Compute compression block sizes. This is necessary because
-		# we cannot give extraneous data to decompressor
-		#
-		compression_sizes = {}
-		last_compression = None
-		for (digest,size,code) in self.blocks:
-			if code == CODE_COMPRESSION_END:
-				if last_compression == None:
-					raise "OOPS: Compression end tag without corresponding start"
-				compression_sizes[last_compression] = size-last_compression
-				last_compression = None
-			if code == CODE_COMPRESSION_BZ2:
-				#print "See compression start bz2"
-				if last_compression != None:
-					compression_sizes[last_compression] = size-last_compression
-				last_compression = size
-		if last_compression != None:
-			# No need to limit - the container won't give more data by itself
-			compression_sizes[last_compression] = None
-
-		for (digest,size,code) in self.blocks:
-			if code == CODE_COMPRESSION_END:
-				decompressor = None
-			elif code == CODE_COMPRESSION_BZ2:
-				compression_start_offset = size
-				block_offset = 0
-				last_read_offset = 0
-				file.seek(size)
-				#print "Starting bzip2 decompressor"
-				decompressor = BZ2FileDecompressor(file,compression_sizes[size])
-			elif code == CODE_COMPRESSION_GZIP:
-				compression_start_offset = size
-				block_offset = 0
-				last_read_offset = 0
-				file.seek(size)
-				decompressor = GZIPFileDecompressor(file,compression_sizes[size])
-			elif block_cache.block_needed(digest):
-				#print "Loading block", base64.b64encode(digest), ", size", size, ",rc=", digest_db[digest]
-				if decompressor != None:
-					# No compression applied. Can just read the block.
-					source = decompressor
-				else:
-					source = file
-
-				#print "block_offset %d, last_read_offset %d" % (block_offset, last_read_offset)
-				source.seek(block_offset-last_read_offset,1)
-				last_read_offset = block_offset+size
-				block = source.read(size)
-				# check that the block is OK
-				blockDigest = Digest.dataDigest(block)
-				if (digest != blockDigest):
-					raise "OUCH!!! The block read is incorrect: expected %s, got %s" % (str(base64.b64encode(digest)), str(base64.b64encode(blockDigest)))
-
-				#
-				# write the block out
-				#
-				block_cache.block_loaded(digest,block)
-				block_offset += size
-			
-			else:
-				# All the blocks except CODE_COMPRESSION_BZ2 use size for really size
-				block_offset += size
-
-
-class BZ2FileDecompressor(IStreamAdapter):
-	def __init__(self,file,limit):
-		IStreamAdapter.__init__(self)
-		
-		self.file = file
-		self.limit = limit
-		self.decompressor = bz2.BZ2Decompressor()
-	def read_block(self):
-		step = 8192
-		while True:
-			if self.limit == None:
-				data = self.file.read(step)
-			elif self.limit < step:
-				data = self.file.read(self.limit)
-			else:
-				data = self.file.read(step)
-			if len(data) == 0:
-				return ""
-			decomp = self.decompressor.decompress(data)
-			if len(decomp) > 0:
-				return decomp
-
-class GZIPFileDecompressor(IStreamAdapter):
-	def __init__(self,file,limit):
-		IStreamAdapter.__init__(self)
-		
-		self.file = file
-		self.limit = limit
-		# TODO: support gzip algorithm here
-		self.decompressor = None
-	def read_block(self):
-		step = 8192
-		while True:
-			if self.limit == None:
-				data = self.file.read(step)
-			elif self.limit < step:
-				data = self.file.read(self.limit)
-			else:
-				data = self.file.read(step)
-			if len(data) == 0:
-				return ""
-			decomp = self.decompressor.decompress(data)
-			if len(decomp) > 0:
-				return decomp
-
+	
+	def load_blocks(self,handler):
+		self.body_dump_loader.load_blocks(handler)
