@@ -142,15 +142,10 @@ class DataDumper:
 
 	def add_block(self,digest,data,code):
 		self.blocks.append((digest,len(data),code))
-		print "Adding block %d:%s[%s]" % (code,base64.b64encode(digest),base64.b16encode(data))
-		print "File position", self.total_size, self.file.tell()
-		print "Plain data: ", base64.b16encode(data)
 		if self.compressor is not None:
 			data = self.__compress(data)
-			print "Compressed data: ", base64.b16encode(data)
 		if self.encryptor is not None:
 			data = self.__encrypt(data)
-			print "Encrypted data : ", base64.b16encode(data)
 		self.file.write(data)
 		self.total_size += len(data)
 
@@ -165,8 +160,6 @@ class DataDumper:
 		assert self.compressor is None
 		
 		self.blocks.append((seed,0,algorithm_code))
-		print "%s CODE_ENCRYPTION_ARC4 start" % (base64.b64encode(seed))
-		print "file position", self.total_size, self.file.tell()
 		if algorithm_code == CODE_ENCRYPTION_ARC4:
 			key = Digest.dataDigest(seed+password)
 			self.encryptor = Crypto.Cipher.ARC4.new(key)
@@ -181,7 +174,6 @@ class DataDumper:
 		self.encryptor = None
 	def __encrypt(self,data):
 		self.encrypted_data_digest.update(data)
-		print "Encryption position", self.encrypted_data_size
 		self.encrypted_data_size += len(data)
 		return self.encryptor.encrypt(data)
 	#
@@ -194,8 +186,6 @@ class DataDumper:
 		assert self.compressor is None
 
 		digest = Digest.dataDigest(str(len(self.blocks)))
-		print "Starting compression %s" % (base64.b64encode(digest))
-		print "file position", self.total_size, self.file.tell()
 		self.blocks.append((digest,0,algorithm_code))
 		if algorithm_code == CODE_COMPRESSION_BZ2:
 			self.compressor = bz2.BZ2Compressor(9)
@@ -212,15 +202,10 @@ class DataDumper:
 		tail = self.compressor.flush()
 		self.compressed_size += len(tail)
 		
-		print "Compressed data: ", base64.b16encode(tail)
-		print "file position", self.total_size, self.file.tell()
 		if self.encryptor is not None:
 			tail = self.__encrypt(tail)
-			print "Encrypted data: ", base64.b16encode(tail)
 		self.file.write(tail)
 		self.total_size += len(tail)
-		print "Wrote data to file"
-		print "file position", self.total_size, self.file.tell()
 		self.blocks.append((Digest.dataDigest(""),self.compressed_size,CODE_COMPRESSION_END))
 		self.compressor = None
 
@@ -264,7 +249,6 @@ class DataDumpLoader:
 				# Since encryption blocks are not nested in anything,
 				# we can't see start of encryption when skipping
 				assert skip_until is None
-				print "file position", self.file.tell()
 				# find out if any of the blocks contained within
 				# the section is actually needed
 				requested = False
@@ -273,16 +257,9 @@ class DataDumpLoader:
 					if s_code == CODE_ENCRYPTION_END:
 						break
 					if handler.is_requested(s_digest,s_code):
-						print "Requested block %d:%s" % (s_code, base64.b64encode(s_digest))
 						requested = True
 				else:
 					raise Exception("Block table error: encryption start without end")
-
-				print "%s CODE_ENCRYPTION_ARC4 goes for %d rounds" % (base64.b64encode(digest), j-i),
-				if requested:
-					print "has requested blocks"
-				else:
-					print "has no requested blocks"
 
 				if not requested:
 					skip_until = CODE_ENCRYPTION_END
@@ -296,14 +273,10 @@ class DataDumpLoader:
 			elif code == CODE_ENCRYPTION_END:
 				# Encryption cannot be nested in compression
 				assert skip_until != CODE_COMPRESSION_END
-				print "CODE_ENCRYPTION_END"
 				if skip_until == CODE_ENCRYPTION_END:
-					print "reading %d from position %d" % (size,self.file.tell())
 					skipped = self.file.read(size)
-					print "Decrypting skipped data", base64.b16encode(skipped)
 					skipped = self.decryptor.decrypt(skipped)
 					self.decrypted_bytes += len(skipped)
-					print "Decrypted skipped data", base64.b16encode(skipped)
 					self.decryptor_data_digest.update(skipped)
 					skip_until = None
 				assert self.decryptor_data_digest.digest() == digest
@@ -316,7 +289,6 @@ class DataDumpLoader:
 			elif code == CODE_COMPRESSION_BZ2:
 				if skip_until is not None:
 					assert skip_until == CODE_ENCRYPTION_END
-					print "%s CODE_COMPRESSION_BZ2 skipping" % base64.b64encode(digest), self.file.tell()
 					continue
 				# find out if any of the blocks contained within
 				# the section is actually needed
@@ -330,12 +302,6 @@ class DataDumpLoader:
 						requested = True
 				else:
 					raise Exception("Block table error: compression start without end")
-
-				print "%s CODE_COMPRESSION_BZ2 goes for %d rounds" % (base64.b64encode(digest), j-i),
-				if requested:
-					print "has requested blocks"
-				else:
-					print "has no requested blocks"
 
 				if requested:
 					self.uncompressor = bz2.BZ2Decompressor()
@@ -345,7 +311,6 @@ class DataDumpLoader:
 			elif code == CODE_COMPRESSION_GZIP:
 				if skip_until is not None:
 					assert skip_until == CODE_ENCRYPTION_END
-					print "%s CODE_COMPRESSION_GZIP skipping" % base64.b64encode(digest),self.file.tell()
 					continue
 				# find out if any of the blocks contained within
 				# the section is actually needed
@@ -359,12 +324,6 @@ class DataDumpLoader:
 						requested = True
 				else:
 					raise Exception("Block table error: compression start without end")
-
-				print "%s CODE_COMPRESSION_GZIP goes for %d rounds" % (base64.b64encode(digest), j-i),
-				if requested:
-					print "has requested blocks"
-				else:
-					print "has no requested blocks"
 
 				if requested:
 					self.uncompressor = zlib.decompressobj()
@@ -375,9 +334,7 @@ class DataDumpLoader:
 			elif code == CODE_COMPRESSION_END:
 				if skip_until == CODE_ENCRYPTION_END:
 					assert self.uncompressor is None
-					print "%s CODE_COMPRESSION_END skipping" % base64.b64encode(digest)
 					continue
-				print "CODE_COMPRESSION_END"
 				if skip_until == CODE_COMPRESSION_END:
 					data = self.file.read(size)
 					if self.decryptor is not None:
@@ -387,16 +344,10 @@ class DataDumpLoader:
 				else:
 					if self.uncompress_bytes != 0:
 						chunk = self.file.read(self.uncompress_bytes)
-						print "reading %d unused compressor bytes" % self.uncompress_bytes
-						print "file position", self.file.tell()
 						if self.decryptor is not None:
-							print "Decrypting unused bytes"
 							chunk = self.decryptor.decrypt(chunk)
-							print "Decryption position", self.decrypted_bytes
 							self.decrypted_bytes += len(chunk)
 							self.decryptor_data_digest.update(chunk)
-						else:
-							print "No decryptor found"
 				self.uncompressor = None
 				self.uncompressed_buf = ""
 			#
@@ -404,13 +355,9 @@ class DataDumpLoader:
 			#
 			else:
 				if skip_until is not None:
-					print "Skipping until", skip_until
 					continue
-				#print "normaldata:",self.decryptor
 				# If we're not skipping, we must also read, to preserve
 				# consistency of the blocks
-				print "Data block"
-				print "file position", self.file.tell()
 				# Uncompress data if necessary
 				if self.uncompressor is not None:
 					data = ""
@@ -424,31 +371,21 @@ class DataDumpLoader:
 							self.uncompress_bytes -= toread
 							chunk = self.file.read(toread)
 							if self.decryptor is not None:
-								print "decrypting chunk", base64.b16encode(chunk)
 								chunk = self.decryptor.decrypt(chunk)
 								self.decryptor_data_digest.update(chunk)
-								print "Decryption position", self.decrypted_bytes
 								self.decrypted_bytes += len(data)
 							if len(chunk) < toread:
 								raise Exception("Cannot read data expected in the container")
-							print "uncompressing chunk", base64.b16encode(chunk)
 							self.uncompressed_buf = self.uncompressor.decompress(chunk)
 				else:
 					data = self.file.read(size)
-					print "reading chunk", base64.b16encode(data)
 					if self.decryptor is not None:
 						data = self.decryptor.decrypt(data)
 						self.decryptor_data_digest.update(data)
-						print "Decryption position", self.decrypted_bytes
 						self.decrypted_bytes += len(data)
-						print "decrypted chunk", base64.b16encode(data)
 
 				if handler.is_requested(digest,code):
-					print "block %s:%d is requested" %(base64.b64encode(digest),code)
 					handler.loaded(digest,data,code)
-				else:
-					print "block %s:%d is not requested" %(base64.b64encode(digest),code)
-					pass
 class Container:
 	"""
 	Represents one contiguous container that can be saved somewhere, i.e.,
