@@ -1,21 +1,21 @@
-def create_container_config(containerType):
-	if containerType == "directory":
-		return DirectoryContainerConfig()
-	elif containerType == "mail":
-		return MailContainerConfig()
-	elif containerType == "ftp":
-		return FTPContainerConfig(FTPHandler)
-	elif containerType == "sftp":
-		return FTPContainerConfig(SFTPHandler)
-	#elif containerType == "gmail":
-	#	return GmailContainerConfig()
-	#elif containerType == "optical":
-	#	return OpticalContainerConfig()
-	raise "Unknown container type", containerType
+
+def create_storage(storage_type):
+	if storage_type == "directory":
+		return DirectoryStorage()
+	elif storage_type == "mail":
+		return MailStorage()
+	elif storage_type == "ftp":
+		return FTPStorage(FTPHandler)
+	elif storage_type == "sftp":
+		return FTPStorage(SFTPHandler)
+	raise "Unknown storage_type type", storage_type
 
 class Storage:
 	def __init__(self):
 		self.containers_db = None
+	
+	# How do we know for a given storage if it is just created or rescanned?
+	# Ah well, each storage stores its data in the shared db!
 	
 	#
 	# Loading
@@ -112,7 +112,7 @@ class Storage:
 	#
 	def reconstruct(self):
 		#
-		# It is the specific implementation of ContainerConfig that knows how to reconstruct the
+		# It is the specific implementation of Storage that knows how to reconstruct the
 		# containers
 		#
 		self.reconstruct_containers()
@@ -204,17 +204,17 @@ class Storage:
 
 from ftplib import FTP
 
-class FTPContainerConfig(ContainerConfig):
+class FTPStorage(Storage):
 	"""
 	Handler for a FTP site storage
 	"""
 	def __init__(self,RemoteHandlerClass):
-		ContainerConfig.__init__(self)
+		Storage.__init__(self)
 		self.RemoteHandlerClass = RemoteHandlerClass
 		self.up_bw_limiter = BandwidthLimiter(15.0E3)
 		self.down_bw_limiter = BandwidthLimiter(10000.0E3)
 	def init(self,backup,txn_handler,params):
-		ContainerConfig.init(self,backup,txn_handler)
+		Storage.init(self,backup,txn_handler)
 		(host,user,password,path) = params
 		self.fs_handler = self.RemoteHandlerClass(host,user,password,path)
 	def container_size(self):
@@ -280,16 +280,15 @@ class FTPContainerConfig(ContainerConfig):
 			container = self.load_container(index)
 			self.containers[index] = container
 
-
-class DirectoryContainerConfig(ContainerConfig):
+class DirectoryStorage(Storage):
 	"""
 	Handler for a simple directory.
 	"""
 	def __init__(self):
-		ContainerConfig.__init__(self)
+		Storage.__init__(self)
 		self.path = None
 	def init(self,backup,txn_handler,params):
-		ContainerConfig.init(self,backup,txn_handler)
+		Storage.init(self,backup,txn_handler)
 		(path,) = params
 		self.path = path
 	def container_size(self):
@@ -364,17 +363,16 @@ from email.MIMEMultipart import MIMEMultipart
 from email.MIMEImage import MIMEImage
 from email.MIMEText import MIMEText
 
-
-class MailContainerConfig(ContainerConfig):
+class MailStorage(Storage):
 	"""
 	Handler for gmail container.
 	Needs a list of gmail addresses.
 	"""
 	def __init__(self):
-		ContainerConfig.__init__(self)
+		Storage.__init__(self)
 		self.accounts = []
 	def init(self,backup,txn_handler,params):
-		ContainerConfig.init(self,backup,txn_handler)
+		Storage.init(self,backup,txn_handler)
 		self.backup = backup
 		self.username = params[0]
 		self.password = params[1]
@@ -383,13 +381,13 @@ class MailContainerConfig(ContainerConfig):
 		self.add_account(username,password,quota)
 	def load(self,filename):
 		file = open(filename, "rb")
-		ContainerConfig.load(self,file)
+		Storage.load(self,file)
 		configLine = file.readline()
 		(username,password,quota) = re.split("\s+",configLine)[0:3]
 		self.add_account(username,password,quota)
 	def save(self,filename):
 		file = open(filename,"wb")
-		ContainerConfig.save(self,file)
+		Storage.save(self,file)
 		account = self.accounts[0]
 		file.write("%s %s %s" % (account["user"],account["pass"],account["quota"]))
 	def add_account(self,username,password,quota):
@@ -446,7 +444,7 @@ class MailContainerConfig(ContainerConfig):
 		s.close()
 		print header_msg.as_string()
 
-class OpticalContainerConfig(ContainerConfig):
+class OpticalStorage(Storage):
 	"""
 	Handler for optical container.
 	Can be one of: CD-650, CD-700, DVD, DVD-DL, BLURAY :)
@@ -470,13 +468,13 @@ class OpticalContainerConfig(ContainerConfig):
 			exit(1)
 	def load(self,filename):
 		file = open(filename, "rb")
-		ContainerConfig.load(self,file)
+		Storage.load(self,file)
 		containerType = file.readline()
 		for line in file:
 			self.containers.append(line)
 	def save(self,file):
 		file = open(filename,"wb")
-		ContainerConfig.save(self,file)
+		Storage.save(self,file)
 		file.write(self.containerType+"\n")
 		for container in self.containers:
 			file.write(container+"\n")

@@ -25,6 +25,9 @@ class Repository:
 	def get_active_storage(self):
 		return self.storages[self.active_storage_index]
 
+	def get_storages(self):
+		return self.storages
+
 	def rescan_storage(self,handler):
 		# TODO: this should proceed in a separate thread
 		# actually, each storage could be processed in its own thread

@@ -40,6 +40,10 @@ class Node:
 		self.cached_path = None
 		self.cached_stat = None
 
+	def get_digest(self):
+		return self.digest
+	def set_digest(self,digest):
+		self.digest = digest
 	#
 	# Path computations
 	#
@@ -259,7 +263,7 @@ class Symlink(Node):
 			print "B%d" % base_level,
 		print self.path(), self.number, self.link
 
-##--------------------------------------------------------
+#--------------------------------------------------------
 # CLASS:Directory
 #--------------------------------------------------------
 class Directory(Node):
@@ -280,7 +284,7 @@ class Directory(Node):
 		prev_name_data = {}
 		
 		for (prev_type,prev_stat,prev_digest) in prev_nums:
-			if prev_type != self.get_type():
+			if prev_type is not None and prev_type != self.get_type():
 				# This previous entry is not a directory.
 				# Definitely shouldn't read it.
 				break
