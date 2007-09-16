@@ -13,23 +13,22 @@ def create_container_config(containerType):
 	#	return OpticalContainerConfig()
 	raise "Unknown container type", containerType
 
-class ContainerConfig:
+class Storage:
 	def __init__(self):
-		self.new_increment = None
 		self.containers_db = None
 	
 	#
 	# Loading
 	#
-	def init(self,backup,txn_handler):
-		self.backup = backup
-		self.containers_db = self.backup.db_config.get_database(".history",txn_handler)
+	def init(self,db_config,label,txn_handler):
+		self.db_config = db_config
+		self.label = label
+		self.containers_db = self.db_config.get_database(".containers.%d"%self.label,txn_handler)
 
 		#
 		# See if we are loading the db for the first time
 		#
-		if not self.containers_db.has_key("Increments"):
-			self.containers_db["Increments"] = str(0)
+		if not self.containers_db.has_key("Containers"):
 			self.containers_db["Containers"] = str(0)
 
 		#
@@ -38,26 +37,12 @@ class ContainerConfig:
 		self.containers = []
 		for i in range(0,int(self.containers_db["Containers"])):
 			self.containers.append(None)
-		self.increments = []
-		for i in range(0,int(self.containers_db["Increments"])):
-			increment = Increment(self,i)
-			increment.load()
-			self.increments.append(increment)
 	def close(self):
 		if self.containers_db is not None:
 			# It can be none if its initialization fails
 			self.containers_db.close()
 	def info(self):
 		print "Containers:", len(self.containers)
-		print "Increments:"
-		for increment in self.increments:
-			print "  ", increment.index,
-			if increment.finalized:
-				print "F",
-			else:
-				print " ",
-			print increment.containers,
-			print ", base:", increment.base_index, "diff:", increment.base_diff
 			
 		for i in range(0,len(self.containers)):
 			container = self.get_container(i)

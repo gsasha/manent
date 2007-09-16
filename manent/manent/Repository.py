@@ -1,3 +1,5 @@
+import Container
+
 class Repository:
 	"""Handles the moving of blocks to and from storages.
 
@@ -16,6 +18,7 @@ class Repository:
 		#
 		self.storages = storages
 		self.active_storage = active_storage
+
 	def rescan_storage(self,handler):
 		# TODO: this should proceed in a separate thread
 		# actually, each storage could be processed in its own thread
@@ -31,22 +34,25 @@ class Repository:
 				#
 				# Register blocks of the container in the block_container_db
 				#
-				storage.load_container_header(container_idx)
+				container.load_header()
 				has_nondata_blocks = False
+				has_data_blocks = False
 				encoded = self.encode_block_info(storage_idx,container_idx)
-				for digest,code in container.list_blocks():
+				for digest,size,code in container.list_blocks():
 					self.block_container_db[digest] = encoded
 					if code != Container.CODE_DATA:
 						has_nondata_blocks = True
+					else:
+						has_data_blocks = True
 				#
 				# Notify the caller of the nondata blocks, which are supposed to be
 				# cached
 				#
 				if has_nondata_blocks:
-					storage.load_container_data(container)
-					for digest,data,code in container.list_data():
-						if code != Container.CODE_DATA:
-							handler.block_loaded(digest,data,code)
+					container.load_body()
+					container.load_blocks(handler)
+				if not has_data_blocks:
+					container.remove_files()
 	def close(self):
 		self.block_container_db.close()
 		
@@ -76,11 +82,11 @@ class Repository:
 		storage = self.storages[self.active_storage]
 
 		if self.current_open_container is not None:
-			self.storage.finalize_container(self.current_open_container)
+			storage.finalize_container(self.current_open_container)
 			#
 			# Now we have container idx, update it in the blocks db
 			#
-			container_idx = self.current_open_container.get_idx()
+			container_idx = self.current_open_container.get_index()
 			encoded = self.encode_block_info(self.active_storage,container_idx)
 			for digest,code in self.current_open_container.list_blocks():
 				self.block_container_db[digest] = encoded
@@ -88,8 +94,12 @@ class Repository:
 	def load_block(self,digest,handler):
 		storage_idx,container_idx = self.decode_block_info(self.block_container_db[digest])
 		storage = self.storages[storage_idx]
-		container = storage.load_container_data(container_idx)
+		container = storage.get_container(container_idx)
+		container.load_header()
+		container.load_body()
 		container.load_blocks(handler)
+		container.remove_files()
+
 	#--------------------------------------------------------
 	# Utility methods
 	#--------------------------------------------------------

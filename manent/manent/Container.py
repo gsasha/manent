@@ -79,6 +79,8 @@ from manent.utils.FileIO import FileReader, FileWriter
 #       and for verification
 #---------------------------------------------------
 
+MAX_COMPRESSED_DATA = 256*1024
+
 #
 # Codes for blocks stored in the body
 #
@@ -118,6 +120,9 @@ def is_packer_code(code):
 	assert code < CODE_COMPRESSION_END
 	return code%2==1
 
+#-------------------------------------------------------------------
+# Block serialization
+#-------------------------------------------------------------------
 def unserialize_blocks(file):
 	blocks = []
 	while True:
@@ -414,6 +419,8 @@ class Container:
 		
 		self.mode = None
 
+	def get_index(self):
+		return self.index
 	#
 	# Dumping mode implementation
 	#
@@ -452,14 +459,16 @@ class Container:
 			self.body_dumper.stop_compression()
 			self.compression_active = False
 
-	def can_append(self,data):
-		# TODO: Take into account the size of the data table, which would be relevant for
-		#       very small files
-		current_size = self.totalSize + 64*len(self.blocks)
-		return current_size+len(data) <= self.backup.container_config.container_size()
+	def can_add(self,data):
+		# MAX_COMPRESSED_DATA is a safeguard for compressed data which was not yet
+		# put into the output
+		# 64 is for the header of the header
+		current_size = self.body_dumper.total_size + self.header_dumper.total_size +\
+		               MAX_COMPRESSED_DATA + 64
+		return current_size <= self.storage.container_size()
 	
 	def add_block(self,digest,data,code):
-		if self.compression_active and self.compressed_data > 256*1024:
+		if self.compression_active and self.compressed_data > MAX_COMPRESSED_DATA:
 			self.body_dumper.stop_compression()
 			self.body_dumper.start_compression(CODE_COMPRESSION_BZ2)
 			self.compressed_data = 0
@@ -547,19 +556,19 @@ class Container:
 		header_file = open(self.header_file_name, "rb")
 		MAGIC = header_file.read(4)
 		if MAGIC != "MNNT":
-			raise "Manent: magic number not found"
+			raise Exception("Manent: magic number not found")
 		version = Format.read_int(header_file)
 		if version != 2:
 			raise Exception("Container %d has unsupported version" % self.index)
 		index = Format.read_int(header_file)
 		if index != self.index:
-			raise "Manent: wrong index of container file. Expected %s, found %s" % (str(self.index),str(index))
+			raise Exception("Manent: wrong index of container file. Expected %s, found %s" % (str(self.index),str(index)))
 		
 		header_table_size = Format.read_int(header_file)
 		header_table_digest = header_file.read(Digest.dataDigestSize())
 		header_table_str = header_file.read(header_table_size)
 		if Digest.dataDigest(header_table_str) != header_table_digest:
-			raise "Manent: header of container file corrupted"
+			raise Exception("Manent: header of container file corrupted")
 		header_dump_str = header_file.read()
 		
 		header_table_io = StringIO(header_table_str)
@@ -583,6 +592,9 @@ class Container:
 		body_table_io = StringIO(handler.body_table_str)
 		self.body_blocks = unserialize_blocks(body_table_io)
 
+	def list_blocks(self):
+		return self.body_blocks
+	
 	def load_body(self):
 		self.storage.load_container_body(self.index)
 		
@@ -601,9 +613,13 @@ class Container:
 			def block_loaded(self,digest,block):
 				new_digest = Digest.dataDigest(block)
 				if new_digest != digest:
-					raise "Critical error: Bad digest in container!"
+					raise Exception("Critical error: Bad digest in container!")
 		bc = TestingBlockCache()
 		self.read_blocks(bc,filename)
 	
 	def load_blocks(self,handler):
 		self.body_dump_loader.load_blocks(handler)
+
+	def remove_files(self):
+		os.unlink(self.header_file_name)
+		os.unlink(self.body_file_name)
