@@ -22,10 +22,3 @@ class DataDigestAccumulator:
 def dataDigestSize():
 	return 32
 	#return 16
-
-def headerDigest(data):
-	return hashlib.md5(data).digest()
-	#return md5.md5(data).digest()
-
-def headerDigestSize():
-	return 16

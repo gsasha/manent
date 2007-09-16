@@ -44,6 +44,36 @@ class MockHandler:
 				return False
 		return True
 
+class MockStorage:
+	def __init__(self,password):
+		self.password = password
+		self.header_file_name = "/tmp/manent.test_container.header"
+		self.body_file_name = "/tmp/manent.test_container.body"
+		self.cur_index = 0
+		
+	def get_container(self,index):
+		container = Container(self,self.header_file_name,self.body_file_name)
+		container.start_load(index)
+		return container
+
+	def get_password(self):
+		return self.password
+	def load_container_header(self,index):
+		pass
+	def load_container_body(self,index):
+		pass
+	def get_label(self):
+		return "mukakaka"
+	
+	def create_container(self):
+		container = Container(self,self.header_file_name,self.body_file_name)
+		container.start_dump()
+		return container
+
+	def finalize_container(self,container):
+		container.finish_dump(self.cur_index)
+		self.cur_index += 1
+
 DATA = [
 	"",
 	"asdf;kasdfj;dlfksdjf;lfjdsfl;dsfdjsfsdf",
@@ -59,7 +89,6 @@ DATA = [
 class TestContainer(unittest.TestCase):
 
 	def test_data_dumper(self):
-		return
 		"""Basic test of data dumper: data in, data out"""
 		handler = MockHandler()
 		outfile = StringIO()
@@ -79,7 +108,6 @@ class TestContainer(unittest.TestCase):
 		self.failUnless(handler.check())
 	
 	def test_data_dumper_compress(self):
-		return
 		"""Test data dumper when compression is enabled"""
 		handler = MockHandler()
 		outfile = StringIO()
@@ -101,7 +129,6 @@ class TestContainer(unittest.TestCase):
 		self.failUnless(handler.check())
 
 	def test_data_dumper_encrypt(self):
-		return
 		"""Test data dumper when encryption is enabled"""
 		handler = MockHandler()
 		outfile = StringIO()
@@ -122,6 +149,7 @@ class TestContainer(unittest.TestCase):
 		undumper.load_blocks(handler)
 
 		self.failUnless(handler.check())
+
 	def test_data_dumper_stress(self):
 		"""Test with really lots of randomly generated data"""
 		handler = MockHandler()
@@ -213,4 +241,22 @@ class TestContainer(unittest.TestCase):
 		undumper = DataDumpLoader(infile,blocks,password="kakamaika")
 		undumper.load_blocks(handler)
 
+		self.failUnless(handler.check())
+
+	def test_container(self):
+		storage = MockStorage(password="kakamaika")
+		handler = MockHandler()
+
+		container = storage.create_container()
+		for d in DATA:
+			container.add_block(Digest.dataDigest(d),d,CODE_DATA)
+			handler.add_expected(Digest.dataDigest(d),d,CODE_DATA)
+		storage.finalize_container(container)
+		index = container.index
+
+		container = storage.get_container(index)
+		container.load_header()
+		container.load_body()
+
+		container.load_blocks(handler)
 		self.failUnless(handler.check())

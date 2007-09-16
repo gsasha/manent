@@ -121,11 +121,11 @@ def is_packer_code(code):
 def unserialize_blocks(file):
 	blocks = []
 	while True:
-		digest = header_table_io.read(Digest.dataDigestSize())
+		digest = file.read(Digest.dataDigestSize())
 		if digest == "":
 			break
-		size = Format.read_int(header_table_io)
-		code = Format.read_int(header_table_io)
+		size = Format.read_int(file)
+		code = Format.read_int(file)
 		blocks.append((digest,size,code))
 	return blocks
 
@@ -426,36 +426,46 @@ class Container:
 			pass
 		self.body_file = open(self.body_file_name, "wb")
 
-		self.body_dumper = DataDumper(self.body_file_name)
+		self.body_dumper = DataDumper(self.body_file)
 		self.header_dump_os = StringIO()
 		self.header_dumper = DataDumper(self.header_dump_os)
 
 		if self.storage.get_password() != "":
 			self.encryption_active = True
-			self.body_dumper.start_encryption(CODE_ENCRYPTION_ARC4,self.storage.get_password())
-			self.header_dumper.start_encryption(CODE_ENCRYPTION_ARC4,self.storage.get_password())
+			self.body_dumper.start_encryption(CODE_ENCRYPTION_ARC4, os.urandom(Digest.dataDigestSize()), self.storage.get_password())
+			self.header_dumper.start_encryption(CODE_ENCRYPTION_ARC4, os.urandom(Digest.dataDigestSize()), self.storage.get_password())
 		else:
 			self.encryption_active = False
 
 		self.body_dumper.start_compression(CODE_COMPRESSION_BZ2)
 		self.compression_active = True
+		self.compressed_data = 0
 		
-		# Add the "container start" special block
-		message = "Manent container #%d of backup '%s'\n\0x1b" % (self.index, self.backup.label)
-		self.header_dumper.add_block(Digest.dataDigest(message),len(message),CODE_CONTAINER_START)
+	def enable_compression(self):
+		if not self.compression_active:
+			self.body_dumper.start_compression(CODE_COMPRESSION_BZ2)
+			self.compression_active = True
+			self.compressed_data = 0
 
-	def start_compression(self):
-		pass
-	def stop_compression(self):
-		pass
+	def disable_compression(self):
+		if self.compression_active:
+			self.body_dumper.stop_compression()
+			self.compression_active = False
+
 	def can_append(self,data):
 		# TODO: Take into account the size of the data table, which would be relevant for
 		#       very small files
 		current_size = self.totalSize + 64*len(self.blocks)
 		return current_size+len(data) <= self.backup.container_config.container_size()
 	
-	def append(self,data,digest,code):
+	def add_block(self,digest,data,code):
+		if self.compression_active and self.compressed_data > 256*1024:
+			self.body_dumper.stop_compression()
+			self.body_dumper.start_compression(CODE_COMPRESSION_BZ2)
+			self.compressed_data = 0
+
 		self.body_dumper.add_block(digest,data,code)
+		self.compressed_data += len(data)
 	
 	def finish_dump(self,index):
 
@@ -479,13 +489,15 @@ class Container:
 		#
 		# Serialize the header table
 		#
-		self.header_dumper.add_block(Digest.dataDigest(body_table_str),table_str,CODE_BLOCK_TABLE)
+		message = "Manent container %d of backup '%s'" % (self.index, self.storage.get_label())
+		self.header_dumper.add_block(Digest.dataDigest(message),message,CODE_CONTAINER_DESCRIPTOR)
+		self.header_dumper.add_block(Digest.dataDigest(body_table_str),body_table_str,CODE_BLOCK_TABLE)
 
 		if self.encryption_active:
 			self.header_dumper.stop_encryption()
 			self.encryption_active = False
 
-		header_blocks = header_dumper.get_blocks()
+		header_blocks = self.header_dumper.get_blocks()
 		header_table_io = StringIO()
 		serialize_blocks(header_table_io,header_blocks)
 		header_table_str = header_table_io.getvalue()
@@ -508,13 +520,14 @@ class Container:
 		Format.write_int(header_file, len(header_table_str))
 		header_file.write(Digest.dataDigest(header_table_str))
 		header_file.write(header_table_str)
-		header_file.write(body_table_str)
+		header_dump_str = self.header_dump_os.getvalue()
+		header_file.write(header_dump_str)
 
 		header_file.close()
 		#
 		# Test that the container data is correct
 		#
-		self.test_blocks(self.dataFileName)
+		#self.test_blocks(self.dataFileName)
 	
 	#def isempty(self):
 		#return len(self.blocks) == 0
@@ -523,16 +536,18 @@ class Container:
 	#
 	# Loading mode implementation
 	#
-	def load(self):
-		if self.mode == "LOAD":
-			return
-
+	def start_load(self,index):
+		assert self.mode is None
 		self.mode = "LOAD"
+		self.index = index
 
+	def load_header(self):
+		self.storage.load_container_header(self.index)
+		
 		header_file = open(self.header_file_name, "rb")
 		MAGIC = header_file.read(4)
 		if MAGIC != "MNNT":
-			raise "Manent: magic didn't happen..."
+			raise "Manent: magic number not found"
 		version = Format.read_int(header_file)
 		if version != 2:
 			raise Exception("Container %d has unsupported version" % self.index)
@@ -541,11 +556,11 @@ class Container:
 			raise "Manent: wrong index of container file. Expected %s, found %s" % (str(self.index),str(index))
 		
 		header_table_size = Format.read_int(header_file)
-		header_table_digest = header_file.read(Digest.headerDigestSize())
+		header_table_digest = header_file.read(Digest.dataDigestSize())
 		header_table_str = header_file.read(header_table_size)
-		if Digest.headerDigest(header_table_str) != header_table_digest:
+		if Digest.dataDigest(header_table_str) != header_table_digest:
 			raise "Manent: header of container file corrupted"
-		header_body_str = header_file.read()
+		header_dump_str = header_file.read()
 		
 		header_table_io = StringIO(header_table_str)
 		header_blocks = unserialize_blocks(header_table_io)
@@ -561,15 +576,18 @@ class Container:
 				self.body_table_str = data
 
 		handler = Handler()
-		header_dump_loader = DataDumpLoader(header_blocks,header_file,password=self.storage.get_password())
+		header_dump_str_io = StringIO(header_dump_str)
+		header_dump_loader = DataDumpLoader(header_dump_str_io, header_blocks, password=self.storage.get_password())
 		header_dump_loader.load_blocks(handler)
 
-		body_table_io = StringIO(body_table_str)
+		body_table_io = StringIO(handler.body_table_str)
 		self.body_blocks = unserialize_blocks(body_table_io)
 
 	def load_body(self):
+		self.storage.load_container_body(self.index)
+		
 		body_file = open(self.body_file_name, "rb")
-		self.body_dump_loader = DataDumpLoader(self.body_blocks,body_file,password=self.storage.get_password())
+		self.body_dump_loader = DataDumpLoader(body_file,self.body_blocks,password=self.storage.get_password())
 
 	def info(self):
 		print "Manent container #%d of storage %s" % (self.index, self.storage.get_label())
