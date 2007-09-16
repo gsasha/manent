@@ -3,9 +3,6 @@ import time
 
 from IntegerEncodings import *
 
-#TODO: REFACTOR: Remove the followign line after gena's refactoring
-#from VersionConfig import VersionConfig
-
 # --------------------------------------------------------------------
 # CLASS: Increment
 # --------------------------------------------------------------------
@@ -17,6 +14,9 @@ class Increment:
 
 		self.readonly = None
 		self.finalized = False
+
+	def index(self):
+		return self.index
 
 	def get_fs_digest(self):
 		return self.fs_digest
