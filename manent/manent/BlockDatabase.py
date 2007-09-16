@@ -84,6 +84,10 @@ class BlockDatabase:
 		else:
 			data = self.loaded_data_blocks[digest]
 		return data
+
+	def get_block_storage(self,digest):
+		return self.repository.get_block_storage(digest)
+	
 	def get_block_type(self,digest):
 		if self.block_type_db.has_key(digest):
 			return int(self.block_type_db[digest])

@@ -1,6 +1,8 @@
 from cStringIO import StringIO
 import time
 
+from IntegerEncodings import *
+
 #TODO: REFACTOR: Remove the followign line after gena's refactoring
 #from VersionConfig import VersionConfig
 
@@ -8,112 +10,124 @@ import time
 # CLASS: Increment
 # --------------------------------------------------------------------
 class Increment:
-	def __init__(self,container_config,index):
-		self.container_config = container_config
+	def __init__(self,repository,db,index):
+		self.repository = repository
 		self.index = index
-		self.db = self.container_config.containers_db
+		self.db = db
 
 		self.readonly = None
 		self.finalized = False
-		self.base_index = None
-		self.base_diff = None
-	def message(self):
+
+	def get_fs_digest(self):
+		return self.fs_digest
+
+	def compute_message(self):
 		# TODO: Make the message include other data, comment etc.
 		m = StringIO()
-		m.write("Increment %d of backup %s\n" % (self.index, self.container_config.backup.label))
 		
-		# TODO: Move the version number outside
-		m.write("version=%s\n" % "0.1")
 		m.write("index=%d\n" % self.index)
-		m.write("backup=%s\n" % self.container_config.backup.label)
 		m.write("time=%s\n" % self.ctime)
-		if self.base_index != None:
-			m.write("base=%d\n" % self.base_index)
-		m.write("\n")
+		m.write("comment=%s\n" % base64.b64encode(self.comment))
+		m.write("fs_digest=%s\n" % base64.b64encode(self.fs_digest))
+		if self.finalized:
+			m.write("finalized=1")
+		else:
+			m.write("finalized=0")
+
 		return m.getvalue()
 
+	def parse_message(self,message):
+		items = {}
+		stream = StringIO(message)
+		for line in stream:
+			key,value = line.split("=",1)
+			items[key]=value
+
+		index = int(items['index'])
+		ctime = int(items['time'])
+		comment = base64.b64decode(items['comment'])
+		fs_digest = base64.b64decode(items['fs_digest'])
+		finalized = items['finalized'] == '1'
+
+		return (index,ctime,comment,fs_digest,finalized)
 	#
 	# Methods for manipulating a newly created increment
 	#
-	def start(self,base_index):
+	def start(self,index,comment):
+		self.index = index
+		self.comment = comment
+		self.ctime = time.ctime()
 		if self.readonly != None:
-			raise "Attempting to edit an existing increment"
+			raise Exception("Attempt to start an existing increment")
 		self.readonly = False
 
-		self.ctime = time.ctime()
-		self.containers = []
-		self.db["I%d.containers"%(self.index)] = str(len(self.containers))
-		if base_index != None:
-			self.base_index = base_index
-			self.db["I%d.base_index"%(self.index)] = str(self.base_index)
-	def add_container(self,index):
+	def finalize(self,fs_digest):
 		if self.readonly != False:
-			raise "Attempting to add container to a readonly increment"
+			raise Exception("Increment already finalized")
 		
-		self.db["I%d.%d"%(self.index,len(self.containers))] = str(index)
-		self.containers.append(index)
-		self.db["I%d.containers"%(self.index)] = str(len(self.containers))
-	def finalize(self,base_diff):
-		if self.readonly != False:
-			raise "Increment already finalized"
-
-		if base_diff != None:
-			if self.base_index == None:
-				raise "setting base diff without index"
-			self.base_diff = base_diff
-			self.db["I%d.base_diff"%(self.index)] = str(self.base_diff)
-		elif self.base_index != None:
-			raise "base index set, but no base diff!"
+		self.fs_digest = fs_digest
 		
-		print "Finalizing increment",self.index, self.containers
-		self.db["I%d.finalized"%(self.index)] = "1"
+		print "Finalizing increment", self.fs_digest
+		storage_index = self.repository.get_active_storage_index()
+		storage_index_str = ascii_encode_int_varlen(storage_index)
+		index_str = ascii_encode_int_varlen(self.index)
+		self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)] = self.fs_digest
+		self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)] = "1"
+		self.db["Increment.%s.%s.time"     %(storage_index_str,index_str)] = str(self.ctime)
+		self.db["Increment.%s.%s.comment"  %(storage_index_str,index_str)] = self.comment
+		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
+		self.repository.add_block(Digest.dataDigest(message),message,Container.CODE_INCREMENT)
 		self.finalized = True
 		self.readonly = True
-	def is_finalized(self):
-		return self.db.has_key("I%d.finalized"%self.index)
+
+	def dump_intermediate(self,fs_digest):
+		if self.readonly != False:
+			raise Exception("Increment already finalized")
+
+		self.fs_digest = fs_digest
+		
+		print "Creating intermediate increment", base64.b64encode(self.fs_digest)
+		storage_index = self.repository.get_active_storage_index()
+		storage_index_str = ascii_encode_int_varlen(storage_index)
+		index_str = ascii_encode_int_varlen(self.index)
+		self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)] = self.fs_digest
+		self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)] = "0"
+		self.db["Increment.%s.%s.time"     %(storage_index_str,index_str)] = self.ctime
+		self.db["Increment.%s.%s.comment"  %(storage_index_str,index_str)] = self.comment
+		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
+		message = self.compute_message()
+		self.repository.add_block(Digest.dataDigest(message),message,Container.CODE_INCREMENT)
+
 	#
 	# Loading an existing increment from db
 	#
-	def load(self):
+	def load(self,storage_index,index):
 		if self.readonly != None:
 			raise "Attempt to load an existing increment"
-		
-		num_containers = int(self.db["I%d.containers"%(self.index)])
-		self.containers = []
-		for i in range(0,num_containers):
-			self.containers.append(int(self.db["I%d.%d"%(self.index,i)]))
-		if self.db.has_key("I%d.finalized"%(self.index)):
-			self.finalized = True
-		if self.db.has_key("I%d.base_index"%(self.index)):
-			self.base_index = int(self.db["I%d.base_index"%(self.index)])
-		if self.db.has_key("I%d.base_diff"%(self.index)):
-			self.base_diff = float(self.db["I%d.base_diff"%(self.index)])
+
+		storage_index_str = ascii_encode_int_varlen(storage_index)
+		index_str = ascii_encode_int_varlen(index)
+		self.fs_digest = self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)]
+		self.is_finalized = int(self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)]
+		self.ctime = int(self.db["Increment.%s.%s.time"%(storage_index_str,index_str)]
+		self.comment = self.db["Increment.%s.%s.comment"%(storage_index_str,index_str)]
+		assert self.db["Increment.%s.%s.comment"%(storage_index_str,index_str)] == index_str
 
 		self.readonly = True
 	#
 	# Restoring an increment from backup to db
 	#
-	def restore(self,message,start_container,end_container,is_finalized):
+	def reconstruct(self,digest):
 		if self.readonly != None:
 			raise "Attempt to restore an existing increment"
 
-		self.db["I%d.containers"%self.index] = str(end_container-start_container+1)
-		num_containers = end_container-start_container+1
-		self.containers = []
-		for i in range(0,num_containers):
-			self.db["I%d.%d"%(self.index,i)] = str(start_container+i)
-			self.containers.append(i+start_container)
-
+		storage_index = self.block_database.get_storage_index(digest)
+		message = self.block_database.load_block(digest)
+		(self.index,self.ctime,self.comment,self.fs_digest,self.is_finalized) = self.parse_message(message)
+		# How do I know the storage index????
+		
 		if is_finalized:
 			self.db["I%d.finalized"%self.index] = "1"
 			self.finalized = True
 
 		self.readonly = True
-	def list_specials(self,code):
-		result = []
-		for idx in self.containers:
-			container = self.container_config.get_container(idx)
-			for (blockDigest,blockSize,blockCode) in container.blocks:
-				if blockCode==code:
-					result.append((idx,blockDigest))
-		return result

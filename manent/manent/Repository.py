@@ -6,7 +6,7 @@ class Repository:
 	Input: a stream of blocks
 	Creates containers and sends them to storage
 	"""
-	def __init__(self,db_config,storages,active_storage):
+	def __init__(self,db_config,storages,active_storage_index):
 		self.db_config = db_config
 		self.block_container_db = self.db_config.get_database(".block-container")
 		self.current_open_container = None
@@ -17,13 +17,19 @@ class Repository:
 		# blocks there
 		#
 		self.storages = storages
-		self.active_storage = active_storage
+		self.active_storage_index = active_storage_index
+
+	def get_active_storage_index(self):
+		return self.active_storage_index
+	
+	def get_active_storage(self):
+		return self.storages[self.active_storage_index]
 
 	def rescan_storage(self,handler):
 		# TODO: this should proceed in a separate thread
 		# actually, each storage could be processed in its own thread
 		for storage_idx in len(self.base_storages):
-			if storage_idx == self.active_storage:
+			if storage_idx == self.active_storage_index:
 				continue
 			# This is not active storage. Somebody else might be updating it,
 			# so rescan
@@ -57,7 +63,7 @@ class Repository:
 		self.block_container_db.close()
 		
 	def add_block(self,digest,data,code):
-		storage = self.storages[self.active_storage]
+		storage = self.get_active_storage()
 		#
 		# Make sure we have a container that can take this block
 		#
@@ -69,7 +75,7 @@ class Repository:
 			# Now we have container idx, update it in the blocks db
 			#
 			container_idx = self.current_open_container.get_idx()
-			encoded = self.encode_block_info(self.active_storage,container_idx)
+			encoded = self.encode_block_info(self.active_storage_index,container_idx)
 			for digest,code in self.current_open_container.list_blocks():
 				self.block_container_db[digest] = encoded
 			self.current_open_container = self.storage.open_container()
@@ -79,7 +85,7 @@ class Repository:
 		self.current_open_container.add_block(digest,data,code)
 
 	def flush(self):
-		storage = self.storages[self.active_storage]
+		storage = self.get_active_storage()
 
 		if self.current_open_container is not None:
 			storage.finalize_container(self.current_open_container)
@@ -87,7 +93,7 @@ class Repository:
 			# Now we have container idx, update it in the blocks db
 			#
 			container_idx = self.current_open_container.get_index()
-			encoded = self.encode_block_info(self.active_storage,container_idx)
+			encoded = self.encode_block_info(self.active_storage_index,container_idx)
 			for digest,code in self.current_open_container.list_blocks():
 				self.block_container_db[digest] = encoded
 			
@@ -99,6 +105,10 @@ class Repository:
 		container.load_body()
 		container.load_blocks(handler)
 		container.remove_files()
+
+	def get_block_storage(self,digest):
+		storage_idx,container_idx = self.decode_block_info(self.block_container_db[digest])
+		return storage_idx
 
 	#--------------------------------------------------------
 	# Utility methods
