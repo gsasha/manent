@@ -532,14 +532,11 @@ class Container:
 
 		header_file.close()
 		#
-		# Test that the container data is correct
+		# TODO: Test that the container data is correct
 		#
 		#self.test_blocks(self.dataFileName)
-	
-	#def isempty(self):
-		#return len(self.blocks) == 0
-	#def numblocks(self):
-		#return len(self.blocks)
+
+		self.storage.upload_container(self.index,self.header_file_name,self.body_file_name)
 	#
 	# Loading mode implementation
 	#
@@ -549,7 +546,7 @@ class Container:
 		self.index = index
 
 	def load_header(self):
-		self.storage.load_container_header(self.index)
+		self.storage.load_container_header(self.index,self.header_file_name)
 		
 		header_file = open(self.header_file_name, "rb")
 		MAGIC = header_file.read(4)
@@ -594,7 +591,7 @@ class Container:
 		return self.body_blocks
 	
 	def load_body(self):
-		self.storage.load_container_body(self.index)
+		self.storage.load_container_body(self.index,self.body_file_name)
 		
 		body_file = open(self.body_file_name, "rb")
 		self.body_dump_loader = DataDumpLoader(body_file,self.body_blocks,password=self.storage.get_password())

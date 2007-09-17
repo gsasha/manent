@@ -37,8 +37,8 @@ class Repository:
 			# This is not active storage. Somebody else might be updating it,
 			# so rescan
 			storage = self.base_storages[storage_idx]
-			storage.rescan()
-			for container_idx in storage.list_new_containers():
+			new_containers = storage.rescan()
+			for container_idx in new_containers:
 				container = storage.get_container(container_idx)
 				#
 				# Register blocks of the container in the block_container_db
@@ -73,7 +73,7 @@ class Repository:
 		if self.current_open_container is None:
 			self.current_open_container = self.storage.open_container()
 		if not self.current_open_container.can_add_block(digest,data,code):
-			self.storage.finalize_container(self.current_open_container)
+			self.current_open_container.finalize()
 			#
 			# Now we have container idx, update it in the blocks db
 			#
