@@ -7,7 +7,6 @@ import stat
 # manent imports
 import manent.utils.IntegerEncodings as IE
 from manent.Nodes import *
-from manent.IncrementTree import *
 
 # test util imports
 from UtilFilesystemCreator import *

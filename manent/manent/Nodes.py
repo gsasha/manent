@@ -17,7 +17,7 @@ NODE_TYPE_DIR     = 0
 NODE_TYPE_FILE    = 1
 NODE_TYPE_SYMLINK = 2
 
-STAT_PRESERVED_MODES = [stat.ST_MODE,stat.ST_UID,stat.ST_GID,stat.ST_MTIME,stat.ST_CTIME,stat.ST_ATIME]
+STAT_PRESERVED_MODES = [stat.ST_MODE, stat.ST_UID, stat.ST_GID, stat.ST_MTIME, stat.ST_CTIME, stat.ST_ATIME, stat.ST_NLINK]
 
 #--------------------------------------------------------
 # CLASS:Node

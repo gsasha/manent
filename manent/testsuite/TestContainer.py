@@ -6,7 +6,7 @@ import os
 import manent.utils.Digest
 from manent.Container import *
 
-random.seed(23423)
+#random.seed(23423)
 
 class MockHandler:
 	def __init__(self):
@@ -58,9 +58,9 @@ class MockStorage:
 
 	def get_password(self):
 		return self.password
-	def load_container_header(self,index):
+	def load_container_header(self,index,header_file_name):
 		pass
-	def load_container_body(self,index):
+	def load_container_body(self,index,body_file_name):
 		pass
 	def get_label(self):
 		return "mukakaka"
@@ -73,6 +73,9 @@ class MockStorage:
 	def finalize_container(self,container):
 		container.finish_dump(self.cur_index)
 		self.cur_index += 1
+
+	def upload_container(self,index,header_file_name,body_file_name):
+		pass
 
 DATA = [
 	"",
@@ -190,7 +193,7 @@ class TestContainer(unittest.TestCase):
 				# Generate new data item
 				data_size = random.randint(0,1000)
 				data = os.urandom(data_size)
-				code = random.choice([CODE_DATA, CODE_DIR, CODE_DATA, CODE_DATA_PACKER, CODE_DATA, CODE_DIR_PACKER, CODE_DATA, CODE_INCREMENT_START, CODE_INCREMENT_END])
+				code = random.choice([CODE_DATA, CODE_DIR, CODE_DATA, CODE_DATA_PACKER, CODE_DATA, CODE_DIR_PACKER, CODE_DATA, CODE_INCREMENT_DESCRIPTOR])
 				digest = Digest.dataDigest(data)
 
 				if code == CODE_DATA and known_blocks.has_key(digest):
@@ -244,6 +247,9 @@ class TestContainer(unittest.TestCase):
 		self.failUnless(handler.check())
 
 	def test_container(self):
+		"""Test that container is created correctly.
+		See that the container is created, stored and reloaded back,
+		and that all blocks get restored"""
 		storage = MockStorage(password="kakamaika")
 		handler = MockHandler()
 

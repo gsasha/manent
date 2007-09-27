@@ -1,7 +1,7 @@
 from cStringIO import StringIO
 import time
 
-from IntegerEncodings import *
+from utils.IntegerEncodings import *
 
 # --------------------------------------------------------------------
 # CLASS: Increment
@@ -33,7 +33,7 @@ class Increment:
 		else:
 			m.write("finalized=0\n")
 		if self.erases_prev is not Null:
-			m.write("erases_prev=%d" % str(self.erases_prev)
+			m.write("erases_prev=%d" % str(self.erases_prev))
 
 		return m.getvalue()
 
@@ -50,7 +50,7 @@ class Increment:
 		fs_digest = base64.b64decode(items['fs_digest'])
 		finalized = items['finalized'] == '1'
 		if items.has_key('erases_prev'):
-			erases_prev = int(items['erases_prev']
+			erases_prev = int(items['erases_prev'])
 
 		return (index,ctime,comment,fs_digest,finalized,erases_prev)
 	#
@@ -116,8 +116,8 @@ class Increment:
 		storage_index_str = ascii_encode_int_varlen(storage_index)
 		index_str = ascii_encode_int_varlen(index)
 		self.fs_digest    =     self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)]
-		self.is_finalized = int(self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)]
-		self.ctime        = int(self.db["Increment.%s.%s.time"%(storage_index_str,index_str)]
+		self.is_finalized = int(self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)])
+		self.ctime        = int(self.db["Increment.%s.%s.time"%(storage_index_str,index_str)])
 		self.comment      =     self.db["Increment.%s.%s.comment"%(storage_index_str,index_str)]
 		assert self.db["Increment.%s.%s.index"%(storage_index_str,index_str)] == index_str
 

@@ -171,7 +171,7 @@ class Backup:
 #=========================================================
 # ScanContext
 #=========================================================
-class ScanContext(ContextBase):
+class ScanContext:
 	def __init__(self,backup,root_node):
 		ContextBase.__init__(self,backup)
 
@@ -189,7 +189,7 @@ class ScanContext(ContextBase):
 		return result
 	
 	def add_block(self,digest,data,code):
-		self.backup.blocks_database.add_block(digest,data,code):
+		self.backup.blocks_database.add_block(digest,data,code)
 		# TODO: See if we should commit here
 
 		#

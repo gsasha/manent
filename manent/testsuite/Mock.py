@@ -1,5 +1,4 @@
 from manent.Nodes import *
-from manent.IncrementTree import *
 
 class MockContainerConfig:
 	def blockSize(self):
@@ -79,9 +78,6 @@ class MockBackup:
 		self.global_config = MockGlobalConfig()
 		self.config_db = {}
 		self.blocks_db = {}
-		self.files_db = {}
-		self.stats_db = {}
-		self.increments = IncrementTree(self.config_db)
 		self.home = home
 	def start_increment(self,comment):
 		increment = self.increments.start_increment(comment)
