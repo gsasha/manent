@@ -39,23 +39,27 @@ class TestNodes(unittest.TestCase):
 		
 		root_node = Directory(backup, None, self.fsc.get_home())
 		file1_node = File(backup, root_node, "file1")
-		file1_node.set_number(ctx.next_number())
 		file2_node = File(backup, root_node, "file2")
-		file2_node.set_number(ctx.next_number())
-		file1_stat = file1_node.stat()
-		file2_stat = file2_node.stat()
+		file1_node.compute_stats()
+		file2_node.compute_stats()
+		file1_stat = file1_node.get_stats()
+		file2_stat = file2_node.get_stats()
 		#
 		# Scan the files...
 		#
 		self.assertEquals(file1_node.scan_hlink(ctx), False)
+		file1_node.scan(ctx,[])
 		self.assertEquals(file2_node.scan_hlink(ctx), True)
-		backup.finalize_increment(1.0)
+		file2_node.scan(ctx,[])
+		backup.finalize_increment()
 		#
 		# Test that restore works...
 		#
+		self.fsc.reset()
 		ctx = backup.start_restore(0)
 		self.fsc.remove_files({"file2":""})
 		self.assertEquals(file1_node.restore_hlink(ctx,file1_stat), False)
+		file1_node.restore(ctx)
 		self.assertEquals(file2_node.restore_hlink(ctx,file2_stat), True)
 		#
 		# Test that the linked file exists and that it is a hard link
@@ -82,27 +86,25 @@ class TestNodes(unittest.TestCase):
 
 		basedir = Directory(backup, None, self.fsc.get_home())
 		node1 = File(backup,basedir,"file1")
-		node1.set_level(0)
-		node1.set_number(ctx.next_number())
 		node1.scan(ctx,[])
-		number1 = node1.number
+		digest1 = node1.get_digest()
+		stats1 = node1.get_stats()
 		node2 = File(backup,basedir,"file2")
-		node2.set_level(0)
-		node2.set_number(ctx.next_number())
 		node2.scan(ctx,[])
-		number2 = node2.number
+		digest2 = node2.get_digest()
+		stats2 = node2.get_stats()
 		#
 		# Restore the files and see if everything is in place
 		#
 		self.fsc.reset()
 		restore_node = Directory(backup, None, self.fsc.get_home())
 		node1 = File(backup,restore_node,"file1")
-		node1.set_level(0)
-		node1.set_number(number1)
+		node1.set_digest(digest1)
+		node1.set_stats(stats1)
 		node1.restore(ctx)
 		node2 = File(backup,restore_node,"file2")
-		node2.set_level(0)
-		node2.set_number(number2)
+		node2.set_digest(digest2)
+		node2.set_stats(stats2)
 		node2.restore(ctx)
 
 		self.failUnless(self.fsc.test_lstat("file1",stat1))

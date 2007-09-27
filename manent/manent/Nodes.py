@@ -6,6 +6,7 @@ import manent.utils.IntegerEncodings as IntegerEncodings
 import manent.utils.Digest as Digest
 import manent.utils.Format as Format
 from manent.utils.FileIO import read_blocks
+from PackerStream import *
 import traceback
 
 import Backup
@@ -17,7 +18,7 @@ NODE_TYPE_DIR     = 0
 NODE_TYPE_FILE    = 1
 NODE_TYPE_SYMLINK = 2
 
-STAT_PRESERVED_MODES = [stat.ST_MODE, stat.ST_UID, stat.ST_GID, stat.ST_MTIME, stat.ST_CTIME, stat.ST_ATIME, stat.ST_NLINK]
+STAT_PRESERVED_MODES = [stat.ST_MODE, stat.ST_UID, stat.ST_GID, stat.ST_MTIME, stat.ST_CTIME, stat.ST_ATIME, stat.ST_NLINK, stat.ST_INO]
 
 #--------------------------------------------------------
 # CLASS:Node
@@ -62,7 +63,7 @@ class Node:
 	#
 	# Stat handling
 	#
-	def compute_stat(self):
+	def compute_stats(self):
 		"""
 		Compute the os.stat data for the current file
 		"""
@@ -72,6 +73,8 @@ class Node:
 			self.stats[mode] = node_stat[mode]
 	def set_stats(self,stats):
 		self.stats = stats
+	def get_stats(self):
+		return self.stats
 	#-----------------------------------------------------
 	# Support for scanning hard links:
 	# 
@@ -79,24 +82,28 @@ class Node:
 	# that has already been scanned. If so, reuse it.
 	#
 	def scan_hlink(self,ctx):
-		nlink = self.stats[stat.ST_NLINK]
-		if nlink == 1:
+		if self.stats[stat.ST_NLINK] == 1:
 			return False
 		inode_num = self.stats[stat.ST_INO]
-		if not ctx.inodes_db.has_key(inode_num):
-			ctx.inodes_db[inode_num] = (self.code,self.number)
-			return False
-		# inode found, so reuse it
-		(self.code,self.number) = ctx.inodes_db[inode_num]
-		return True
+		if ctx.inodes_db.has_key(inode_num):
+			self.digest = ctx.inodes_db[inode_num]
+			return True
+		return False
+	def update_hlink(self,ctx):
+		if self.stats[stat.ST_NLINK] == 1:
+			return
+		inode_num = self.stats[stat.ST_INO]
+		if ctx.inodes_db.has_key(inode_num):
+			return
+		ctx.inodes_db[inode_num] = self.digest
 	def restore_hlink(self,ctx,dryrun=False):
 		if self.stats[stat.ST_NLINK] == 1:
 			return False
-		if not ctx.inodes_db.has_key(self.number):
-			ctx.inodes_db[self.number] = self.path()
+		if not ctx.inodes_db.has_key(self.digest):
+			ctx.inodes_db[self.digest] = self.path()
 			return False
 		if not dryrun:
-			otherFile = ctx.inodes_db[self.number]
+			otherFile = ctx.inodes_db[self.digest]
 			os.link(otherFile, self.path())
 		return True
 		
@@ -150,7 +157,7 @@ class File(Node):
 	# Scanning and restoring
 	#
 	def scan(self,ctx,prev_nums):
-		self.compute_stat()
+		self.compute_stats()
 		#
 		# Check if we have encountered this file during this scan already
 		#
@@ -169,7 +176,8 @@ class File(Node):
 			packer.write(data)
 			
 		self.digest = packer.get_digest()
-		
+		self.update_hlink(ctx)
+
 	def restore(self,ctx):
 		"""
 		Recreate the data from the information stored in the
@@ -244,6 +252,7 @@ class Symlink(Node):
 		packer.write(self.link)
 
 		self.digest = packer.get_digest()
+		self.update_hlink(ctx)
 		
 	def restore(self,ctx):
 		if self.restore_hlink(ctx):
@@ -274,7 +283,7 @@ class Directory(Node):
 	def scan(self,ctx,prev_nums):
 		"""Scan the node, considering data in all the previous increments
 		"""
-		self.compute_stat()
+		self.compute_stats()
 		#
 		# Reload data from previous increments.
 		#
