@@ -49,18 +49,19 @@ class TestNodes(unittest.TestCase):
 		#
 		self.assertEquals(file1_node.scan_hlink(ctx), False)
 		file1_node.scan(ctx,[])
+		file1_node.update_hlink(ctx)
 		self.assertEquals(file2_node.scan_hlink(ctx), True)
 		file2_node.scan(ctx,[])
+		file2_node.update_hlink(ctx)
 		backup.finalize_increment()
 		#
 		# Test that restore works...
 		#
 		self.fsc.reset()
 		ctx = backup.start_restore(0)
-		self.fsc.remove_files({"file2":""})
-		self.assertEquals(file1_node.restore_hlink(ctx,file1_stat), False)
+		#self.assertEquals(file1_node.restore_hlink(ctx,file1_stat), False)
 		file1_node.restore(ctx)
-		self.assertEquals(file2_node.restore_hlink(ctx,file2_stat), True)
+		self.assertEquals(file2_node.restore_hlink(ctx), True)
 		#
 		# Test that the linked file exists and that it is a hard link
 		#
