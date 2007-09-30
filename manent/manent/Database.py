@@ -2,7 +2,25 @@ import os, os.path
 import bsddb
 from bsddb import db
 import base64
+import time
+from threading import *
 
+class CheckpointThread(Thread):
+	def __init__(self, dbenv, done_event,checkpoint_finished):
+		Thread.__init__(self)
+		self.dbenv = dbenv
+		self.done_event = done_event
+		self.checkpoint_finished = checkpoint_finished
+	def run(self):
+		print "CHECKPOINT THREAD STARTED"
+		while True:
+			self.done_event.wait(60.0)
+			if self.done_event.isSet():
+				self.checkpoint_finished.set()
+				break
+			#print "RUNNING DATABASE CHECKPOINT"
+			self.dbenv.txn_checkpoint(100,5,0)
+			#print "DONE RUNNING DATABASE CHECKPOINT"
 class DatabaseConfig:
 	def __init__(self,global_config,filename):
 		self.global_config = global_config
@@ -20,8 +38,15 @@ class DatabaseConfig:
 		self.dbenv.set_lk_max_objects(20000)
 		self.dbenv.set_lk_detect(db.DB_LOCK_DEFAULT)
 		self.dbenv.set_flags(db.DB_LOG_AUTOREMOVE, True)
+		open_start_time = time.time()
 		self.dbenv.open(self.__dbenv_dir(), db.DB_RECOVER| db.DB_CREATE |db.DB_INIT_TXN| db.DB_INIT_MPOOL| db.DB_INIT_LOCK|db.DB_THREAD)
-
+		open_end_time = time.time()
+		#print "dbenv.open() takes", (open_end_time-open_start_time), "seconds"
+		
+		self.done_event = Event()
+		self.checkpoint_finished = Event()
+		self.checkpoint_thread = CheckpointThread(self.dbenv, self.done_event, self.checkpoint_finished)
+		self.checkpoint_thread.start()
 	def txn_begin(self):
 		self.dbenv.txn_checkpoint()
 		return self.dbenv.txn_begin(flags=db.DB_DIRTY_READ)
@@ -40,6 +65,9 @@ class DatabaseConfig:
 		#
 		# Free up the files that the database held
 		#
+		self.done_event.set()
+		print "Waiting for the checkpoint thread to finish"
+		self.checkpoint_finished.wait()
 		self.dbenv.close()
 		dbenv = db.DBEnv()
 		dbenv.remove(self.__dbenv_dir())
@@ -116,7 +144,10 @@ class DatabaseWrapper:
 		self.cursor = None
 		
 		#print "Opening database filename=%s, dbname=%s" %(self.__get_filename(),self.__get_dbname())
+		start = time.time()
 		self.d.open(self.__get_filename(), self.__get_dbname(), db.DB_HASH, db.DB_CREATE, txn=self.__get_txn())
+		end = time.time()
+		print "opening database %s:%s takes %f seconds" % (self.__get_filename(),self.__get_dbname(),end-start)
 
 	def __get_filename(self):
 		return self.filename

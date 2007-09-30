@@ -122,7 +122,7 @@ class Backup:
 			raise
 		finally:
 			self.close_all()
-		
+
 	#
 	# Restoring an increment to filesystem
 	#
