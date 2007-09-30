@@ -217,6 +217,8 @@ class Backup:
 		#
 		increment = self.container_config.start_increment(base_index)
 		new_files_db = self.__open_files_db(increment)
+		new_files_db["__loaded_files_db__"] = "False"
+
 		root = Directory(self,None,self.data_path)
 		root.code = Nodes.NODE_DIR
 		ctx = ScanContext(self,root,base_files_db,prev_files_dbs,new_files_db)
@@ -362,10 +364,25 @@ class Backup:
 		return self.open_files_dbs[index]
 	def __files_db_loaded(self,index):
 		db = self.__open_files_db(index)
-		return len(db)>0
+		if db.has_key("__loaded_files_db__"):
+			return True
+		if len(db) > 0:
+			print "Initing db with __loaded_files_db__"
+			db["__loaded_files_db__"] = "True"
+			self.txn_handler.commit()
+			return True
+		return False
+		#return len(db)>0
 	def __load_files_db(self,index):
 		db = self.__open_files_db(index)
-		if len(db)==0:
+		db_empty = False
+		if not db.has_key("__loaded_files_db__"):
+			if len(db) > 0:
+				db["__loaded_files_db__"] = "True"
+				self.txn_handler.commit()
+			else:
+				db_empty = True
+		if db_empty:
 			# The database is empty - this means that it must be loaded from the backup
 			increment = self.container_config.increments[index]
 			increment_blocks = increment.list_specials(Container.CODE_FILES)
@@ -380,6 +397,7 @@ class Backup:
 				(key,value) = expr.split(line)
 				#print "Read line from stream: [%s:%s]" %(base64.b64decode(key),value)
 				db[base64.b64decode(key)]=base64.b64decode(value)
+			db["__loaded_files_db__"] = "True"
 			self.txn_handler.commit()
 		return db
 
