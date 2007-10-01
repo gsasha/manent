@@ -117,10 +117,10 @@ class Increment:
 		
 		storage_index_str = ascii_encode_int_varlen(storage_index)
 		index_str = ascii_encode_int_varlen(index)
-		self.fs_digest    =     self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)]
-		self.is_finalized = int(self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)])
-		self.ctime        = int(self.db["Increment.%s.%s.time"%(storage_index_str,index_str)])
-		self.comment      =     self.db["Increment.%s.%s.comment"%(storage_index_str,index_str)]
+		self.fs_digest =     self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)]
+		self.finalized = int(self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)])
+		self.ctime     = int(self.db["Increment.%s.%s.time"%(storage_index_str,index_str)])
+		self.comment   =     self.db["Increment.%s.%s.comment"%(storage_index_str,index_str)]
 		assert self.db["Increment.%s.%s.index"%(storage_index_str,index_str)] == index_str
 
 		self.readonly = True

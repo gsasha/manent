@@ -17,5 +17,6 @@ class TestIncrement(unittest.TestCase):
 		self.assertEqual(increment1.comment, increment2.comment)
 		self.assertEqual(increment1.fs_digest, increment2.fs_digest)
 		self.assertEqual(increment1.ctime, increment2.ctime)
+		self.assertEqual(increment1.finalized, increment2.finalized)
 		#self.assertEqual(increment1.erases_prev, increment2.erases_prev)
 		#self.assertEqual(increment1,increment2)
