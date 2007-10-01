@@ -60,14 +60,25 @@ class MockRestoreCtx(MockBlockCtx,MockHlinkCtx):
 		MockBlockCtx.__init__(self,backup)
 		MockHlinkCtx.__init__(self)
 
+class MockRepository:
+	def __init__(self):
+		self.blocks_db = {}
+		self.blocks_codes_db = {}
+	def load_block(self,digest):
+		return self.blocks_db[digest]
+	def add_block(self,digest,data,code):
+		self.blocks_db[digest] = data
+		self.blocks_codes_db[digest] = code
+	def block_code(self,digest):
+		return self.blocks_codes_db[digest]
+		
 class MockBackup:
 	def __init__(self,home):
 		self.container_config = MockContainerConfig()
 		self.global_config = MockGlobalConfig()
 		self.increments = MockIncrementsDB()
+		self.repository = MockRepository()
 		self.config_db = {}
-		self.blocks_db = {}
-		self.blocks_codes_db = {}
 		self.home = home
 	def blockSize(self):
 		return 1024
@@ -88,9 +99,8 @@ class MockBackup:
 		return self.increments.is_increment_finalized(idx)
 	
 	def add_block(self,digest,data,code):
-		self.blocks_db[digest] = data
-		self.blocks_codes_db[digest] = code
+		self.repository.add_block(digest,data,code)
 	def load_block(self,digest):
-		return self.blocks_db[digest]
+		return self.repository.load_block(digest)
 	def block_code(self,digest):
-		return self.blocks_codes_db[digest]
+		return self.repository.block_code(digest)

@@ -1,7 +1,10 @@
 from cStringIO import StringIO
 import time
+import base64
 
 from utils.IntegerEncodings import *
+import manent.utils.Digest as Digest
+import Container
 
 # --------------------------------------------------------------------
 # CLASS: Increment
@@ -30,7 +33,7 @@ class Increment:
 			m.write("finalized=1\n")
 		else:
 			m.write("finalized=0\n")
-		if self.erases_prev is not Null:
+		if self.erases_prev is not None:
 			m.write("erases_prev=%d" % str(self.erases_prev))
 
 		return m.getvalue()
@@ -62,7 +65,7 @@ class Increment:
 		self.index = index
 		self.storage_index = storage_index
 		self.comment = comment
-		self.ctime = time.ctime()
+		self.ctime = int(time.time())
 		self.fs_digest = None
 		self.erases_prev = None
 
@@ -80,7 +83,8 @@ class Increment:
 		self.db["Increment.%s.%s.time"     %(storage_index_str,index_str)] = str(self.ctime)
 		self.db["Increment.%s.%s.comment"  %(storage_index_str,index_str)] = self.comment
 		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
-		self.repository.add_block(Digest.dataDigest(message),message,Container.CODE_INCREMENT)
+		message = self.compute_message()
+		self.repository.add_block(Digest.dataDigest(message),message,Container.CODE_INCREMENT_DESCRIPTOR)
 		self.finalized = True
 		self.readonly = True
 
@@ -99,7 +103,7 @@ class Increment:
 		self.db["Increment.%s.%s.comment"  %(storage_index_str,index_str)] = self.comment
 		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
 		message = self.compute_message()
-		self.repository.add_block(Digest.dataDigest(message),message,Container.CODE_INCREMENT)
+		self.repository.add_block(Digest.dataDigest(message),message,Container.CODE_INCREMENT_DESCRIPTOR)
 
 	#
 	# Loading an existing increment from db
