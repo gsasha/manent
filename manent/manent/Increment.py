@@ -21,9 +21,7 @@ class Increment:
 		return self.fs_digest
 
 	def compute_message(self):
-		# TODO: Make the message include other data, comment etc.
 		m = StringIO()
-		
 		m.write("index=%d\n" % self.index)
 		m.write("time=%s\n" % self.ctime)
 		m.write("comment=%s\n" % base64.b64encode(self.comment))

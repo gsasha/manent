@@ -1,7 +1,3 @@
-#
-# TODO:
-# 3. Encrypt the contents of containers
-#
 import sys, os
 import base64
 from cStringIO import StringIO
