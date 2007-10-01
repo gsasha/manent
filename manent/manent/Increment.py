@@ -75,7 +75,7 @@ class Increment:
 		
 		self.fs_digest = fs_digest
 		
-		print "Finalizing increment", self.fs_digest
+		#print "Finalizing increment", self.fs_digest
 		storage_index_str = ascii_encode_int_varlen(self.storage_index)
 		index_str = ascii_encode_int_varlen(self.index)
 		self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)] = self.fs_digest
@@ -94,7 +94,7 @@ class Increment:
 
 		self.fs_digest = fs_digest
 		
-		print "Creating intermediate increment", base64.b64encode(self.fs_digest)
+		#print "Creating intermediate increment", base64.b64encode(self.fs_digest)
 		storage_index_str = ascii_encode_int_varlen(self.storage_index)
 		index_str = ascii_encode_int_varlen(self.index)
 		self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)] = self.fs_digest
