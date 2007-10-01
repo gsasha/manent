@@ -12,7 +12,7 @@ class CheckpointThread(Thread):
 		self.done_event = done_event
 		self.checkpoint_finished = checkpoint_finished
 	def run(self):
-		print "CHECKPOINT THREAD STARTED"
+		#print "CHECKPOINT THREAD STARTED"
 		while True:
 			self.done_event.wait(60.0)
 			if self.done_event.isSet():
@@ -66,7 +66,7 @@ class DatabaseConfig:
 		# Free up the files that the database held
 		#
 		self.done_event.set()
-		print "Waiting for the checkpoint thread to finish"
+		#print "Waiting for the checkpoint thread to finish"
 		self.checkpoint_finished.wait()
 		self.dbenv.close()
 		dbenv = db.DBEnv()
@@ -79,7 +79,7 @@ class DatabaseConfig:
 		fname = self.__scratch_db_fname(tablename)
 		return DatabaseWrapper(self, fname, tablename, txn_handler=None)
 	def get_queue_database(self,tablename):
-		raise "Not implemented"
+		raise Exception("Not implemented")
 	def remove_database(self,tablename=None):
 		#
 		# Now actually delete the database file
@@ -147,7 +147,7 @@ class DatabaseWrapper:
 		start = time.time()
 		self.d.open(self.__get_filename(), self.__get_dbname(), db.DB_HASH, db.DB_CREATE, txn=self.__get_txn())
 		end = time.time()
-		print "opening database %s:%s takes %f seconds" % (self.__get_filename(),self.__get_dbname(),end-start)
+		#print "opening database %s:%s takes %f seconds" % (self.__get_filename(),self.__get_dbname(),end-start)
 
 	def __get_filename(self):
 		return self.filename

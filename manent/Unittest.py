@@ -23,6 +23,6 @@ suite_DB = test_loader.loadTestsFromTestCase(TestDatabase)
 from testsuite.TestNodes import TestNodes
 suite_Nodes = test_loader.loadTestsFromTestCase(TestNodes)
 
-suite = unittest.TestSuite([suite_Packer,suite_Container,suite_Nodes, suite_Increment, suite_DB])
+suite = unittest.TestSuite([suite_Packer,suite_Container,suite_Nodes, suite_Increment, suite_DB, suite_Format])
 #suite = unittest.TestSuite([suite_Nodes, suite_ITree, suite_Format, suite_Block, suite_DB])
 unittest.TextTestRunner(verbosity=2).run(suite)
