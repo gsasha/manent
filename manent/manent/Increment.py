@@ -10,8 +10,8 @@ import Container
 # CLASS: Increment
 # --------------------------------------------------------------------
 class Increment:
-	def __init__(self,repository,db):
-		self.repository = repository
+	def __init__(self,block_database,db):
+		self.block_database = block_database
 		self.db = db
 
 		self.readonly = None
@@ -42,7 +42,7 @@ class Increment:
 		items = {}
 		stream = StringIO(message)
 		for line in stream:
-			key,value = line.split("=",1)
+			key,value = line.strip().split("=",1)
 			items[key]=value
 
 		index = int(items['index'])
@@ -50,6 +50,7 @@ class Increment:
 		comment = base64.b64decode(items['comment'])
 		fs_digest = base64.b64decode(items['fs_digest'])
 		finalized = items['finalized'] == '1'
+		erases_prev = None
 		if items.has_key('erases_prev'):
 			erases_prev = int(items['erases_prev'])
 
@@ -74,6 +75,8 @@ class Increment:
 			raise Exception("Increment already finalized")
 		
 		self.fs_digest = fs_digest
+		self.finalized = True
+		self.readonly = True
 		
 		#print "Finalizing increment", self.fs_digest
 		storage_index_str = ascii_encode_int_varlen(self.storage_index)
@@ -84,9 +87,9 @@ class Increment:
 		self.db["Increment.%s.%s.comment"  %(storage_index_str,index_str)] = self.comment
 		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
 		message = self.compute_message()
-		self.repository.add_block(Digest.dataDigest(message),message,Container.CODE_INCREMENT_DESCRIPTOR)
-		self.finalized = True
-		self.readonly = True
+		digest = Digest.dataDigest(message)
+		self.block_database.add_block(digest,message,Container.CODE_INCREMENT_DESCRIPTOR)
+		return digest
 
 	def dump_intermediate(self,fs_digest):
 		if self.readonly != False:
@@ -103,7 +106,9 @@ class Increment:
 		self.db["Increment.%s.%s.comment"  %(storage_index_str,index_str)] = self.comment
 		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
 		message = self.compute_message()
-		self.repository.add_block(Digest.dataDigest(message),message,Container.CODE_INCREMENT_DESCRIPTOR)
+		digest = Digest.dataDigest(message)
+		self.block_database.add_block(digest,message,Container.CODE_INCREMENT_DESCRIPTOR)
+		return digest
 
 	#
 	# Loading an existing increment from db
@@ -121,6 +126,7 @@ class Increment:
 		self.finalized = int(self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)])
 		self.ctime     = int(self.db["Increment.%s.%s.time"%(storage_index_str,index_str)])
 		self.comment   =     self.db["Increment.%s.%s.comment"%(storage_index_str,index_str)]
+		self.erases_prev = None
 		assert self.db["Increment.%s.%s.index"%(storage_index_str,index_str)] == index_str
 
 		self.readonly = True
@@ -157,16 +163,17 @@ class Increment:
 		# Parse the message from the storage
 		#
 		storage_index = self.block_database.get_storage_index(digest)
+		self.storage_index = storage_index
 		message = self.block_database.load_block(digest)
-		(self.index,self.ctime,self.comment,self.fs_digest,self.is_finalized,erases_prev) = self.parse_message(message)
+		(self.index,self.ctime,self.comment,self.fs_digest,self.finalized,erases_prev) = self.parse_message(message)
 
 		#
 		# Update the data in the db
 		#
-		storage_index_str = ascii_encode_int_varlen(self.storage_index)
+		storage_index_str = ascii_encode_int_varlen(storage_index)
 		index_str = ascii_encode_int_varlen(self.index)
 		self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)] = self.fs_digest
-		if self.is_finalized:
+		if self.finalized:
 			finalized_str = '1'
 		else:
 			finalized_str = '0'
@@ -178,6 +185,7 @@ class Increment:
 		#
 		# See if we need to erase the prev increment
 		#
+		self.erases_prev = None
 		if erases_prev:
 			self.erase_previous(erases_prev)
 

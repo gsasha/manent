@@ -71,7 +71,23 @@ class MockRepository:
 		self.blocks_codes_db[digest] = code
 	def block_code(self,digest):
 		return self.blocks_codes_db[digest]
-		
+
+class MockBlockDatabase:
+	def __init__(self,repository):
+		self.repository = repository
+	def request_block(self,digest):
+		pass
+	def add_block(self,digest,data,code):
+		self.repository.add_block(digest,data,code)
+	def load_block(self,digest):
+		return self.repository.load_block(digest)
+	def get_block_storage(self,digest):
+		pass
+	def get_storage_index(self,digest):
+		return 0
+	def get_block_type(self,digest):
+		pass
+
 class MockBackup:
 	def __init__(self,home):
 		self.container_config = MockContainerConfig()
