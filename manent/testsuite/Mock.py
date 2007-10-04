@@ -87,6 +87,8 @@ class MockBlockDatabase:
 		return 0
 	def get_block_type(self,digest):
 		pass
+	def get_active_storage_index(self):
+		return 0
 
 class MockBackup:
 	def __init__(self,home):

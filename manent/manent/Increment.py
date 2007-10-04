@@ -33,8 +33,6 @@ class Increment:
 			m.write("finalized=1\n")
 		else:
 			m.write("finalized=0\n")
-		if self.erases_prev is not None:
-			m.write("erases_prev=%d" % str(self.erases_prev))
 
 		return m.getvalue()
 
@@ -50,11 +48,8 @@ class Increment:
 		comment = base64.b64decode(items['comment'])
 		fs_digest = base64.b64decode(items['fs_digest'])
 		finalized = items['finalized'] == '1'
-		erases_prev = None
-		if items.has_key('erases_prev'):
-			erases_prev = int(items['erases_prev'])
 
-		return (index,ctime,comment,fs_digest,finalized,erases_prev)
+		return (index,ctime,comment,fs_digest,finalized)
 	#
 	# Methods for manipulating a newly created increment
 	#
@@ -68,7 +63,6 @@ class Increment:
 		self.comment = comment
 		self.ctime = int(time.time())
 		self.fs_digest = None
-		self.erases_prev = None
 
 	def finalize(self,fs_digest):
 		if self.readonly != False:
@@ -126,31 +120,10 @@ class Increment:
 		self.finalized = int(self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)])
 		self.ctime     = int(self.db["Increment.%s.%s.time"%(storage_index_str,index_str)])
 		self.comment   =     self.db["Increment.%s.%s.comment"%(storage_index_str,index_str)]
-		self.erases_prev = None
+		
 		assert self.db["Increment.%s.%s.index"%(storage_index_str,index_str)] == index_str
 
 		self.readonly = True
-
-	#
-	# Erasing a previous increment from db
-	#
-	def erase_previous(self,previous_index):
-		if self.readonly != None:
-			raise "Attempt to call erase_previous on an existing increment"
-
-		assert self.index == previous_index+1
-
-		prev_storage_index_str = ascii_encode_int_varlen(self.storage_index)
-		prev_index_str = ascii_encode_int_varlen(previous_index)
-
-		assert self.db.has_key("Increment.%s.%s.fs_digest"%(prev_storage_index_str,prev_index_str))
-		del self.db["Increment.%s.%s.fs_digest"%(prev_storage_index_str,prev_index_str)]
-		del self.db["Increment.%s.%s.finalized"%(prev_storage_index_str,prev_index_str)]
-		del self.db["Increment.%s.%s.time"%(prev_storage_index_str,prev_index_str)]
-		del self.db["Increment.%s.%s.comment"%(prev_storage_index_str,prev_index_str)]
-		del self.db["Increment.%s.%s.index"%(prev_storage_index_str,prev_index_str)]
-
-		self.erases_prev = previous_index
 
 	#
 	# Restoring an increment from backup to db
@@ -165,7 +138,7 @@ class Increment:
 		storage_index = self.block_database.get_storage_index(digest)
 		self.storage_index = storage_index
 		message = self.block_database.load_block(digest)
-		(self.index,self.ctime,self.comment,self.fs_digest,self.finalized,erases_prev) = self.parse_message(message)
+		(self.index,self.ctime,self.comment,self.fs_digest,self.finalized) = self.parse_message(message)
 
 		#
 		# Update the data in the db
@@ -181,12 +154,5 @@ class Increment:
 		self.db["Increment.%s.%s.time"     %(storage_index_str,index_str)] = self.ctime
 		self.db["Increment.%s.%s.comment"  %(storage_index_str,index_str)] = self.comment
 		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
-
-		#
-		# See if we need to erase the prev increment
-		#
-		self.erases_prev = None
-		if erases_prev:
-			self.erase_previous(erases_prev)
 
 		self.readonly = True

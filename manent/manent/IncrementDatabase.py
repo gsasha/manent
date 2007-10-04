@@ -4,8 +4,8 @@ import re
 # TODO: reconstruction of IncrementDatabase
 
 class IncrementDatabase:
-	def __init__(self,repository,db):
-		self.repository = repository
+	def __init__(self,block_database,db):
+		self.block_database = block_database
 		self.db = db
 		
 		self.active_increment = None
@@ -26,10 +26,10 @@ class IncrementDatabase:
 		# Scan the database of increments, recording the relevant
 		# data to memory
 		#
-		increment_rexp = re.parse('Increment.([^\.]+).([^\.]+).finalized')
-		for key,value in self.db:
+		increment_rexp = re.compile('Increment.([^\.]+).([^\.]+).finalized')
+		for key,value in self.db.iteritems():
 			if key.startswith('Increment') and key.endswith('finalized'):
-				match = re.match(key)
+				match = increment_rexp.match(key)
 				storage_index = ascii_decode_int_varlen(match.group(1))
 				index = ascii_decode_int_varlen(match.group(2))
 				finalized = int(value)
@@ -43,7 +43,7 @@ class IncrementDatabase:
 		#
 		selected_increment_fs_digests = []
 		
-		for storage_index,increments in found_increments:
+		for storage_index,increments in found_increments.iteritems():
 			selected_increments = []
 			for index,finalized in sorted(increments):
 				if finalized:
@@ -51,21 +51,21 @@ class IncrementDatabase:
 				else:
 					selected_increments.append(index)
 			for index in selected_increments:
-				increment = Increment(self.repository,self.db)
+				increment = Increment(self.block_database,self.db)
 				increment.load(storage_index,index)
 				selected_increment_fs_digests.append(increment.get_fs_digest())
 
 		#
 		# Create the new active increment
 		#
-		active_storage = self.repository.get_active_storage_index()
-		candidate_increments = found_increments[active_storage]
-		if found_increments.has_key(active_storage):
-			next_index = sorted(found_increments[active_storage])[-1]+1
+		storage_index = self.block_database.get_active_storage_index()
+		if found_increments.has_key(storage_index):
+			last_index,last_finalized = sorted(found_increments[storage_index])[-1]
+			next_index = last_index+1
 		else:
 			next_index = 0
 			
-		self.active_increment = Increment(self,self.repository,self.db)
+		self.active_increment = Increment(self.block_database,self.db)
 		self.active_increment.start(storage_index,next_index,comment)
 
 		return selected_increment_fs_digests
@@ -73,30 +73,21 @@ class IncrementDatabase:
 	def finalize_increment(self,digest):
 		assert self.active_increment is not None
 
-		if self.previous_increment is not None:
-			self.active_increment.erase_previous(self.previous_increment)
-		
-		self.active_increment.finalize(digest)
-		self.db["IncrementDB.last_completed"] = str(self.active_increment.get_index())
-		self.previous_increment = None
+		inc_digest = self.active_increment.finalize(digest)
 		self.active_increment = None
-
+		return inc_digest
+		
 	def dump_intermediate(self,digest):
-		# TODO: kill the previous intermediate increment
+		"""
+		Replace the data of this increment with a new digest.
+		The current increment remains, with the same index.
+		"""
 		assert self.active_increment is not None
-		self.active_increment.dump_intermediate(digest)
 		
-		if self.previous_increment is not None:
-			self.active_increment.erase_previous(self.previous_increment)
-		self.previous_increment = self.active_increment
-		
-		index = self.active_increment.get_index()
-		comment = self.active_increment.get_comment()
-		
-		self.db["IncrementDB.last_intermediate"] = str(index)
-		self.active_increment = Increment(self,self.repository,self.db)
-		self.active_increment.start(index+1,comment)
+		inc_digest = self.active_increment.dump_intermediate(digest)
 
+		return inc_digest
+		
 	def reconstruct(self):
 		class Handler:
 			"""Handler reports all increment-related data"""
@@ -105,7 +96,7 @@ class IncrementDatabase:
 			def block_loaded(self,digest,data,code):
 				if code != CODE_INCREMENT_DESCRIPTOR:
 					return
-				increment = Increment(self.idb,self.idb.repository,self.idb.db)
+				increment = Increment(self.idb,self.idb.block_database,self.idb.db)
 				increment.reconstruct(digest)
 		
 		handler = Handler(self)
