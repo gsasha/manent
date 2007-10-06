@@ -1,12 +1,39 @@
+import string
+
+def str_base( number, radix ):
+   """str_base( number, radix ) -- reverse function to int(str,radix) and long(str,radix)"""
+
+   if not 2 <= radix <= 36:
+      raise ValueError("radix must be in 2..36")
+
+   abc = string.digits + string.letters
+
+   result = ''
+
+   if number < 0:
+      number = -number
+      sign = '-'
+   else:
+      sign = ''
+
+   while True:
+      number, rdigit = divmod( number, radix )
+      result = abc[rdigit] + result
+      if number == 0:
+         return sign + result
+
 def ascii_encode_int_varlen(num):
 	"""
 	Variable-length coding of numbers that will appear in correct order when
 	sorted lexicographically.
 	"""
 	if num < 0:
-		raise ValueError("negative numbers not supported: %s" % str(num))
-	s = "%x"%num
-	return chr(ord('a')-1+len(s))+s
+		prefix = 'a'
+		num = -num
+	else:
+		prefix = 'n'
+	s = str_base(num,36)
+	return chr(ord(prefix)-1+len(s))+s
 
 def ascii_decode_int_varlen(s):
 	"""
@@ -14,9 +41,16 @@ def ascii_decode_int_varlen(s):
 	"""
 	if len(s)==0:
 		raise ValueError("empty input")
-	if ord(s[0])-ord('a') != len(s)-2:
-		raise ValueError("malformed ascii int encoding: %d != %d" %(ord(s[0])-ord('a'),len(s)-2))
-	return int(s[1:],16)
+	if ord(s[0])-ord('n') >= 0:
+		sign = 1
+		prefix = 'n'
+	else:
+		sign = -1
+		prefix = 'a'
+
+	if ord(s[0])-ord(prefix) != len(s)-2:
+		raise ValueError("malformed ascii int encoding of %s: %d != %d" %(s, ord(s[0])-ord(prefix),len(s)-2))
+	return sign*int(s[1:],36)
 
 def ascii_read_int_varlen(file):
 	"""
@@ -26,7 +60,13 @@ def ascii_read_int_varlen(file):
 	if len(first_byte) == 0:
 		# end of file
 		return None
-	bytes = file.read(ord(first_byte)-ord('a')+1)
+	if ord(first_byte)>=ord('n'):
+		prefix = 'n'
+		sign = 1
+	else:
+		prefix = 'a'
+		sign = -1
+	bytes = file.read(ord(first_byte)-ord(prefix)+1)
 	return ascii_decode_int_varlen(first_byte+bytes)
 
 def ascii_read_int_varlen_list(file):
@@ -48,22 +88,30 @@ def binary_encode_int_varlen(num):
 
 	The encoding goes as follows:
 
-	For numbers 0<=x<=127, the encoding is exactly one byte, the number itself (MSBit is 0)
+	For numbers -64<=x<=63, the encoding is exactly one byte, the number itself (MSBit is 0)
 	For larger numbers, the first byte specifies the length (the MSBit or the byte is 1 to denote this case).
 	The rest of the bytes contain the encoding of the number, from most significant to less significant.
 
-	This encoding still preserves lexicographical order!
+	The mapping is as follows:
+	-INF..-64 -> len+encoding(abs)       first byte: 0..63
+	-64..63   -> (128+num)               first byte: 64..191
+	64..INF   -> (192+len)+encoding(num) first byte: 192..255
+	This encoding still preserves lexicographical order of unsigned characters!
 	"""
+	if num >= -64 and num < 64:
+		return chr(num+128)
 	if num < 0:
-		raise ValueError("Negative numbers are not supported")
-	if num < 128:
-		return chr(num)
+		num = -num
+		len_base = 0
+	else:
+		len_base = 192
+	
 	bytes = []
 	while num != 0:
 		bytes.append(chr(num%256))
 		num /= 256
 	bytes.reverse()
-	return chr(len(bytes)+128-1)+"".join(bytes)
+	return chr(len(bytes)+len_base-1)+"".join(bytes)
 
 def binary_decode_int_varlen(s):
 	"""
@@ -72,16 +120,25 @@ def binary_decode_int_varlen(s):
 	if len(s)==0:
 		raise ValueError("empty input")
 	l = ord(s[0])
-	if l < 128:
-		return l
-	l -= 128
+	if l >= 64 and l < 192:
+		return l-128
+	if l < 64:
+		sign = -1
+	else:
+		sign = 1
+		l -= 192
+	
 	if l != (len(s)-2):
+		print "bad string ",
+		for ch in s:
+			print ord(ch),
+		print
 		raise ValueError("malformed binary int encoding")
 	res = 0
 	for byte in s[1:]:
 		res *= 256
 		res += ord(byte)
-	return res
+	return res*sign
 
 def binary_read_int_varlen(file):
 	"""
@@ -91,9 +148,12 @@ def binary_read_int_varlen(file):
 	if len(first_byte) == 0:
 		# End of file
 		return None
-	if ord(first_byte) < 128:
-		return ord(first_byte)
-	bytes = file.read(ord(first_byte)-128+1)
+	l = ord(first_byte)
+	if l >= 64 and l < 192:
+		return binary_decode_int_varlen(first_byte)
+	if l >= 192:
+		l -= 192
+	bytes = file.read(l+1)
 	return binary_decode_int_varlen(first_byte+bytes)
 
 def binary_read_int_varlen_list(file):

@@ -171,7 +171,6 @@ class ScanContext:
 	def __init__(self,backup,root_node):
 		ContextBase.__init__(self,backup)
 
-		self.node_number = 0
 		self.inodes_db = {}
 
 		self.total_nodes = 0
@@ -179,11 +178,6 @@ class ScanContext:
 
 		self.root_node = root_node
 
-	def next_node_number(self):
-		result = self.node_number
-		self.node_number += 1
-		return result
-	
 	def add_block(self,digest,data,code):
 		self.backup.blocks_database.add_block(digest,data,code)
 		# TODO: See if we should commit here

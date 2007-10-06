@@ -60,6 +60,8 @@ class Node:
 				node = node.parent
 			self.cached_path = os.path.join(*reversed(pathElements))
 		return self.cached_path
+	def get_name(self):
+		return self.name
 	#
 	# Stat handling
 	#
@@ -332,8 +334,8 @@ class Directory(Node):
 			
 			file_mode = os.lstat(path)[stat.ST_MODE]
 
-			if name_data.has_key(name):
-				cur_prev_nums = name_data[name]
+			if prev_name_data.has_key(name):
+				cur_prev_nums = prev_name_data[name]
 			else:
 				cur_prev_nums = []
 				
@@ -392,20 +394,22 @@ class Directory(Node):
 			val = Format.read_int(file)
 			node_stat[mode] = self.stats[mode]+val
 		yield (node_type,node_name,node_digest,node_stat)
-	def write(self):
+	def write(self,ctx):
 		"""
 		Write the info of the current dir to database
 		"""
 		packer = PackerOStream(self.backup,Container.CODE_DIR)
 		# sorting is an optimization to make everybody access files in the same order,
 		# TODO: measure if this really makes things faster (probably will with a btree db)
+		stats = self.get_stats()
 		for child in self.children:
 			Format.write_int(packer,child.get_type())
 			Format.write_string(packer,child.get_name())
 			packer.write(child.get_digest())
-			child_stat = child.get_stat()
+			child_stats = child.get_stats()
 			for mode in STAT_PRESERVED_MODES:
-				Format.write_int(child.get_stat()[mode]-self.get_stat()[mode])
+				Format.write_int(packer,child_stats[mode]-stats[mode])
+		
 		self.digest = packer.get_digest()
 		
 	def restore(self,ctx):

@@ -12,6 +12,11 @@ from manent.Nodes import *
 from UtilFilesystemCreator import *
 from Mock import *
 
+#TODO:
+# Test directories
+# Test symlinks
+# Test that prev information is read correctly
+
 class TestNodes(unittest.TestCase):
 	def setUp(self):
 		self.fsc = FilesystemCreator("/tmp/manent.test.scratch.nodes")
@@ -112,3 +117,21 @@ class TestNodes(unittest.TestCase):
 		self.failUnless(self.fsc.test_lstat("file2",stat2))
 		# test_files will change access times, do it only after test_lstat
 		self.failUnless(self.fsc.test_files(file_data))
+	
+	def test_symlink(self):
+		"""Test that symlinks are scanned and restored correctly"""
+		pass
+	def test_directory(self):
+		"""Test that directories are scanned and restored correctly"""
+		backup = MockBackup(self.fsc.get_home())
+		ctx = backup.start_increment("for restoring")
+		
+		file_data = {"file1":"kuku", "dir1": {"file2":"kuku","file3":"bebe"}}
+		self.fsc.reset()
+		self.fsc.add_files(file_data)
+
+		basedir = Directory(backup, None, self.fsc.get_home())
+		basedir.scan(ctx,[])
+		pass
+	
+	
