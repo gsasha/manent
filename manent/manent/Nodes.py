@@ -31,16 +31,9 @@ class Node:
 		self.backup = backup
 		self.parent = parent
 		self.name = name
+		self.stats = None
 
 		self.cached_path = None
-		self.cached_stat = None
-
-
-	def uncache(self):
-		""" For debugging only: uncache all the cached data """
-		self.cached_path = None
-		self.cached_stat = None
-
 	def get_digest(self):
 		return self.digest
 	def set_digest(self,digest):
@@ -77,6 +70,30 @@ class Node:
 		self.stats = stats
 	def get_stats(self):
 		return self.stats
+	
+	def serialize_stats(self,base_stats):
+		stats = self.get_stats()
+		file = StringIO()
+		if base_stats is not None:
+			for mode in STAT_PRESERVED_MODES:
+				Format.write_int(file,stats[mode]-base_stats[mode])
+		else:
+			for mode in STAT_PRESERVED_MODES:
+				Format.write_int(file,stats[mode])
+		return file.getvalue()
+		
+	def unserialize_stats(self,file,base_stats):
+		stats = {}
+		if base_stats is not None:
+			for mode in STAT_PRESERVED_MODES:
+				val = Format.read_int(file)
+				stats[mode] = base_stats[mode]+val
+		else:
+			for mode in STAT_PRESERVED_MODES:
+				val = Format.read_int(file)
+				stats[mode] = val
+		return stats
+	
 	#-----------------------------------------------------
 	# Support for scanning hard links:
 	# 
@@ -159,7 +176,6 @@ class File(Node):
 	# Scanning and restoring
 	#
 	def scan(self,ctx,prev_nums):
-		self.compute_stats()
 		#
 		# Check if we have encountered this file during this scan already
 		#
@@ -239,7 +255,6 @@ class Symlink(Node):
 		return NODE_TYPE_SYMLINK
 	def scan(self,ctx,prev_nums):
 		print "scanning symlink", self.path(), prev_nums
-		self.compute_stats()
 		
 		if self.scan_hlink(ctx):
 			return
@@ -285,12 +300,11 @@ class Directory(Node):
 	def scan(self,ctx,prev_nums):
 		"""Scan the node, considering data in all the previous increments
 		"""
-		self.compute_stats()
 		#
 		# Reload data from previous increments.
 		#
 		
-		print "Path", self.path(), "found in previous increments:", prev_nums
+		#print "Path", self.path(), "found in previous increments:", prev_nums
 		# prev data indexed by file, for directory scan
 		prev_name_data = {}
 		
@@ -314,13 +328,13 @@ class Directory(Node):
 		#
 		# Scan the directory
 		#
-		print "starting scan for", self.path()
+		#print "starting scan for", self.path()
 		entries = os.listdir(self.path())
 		for name in entries:
 			# Exclude nonessential names automatically
 			if (name=="..") or (name=="."):
 				continue
-			
+
 			path = os.path.join(self.path(),name)
 			
 			# Check if the file name should be excluded
@@ -342,10 +356,12 @@ class Directory(Node):
 			try:
 				if stat.S_ISLNK(file_mode):
 					node = Symlink(self.backup,self,name)
+					node.compute_stats()
 					node.scan(ctx,cur_prev_nums)
 					self.children.append(node)
 				elif stat.S_ISREG(file_mode):
 					node = File(self.backup,self,name)
+					node.compute_stats()
 					node.scan(ctx,cur_prev_nums)
 					self.children.append(node)
 				elif stat.S_ISDIR(file_mode):
@@ -355,6 +371,7 @@ class Directory(Node):
 					# produce temporary digest of its contents during scanning
 					#
 					self.children.append(node)
+					node.compute_stats()
 					node.scan(ctx,cur_prev_nums)
 				else:
 					print "Ignoring unrecognized file type", path
@@ -384,16 +401,14 @@ class Directory(Node):
 			self.write(ctx)
 
 	def read_directory_entries(self,file):
-		node_type = Format.read_int(file)
-		if node_code is None:
-			raise StopIteration
-		node_name = Format.read_string(file)
-		node_digest = file.read(Digest.dataDigestSize())
-		node_stat = {}
-		for mode in STAT_PRESERVED_MODES:
-			val = Format.read_int(file)
-			node_stat[mode] = self.stats[mode]+val
-		yield (node_type,node_name,node_digest,node_stat)
+		while True:
+			node_type = Format.read_int(file)
+			if node_type is None:
+				raise StopIteration
+			node_name = Format.read_string(file)
+			node_digest = file.read(Digest.dataDigestSize())
+			node_stat = self.unserialize_stats(file,self.stats)
+			yield (node_type,node_name,node_digest,node_stat)
 	def write(self,ctx):
 		"""
 		Write the info of the current dir to database
@@ -401,20 +416,17 @@ class Directory(Node):
 		packer = PackerOStream(self.backup,Container.CODE_DIR)
 		# sorting is an optimization to make everybody access files in the same order,
 		# TODO: measure if this really makes things faster (probably will with a btree db)
-		stats = self.get_stats()
 		for child in self.children:
 			Format.write_int(packer,child.get_type())
 			Format.write_string(packer,child.get_name())
 			packer.write(child.get_digest())
-			child_stats = child.get_stats()
-			for mode in STAT_PRESERVED_MODES:
-				Format.write_int(packer,child_stats[mode]-stats[mode])
+			stats_str = child.serialize_stats(self.get_stats())
+			packer.write(stats_str)
 		
 		self.digest = packer.get_digest()
 		
 	def restore(self,ctx):
 		if self.parent != None:
-			print "Restoring dir", self.path(), self.number
 			os.mkdir(self.path())
 
 		packer = PackerIStream(self.backup,self.get_digest())
@@ -427,10 +439,12 @@ class Directory(Node):
 				node = Symlink(self.backup,self,node_name)
 			else:
 				raise Exception("Unknown node type [%s]"%node_type)
-			node.set_stat(node_stat)
+			node.set_stats(node_stat)
 			node.set_digest(node_digest)
 			node.restore(ctx)
-		self.restore_stats()
+		if self.stats is not None:
+			# Root node has no stats
+			self.restore_stats()
 
 	def list_files(self,ctx):
 			

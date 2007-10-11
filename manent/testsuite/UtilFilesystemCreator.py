@@ -47,7 +47,7 @@ class FilesystemCreator:
 			else:
 				os.unlink(path)
 	def test_files(self,files):
-		return self.__test_files(self.home,files)
+		return not self.__test_files(self.home,files)
 	def __test_files(self,prefix,files):
 		failed = False
 		for name,contents in files.iteritems():
@@ -57,21 +57,22 @@ class FilesystemCreator:
 					result = os.lstat(path)
 					if not stat.S_ISDIR(result[stat.ST_MODE]):
 						failed = True
+						print "***** expected to see directory in", path
 						continue
 					failed |= self.__test_files(path,contents)
 				except:
 					failed = True
-					print "Could not read directory", path
+					print "***** Could not read directory", path
 			else:
 				try:
 					file = open(path, "r")
 					if file.read() != contents:
 						failed = True
-						print "Mismatching contents reading file", path
+						print "***** Mismatching contents reading file", path
 				except:
 					failed = True
-					print "Could not read file", path
-		return not failed
+					print "***** Could not read file", path
+		return failed
 	def link(self,file1,file2):
 		if file1.startswith("/"):
 			os.link(file1,os.path.join(self.home,file2))

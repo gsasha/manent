@@ -3,6 +3,7 @@ import random
 import time
 from cStringIO import StringIO
 import stat
+import base64
 
 # manent imports
 import manent.utils.IntegerEncodings as IE
@@ -53,9 +54,11 @@ class TestNodes(unittest.TestCase):
 		# Scan the files...
 		#
 		self.assertEquals(file1_node.scan_hlink(ctx), False)
+		file1_node.compute_stats()
 		file1_node.scan(ctx,[])
 		file1_node.update_hlink(ctx)
 		self.assertEquals(file2_node.scan_hlink(ctx), True)
+		file2_node.compute_stats()
 		file2_node.scan(ctx,[])
 		file2_node.update_hlink(ctx)
 		backup.finalize_increment()
@@ -92,10 +95,12 @@ class TestNodes(unittest.TestCase):
 
 		basedir = Directory(backup, None, self.fsc.get_home())
 		node1 = File(backup,basedir,"file1")
+		node1.compute_stats()
 		node1.scan(ctx,[])
 		digest1 = node1.get_digest()
 		stats1 = node1.get_stats()
 		node2 = File(backup,basedir,"file2")
+		node2.compute_stats()
 		node2.scan(ctx,[])
 		digest2 = node2.get_digest()
 		stats2 = node2.get_stats()
@@ -125,13 +130,22 @@ class TestNodes(unittest.TestCase):
 		"""Test that directories are scanned and restored correctly"""
 		backup = MockBackup(self.fsc.get_home())
 		ctx = backup.start_increment("for restoring")
-		
+
+		# Create the directory structure
 		file_data = {"file1":"kuku", "dir1": {"file2":"kuku","file3":"bebe"}}
 		self.fsc.reset()
 		self.fsc.add_files(file_data)
+		self.failUnless(self.fsc.test_files(file_data))
 
+		# Scan the directory structure
 		basedir = Directory(backup, None, self.fsc.get_home())
 		basedir.scan(ctx,[])
-		pass
-	
-	
+		digest = basedir.get_digest()
+
+		# Try to restore
+		self.fsc.reset()
+		restore_dir = Directory(backup, None, self.fsc.get_home())
+		restore_dir.set_digest(digest)
+		restore_dir.restore(ctx)
+
+		self.failUnless(self.fsc.test_files(file_data))
