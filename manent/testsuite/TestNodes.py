@@ -149,3 +149,6 @@ class TestNodes(unittest.TestCase):
 		restore_dir.restore(ctx)
 
 		self.failUnless(self.fsc.test_files(file_data))
+	def test_prev(self):
+		"""Test that the information from previous versions is taken into account"""
+		pass
