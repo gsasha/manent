@@ -242,8 +242,7 @@ class File(Node):
 		for digest in read_blocks(valueS,Digest.dataDigestSize()):
 			ctx.request_block(digest)
 	def list_files(self,ctx):
-		(node_code,node_level) = node_decode(self.code)
-		print "B%d" % node_level, self.path(), self.number
+		print "F", self.path(), self.get_digest()
 
 #--------------------------------------------------------
 # CLASS:Symlink
@@ -282,12 +281,7 @@ class Symlink(Node):
 		self.restore_stats()
 
 	def list_files(self,ctx):
-		(node_code,node_level) = node_decode(self.code)
-		if node_level is not None:
-			print "B%d" % node_level,
-		elif base_level is not None:
-			print "B%d" % base_level,
-		print self.path(), self.number, self.link
+		print "S", self.path(), self.get_digest()
 
 #--------------------------------------------------------
 # CLASS:Directory
@@ -448,18 +442,15 @@ class Directory(Node):
 
 	def list_files(self,ctx):
 			
-		print self.path(), self.number
-		key = self.get_key()
-		valueS = StringIO(files_db[key])
-		for (node_code,node_num,node_name) in read_directory_entries(valueS):
-			file_type = node_type(node_code)
-			if file_type == NODE_TYPE_DIR:
+		print self.path()
+		packer = PackerIStream(self.backup,self.get_digest())
+		for (node_type,node_name,node_digest,node_stat) in self.read_directory_entries(packer):
+			if node_type == NODE_TYPE_DIR:
 				node = Directory(self.backup,self,node_name)
-			elif file_type == NODE_TYPE_FILE:
+			elif node_type == NODE_TYPE_FILE:
 				node = File(self.backup,self,node_name)
-			elif file_type == NODE_TYPE_SYMLINK:
+			elif node_type == NODE_TYPE_SYMLINK:
 				node = Symlink(self.backup,self,node_name)
-			node.set_number(node_num)
-			node.code = node_type
-			#print "Child node", node_name, "code:", node_type
-			node.list_files(ctx,based)
+			node.set_stats(node_stat)
+			node.set_digest(node_digest)
+			node.list_files(ctx)
