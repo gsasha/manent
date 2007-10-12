@@ -1,6 +1,12 @@
 import os, os.path, shutil
 import stat
 
+class FSCSymlink:
+	def __init__(self,link):
+		self.link = link
+	def get_link(self):
+		return self.link
+
 class FilesystemCreator:
 	def __init__(self,home):
 		self.home = home
@@ -31,6 +37,11 @@ class FilesystemCreator:
 				except:
 					pass
 				self.__add_files(path,contents)
+			elif isinstance(contents,FSCSymlink):
+				try:
+					os.symlink(contents.get_link(),path)
+				except:
+					pass
 			else:
 				f = open(path,"w")
 				f.write(contents)
@@ -63,6 +74,21 @@ class FilesystemCreator:
 				except:
 					failed = True
 					print "***** Could not read directory", path
+			elif isinstance(contents,FSCSymlink):
+				try:
+					result = os.lstat(path)
+					if not stat.S_ISLNK(result[stat.ST_MODE]):
+						failed = True
+						print "***** expected to see symlink in", path
+						continue
+					link = os.readlink(path)
+					if os.readlink(path) != contents.get_link():
+						failed = True
+						print "***** Link contents incorrect", path, "expected:", contents.get_link(), "got:", os.readlink(path)
+						continue
+				except:
+					failed = True
+					print "***** Could not read symlink", path
 			else:
 				try:
 					file = open(path, "r")

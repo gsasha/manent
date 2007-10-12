@@ -253,8 +253,6 @@ class Symlink(Node):
 	def get_type(self):
 		return NODE_TYPE_SYMLINK
 	def scan(self,ctx,prev_nums):
-		print "scanning symlink", self.path(), prev_nums
-		
 		if self.scan_hlink(ctx):
 			return
 
@@ -263,7 +261,6 @@ class Symlink(Node):
 
 		self.link = os.readlink(self.path())
 
-		key = self.get_key()
 		packer = PackerOStream(self.backup, Container.CODE_DATA)
 		packer.write(self.link)
 
