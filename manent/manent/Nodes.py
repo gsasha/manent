@@ -159,10 +159,13 @@ class Node:
 			return True
 		
 		return False
-	def restore_stats(self):
-		os.chmod(self.path(),self.stats[stat.ST_MODE])
-		os.chown(self.path(),self.stats[stat.ST_UID],self.stats[stat.ST_GID])
-		os.utime(self.path(),(self.stats[stat.ST_ATIME],self.stats[stat.ST_MTIME]))
+	def restore_stats(self,restore_chmod=True,restore_chown=True,restore_utime=True):
+		if restore_chmod:
+			os.chmod(self.path(),self.stats[stat.ST_MODE])
+		if restore_chown:
+			os.lchown(self.path(),self.stats[stat.ST_UID],self.stats[stat.ST_GID])
+		if restore_utime:
+			os.utime(self.path(),(self.stats[stat.ST_ATIME],self.stats[stat.ST_MTIME]))
 
 #--------------------------------------------------------
 # CLASS:File
@@ -273,9 +276,10 @@ class Symlink(Node):
 
 		packer = PackerIStream(self.backup, self.digest)
 		self.link = packer.read()
-		#print "Restoring symlink from", self.link, "to", self.path()
 		os.symlink(self.link, self.path())
-		self.restore_stats()
+		# on Linux, there is no use of the mode of a symlink
+		# and no way to restore the times of the link itself
+		self.restore_stats(restore_chmod=False,restore_utime=False)
 
 	def list_files(self,ctx):
 		print "S", self.path(), self.get_digest()

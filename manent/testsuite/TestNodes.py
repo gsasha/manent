@@ -142,6 +142,14 @@ class TestNodes(unittest.TestCase):
 		basedir = Directory(backup, None, self.fsc.get_home())
 		basedir.scan(ctx,[])
 		digest = basedir.get_digest()
+		
+		# Try to restore
+		self.fsc.reset()
+		restore_dir = Directory(backup, None, self.fsc.get_home())
+		restore_dir.set_digest(digest)
+		restore_dir.restore(ctx)
+
+		self.failUnless(self.fsc.test_files(file_data))
 	def test_directory(self):
 		"""Test that directories are scanned and restored correctly"""
 		backup = MockBackup(self.fsc.get_home())
