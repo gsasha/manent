@@ -132,7 +132,8 @@ class TestNodes(unittest.TestCase):
 		# Scan the files
 		#
 		f1 = FSCFile("kuku")
-		file_data = {"file1":f1, "file2":FSCSymlink("file1"), "file3":f1}
+		f2 = FSCSymlink("file1")
+		file_data = {"file1":f1, "file2":f2, "file3":f1, "file4":f2}
 		self.fsc.reset()
 		self.fsc.add_files(file_data)
 
