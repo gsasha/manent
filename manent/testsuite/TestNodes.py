@@ -124,14 +124,15 @@ class TestNodes(unittest.TestCase):
 		self.failUnless(self.fsc.test_files(file_data))
 	
 	def test_symlink(self):
-		"""Test that symlinks are scanned and restored correctly"""
+		"""Test that symlinks and hard links are scanned and restored correctly"""
 		backup = MockBackup(self.fsc.get_home())
 		ctx = backup.start_increment("for restoring")
 
 		#
 		# Scan the files
 		#
-		file_data = {"file1":"kuku", "file2":FSCSymlink("file1")}
+		f1 = FSCFile("kuku")
+		file_data = {"file1":f1, "file2":FSCSymlink("file1"), "file3":f1}
 		self.fsc.reset()
 		self.fsc.add_files(file_data)
 
@@ -146,7 +147,7 @@ class TestNodes(unittest.TestCase):
 		ctx = backup.start_increment("for restoring")
 
 		# Create the directory structure
-		file_data = {"file1":"kuku", "dir1": {"file2":"kuku","file3":"bebe"}}
+		file_data = {"file1":FSCFile("kuku"), "dir1": {"file2":FSCFile("kuku"),"file3":FSCFile("bebe")}}
 		self.fsc.reset()
 		self.fsc.add_files(file_data)
 		self.failUnless(self.fsc.test_files(file_data))

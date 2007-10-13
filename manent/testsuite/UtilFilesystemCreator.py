@@ -7,6 +7,12 @@ class FSCSymlink:
 	def get_link(self):
 		return self.link
 
+class FSCFile:
+	def __init__(self,data):
+		self.data = data
+	def get_data(self):
+		return self.data
+
 class FilesystemCreator:
 	def __init__(self,home):
 		self.home = home
@@ -27,19 +33,40 @@ class FilesystemCreator:
 		return self.home
 	
 	def add_files(self,files):
+		self.hlink_dict = {}
 		self.__add_files(self.home,files)
 	def __add_files(self,prefix,files):
 		for name,contents in files.iteritems():
 			path = os.path.join(prefix,name)
+			#
+			# OK, it's no hardlink. Create it.
+			#
 			if type(contents) == type({}):
 				try:
 					os.mkdir(path)
 				except:
 					pass
 				self.__add_files(path,contents)
-			elif isinstance(contents,FSCSymlink):
+				continue
+
+			#
+			# Check if a hard link is due
+			#
+			if self.hlink_dict.has_key(contents):
+				os.link(self.hlink_dict[contents],path)
+				continue
+			self.hlink_dict[contents] = path
+				
+			if isinstance(contents,FSCSymlink):
 				try:
 					os.symlink(contents.get_link(),path)
+				except:
+					pass
+			elif isinstance(contents,FSCFile):
+				try:
+					f = open(path,"w")
+					f.write(contents.get_data())
+					f.close()
 				except:
 					pass
 			else:
@@ -58,15 +85,20 @@ class FilesystemCreator:
 			else:
 				os.unlink(path)
 	def test_files(self,files):
+		self.hlink_dict = {}
 		return not self.__test_files(self.home,files)
 	def __test_files(self,prefix,files):
 		failed = False
 		for name,contents in files.iteritems():
 			path = os.path.join(prefix,name)
+			st = os.lstat(path)
+
+			#
+			# Recurse in for a directory
+			#
 			if type(contents) == type({}):
 				try:
-					result = os.lstat(path)
-					if not stat.S_ISDIR(result[stat.ST_MODE]):
+					if not stat.S_ISDIR(st[stat.ST_MODE]):
 						failed = True
 						print "***** expected to see directory in", path
 						continue
@@ -74,10 +106,22 @@ class FilesystemCreator:
 				except:
 					failed = True
 					print "***** Could not read directory", path
-			elif isinstance(contents,FSCSymlink):
+				continue
+				
+			#
+			# It's a hard link. Test that it connects to the right inode
+			#
+			if self.hlink_dict.has_key(contents):
+				if st[stat.ST_INO] != self.hlink_dict[contents]:
+					failed = True
+					print "***** expected %s to be a hard link" % path
+					continue
+			else:
+				self.hlink_dict[contents] = st[stat.ST_INO]
+			
+			if isinstance(contents,FSCSymlink):
 				try:
-					result = os.lstat(path)
-					if not stat.S_ISLNK(result[stat.ST_MODE]):
+					if not stat.S_ISLNK(st[stat.ST_MODE]):
 						failed = True
 						print "***** expected to see symlink in", path
 						continue
@@ -89,6 +133,15 @@ class FilesystemCreator:
 				except:
 					failed = True
 					print "***** Could not read symlink", path
+			elif isinstance(contents,FSCFile):
+				try:
+					file = open(path, "r")
+					if file.read() != contents.get_data():
+						failed = True
+						print "***** Mismatching contents reading file", path
+				except:
+					failed = True
+					print "***** Could not read file", path
 			else:
 				try:
 					file = open(path, "r")
