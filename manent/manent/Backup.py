@@ -77,7 +77,8 @@ class Backup:
 		try:
 			self.open_all()
 
-			self.do_reconstruct()
+			print "Reconstructing backup %s" % self.label
+			self.increments_database.reconstruct()
 			self.txn_handler.commit()
 		except:
 			traceback.print_exc()
@@ -86,11 +87,6 @@ class Backup:
 		finally:
 			self.close_all()
 			
-	def do_reconstruct(self):
-		print "Reconstructing backup", self.label
-
-		self.increments_database.reconstruct()
-
 	#
 	# Scanning (adding a new increment)
 	#
@@ -155,7 +151,6 @@ class Backup:
 			# TODO:Print info on all the storages
 			# TODO:Print info on all the increments
 			
-			
 			self.txn_handler.commit()
 		except:
 			traceback.print_exc()
@@ -180,17 +175,6 @@ class ScanContext:
 
 	def add_block(self,digest,data,code):
 		self.backup.blocks_database.add_block(digest,data,code)
-		# TODO: See if we should commit here
-
-		#
-		# The order is extremely important here - the block can be saved
-		# (and thus, blocks_db can be updated) only after the previous db
-		# is committed. Otherwise, the block ends up written as available
-		# in a container that is never finalized.
-		#
-		#block = Block(self.backup,digest)
-		#block.add_container(container)
-		#block.save()
 
 #=========================================================
 # RestoreContext
