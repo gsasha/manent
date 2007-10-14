@@ -198,6 +198,6 @@ class TestNodes(unittest.TestCase):
 		digest = basedir.get_digest()
 
 		self.assertEquals(ctx.total_nodes, 6)
-		# Two nodes have changed: the new file and the directory that contains it.
+		# 3 nodes have changed: the new file and the directories that contain it.
 		self.assertEquals(ctx.changed_nodes, 3)
 		
