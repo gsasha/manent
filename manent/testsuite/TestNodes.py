@@ -188,12 +188,16 @@ class TestNodes(unittest.TestCase):
 		basedir.scan(ctx,[])
 		digest = basedir.get_digest()
 
+		time.sleep(1.1)
 		file_data["file_new"] = FSCFile("kukui")
-		self.fsc.add_files({"file_new":"kukui"})
+		self.fsc.add_files({'dir1':{"file_new":"kukui"}})
+		#self.fsc.add_files({"file_new":"kukui"})
 		ctx = backup.start_increment("test prev")
 		basedir = Directory(backup, None, self.fsc.get_home())
-		basedir.scan(ctx,[(NODE_TYPE_DIR,NULL_STAT,digest)])
+		basedir.scan(ctx,[(NODE_TYPE_DIR,None,digest)])
 		digest = basedir.get_digest()
-		print "2ctx.total_nodes", ctx.total_nodes
-		print "2ctx.changed_nodes", ctx.changed_nodes
+
+		self.assertEquals(ctx.total_nodes, 6)
+		# Two nodes have changed: the new file and the directory that contains it.
+		self.assertEquals(ctx.changed_nodes, 3)
 		

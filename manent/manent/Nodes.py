@@ -68,8 +68,8 @@ class Node:
 		"""
 		Compute the os.stat data for the current file
 		"""
-		self.stats = {}
 		node_stat = os.lstat(self.path())
+		self.stats = {}
 		for mode in STAT_PRESERVED_MODES:
 			self.stats[mode] = node_stat[mode]
 	def set_stats(self,stats):
@@ -142,21 +142,24 @@ class Node:
 		
 		for (prev_type,prev_stat,prev_digest) in reversed(prev_nums):
 			if prev_type != self.get_type():
-				# print "node type differs in the db"
+				print "  node type differs in the db"
 				break
 			#if stat.S_IFMT(self.stats[stat.ST_MODE]) != stat.S_IFMT(prev_stat[stat.ST_MODE]):
-				##print "  Node type differs in the fs"
+				#print "  Node type differs in the fs"
 				#break
+			if prev_stat is None:
+				print "  Base stat not defined"
+				break
 			if self.stats[stat.ST_INO] != prev_stat[stat.ST_INO]:
-				#print "  Inode number differs: was %d, now %d" % (file_stat[stat.ST_INO],old_stat[stat.ST_INO]), file_stat
+				print "  Inode number differs: was %d, now %d" % (file_stat[stat.ST_INO],old_stat[stat.ST_INO]), file_stat
 				break
 			if self.stats[stat.ST_MTIME] != prev_stat[stat.ST_MTIME]:
-				#print "  Mtime differs"
+				print "  Mtime differs: %d != %d" % (self.stats[stat.ST_MTIME], prev_stat[stat.ST_MTIME])
 				break
 			if time.time() - self.stats[stat.ST_MTIME] <= 1.0:
 				# The time from the last change is less than the resolution
 				# of time() functions
-				#print "  File too recent",file_stat[stat.ST_MTIME],time.time()
+				print "  File too recent",prev_stat[stat.ST_MTIME],time.time()
 				break
 			
 			#
@@ -167,6 +170,7 @@ class Node:
 			self.digest = prev_digest
 			return True
 
+		#print "changed node", self.path()
 		ctx.changed_nodes += 1
 		return False
 	def restore_stats(self,restore_chmod=True,restore_chown=True,restore_utime=True):
@@ -306,13 +310,12 @@ class Directory(Node):
 		"""Scan the node, considering data in all the previous increments
 		"""
 		#
-		# Reload data from previous increments.
+		# Process data from previous increments.
 		#
-		
-		#print "Path", self.path(), "found in previous increments:", prev_nums
+		ctx.total_nodes += 1
 		# prev data indexed by file, for directory scan
 		prev_name_data = {}
-		
+
 		for (prev_type,prev_stat,prev_digest) in prev_nums:
 			if prev_type is not None and prev_type != self.get_type():
 				# This previous entry is not a directory.
@@ -320,10 +323,14 @@ class Directory(Node):
 				break
 
 			dir_stream = PackerIStream(self.backup, prev_digest)
-			for type_str,name,stat_str,digest in self.read_directory_entries(dir_stream):
-				if not prev_name_data.has_key(name):
-					prev_name_data[name] = []
-				prev_name_data[name].append((int(type_str),stat_str,digest))
+			for node_type,node_name,node_stat,node_digest in self.read_directory_entries(dir_stream,prev_stat):
+				if not prev_name_data.has_key(node_name):
+					prev_name_data[node_name] = []
+				prev_name_data[node_name].append((node_type,node_stat,node_digest))
+
+		last_type,last_stat,last_digest = None,None,None
+		if len(prev_nums) != 0:
+			last_type,last_stat,last_digest = prev_nums[-1]
 
 		#
 		# Initialize scanning data
@@ -354,20 +361,20 @@ class Directory(Node):
 			file_mode = os.lstat(path)[stat.ST_MODE]
 
 			if prev_name_data.has_key(name):
-				cur_prev_nums = prev_name_data[name]
+				cur_prev = prev_name_data[name]
 			else:
-				cur_prev_nums = []
-				
+				cur_prev = []
+
 			try:
 				if stat.S_ISLNK(file_mode):
 					node = Symlink(self.backup,self,name)
 					node.compute_stats()
-					node.scan(ctx,cur_prev_nums)
+					node.scan(ctx,cur_prev)
 					self.children.append(node)
 				elif stat.S_ISREG(file_mode):
 					node = File(self.backup,self,name)
 					node.compute_stats()
-					node.scan(ctx,cur_prev_nums)
+					node.scan(ctx,cur_prev)
 					self.children.append(node)
 				elif stat.S_ISDIR(file_mode):
 					node = Directory(self.backup,self,name)
@@ -375,9 +382,9 @@ class Directory(Node):
 					# The order is different here, and it's all because directory can
 					# produce temporary digest of its contents during scanning
 					#
-					self.children.append(node)
 					node.compute_stats()
-					node.scan(ctx,cur_prev_nums)
+					self.children.append(node)
+					node.scan(ctx,cur_prev)
 				else:
 					print "Ignoring unrecognized file type", path
 			except OSError:
@@ -389,6 +396,10 @@ class Directory(Node):
 
 		self.write(ctx)
 		self.children = None
+
+		if self.digest != last_digest:
+			#print "changed node", self.path()
+			ctx.changed_nodes += 1
 	def flush(self,ctx):
 		"""
 		Flush the contents of the current node.
@@ -405,15 +416,6 @@ class Directory(Node):
 		if dirty:
 			self.write(ctx)
 
-	def read_directory_entries(self,file):
-		while True:
-			node_type = Format.read_int(file)
-			if node_type is None:
-				raise StopIteration
-			node_name = Format.read_string(file)
-			node_digest = file.read(Digest.dataDigestSize())
-			node_stat = self.unserialize_stats(file,self.stats)
-			yield (node_type,node_name,node_stat,node_digest)
 	def write(self,ctx):
 		"""
 		Write the info of the current dir to database
@@ -465,3 +467,15 @@ class Directory(Node):
 			node.set_stats(node_stat)
 			node.set_digest(node_digest)
 			node.list_files(ctx)
+	
+	def read_directory_entries(self,file,base_stats=None):
+		if base_stats is None:
+			base_stats = self.stats
+		while True:
+			node_type = Format.read_int(file)
+			if node_type is None:
+				raise StopIteration
+			node_name = Format.read_string(file)
+			node_digest = file.read(Digest.dataDigestSize())
+			node_stat = self.unserialize_stats(file,base_stats)
+			yield (node_type,node_name,node_stat,node_digest)
