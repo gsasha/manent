@@ -175,4 +175,25 @@ class TestNodes(unittest.TestCase):
 		self.failUnless(self.fsc.test_files(file_data))
 	def test_prev(self):
 		"""Test that the information from previous versions is taken into account"""
-		pass
+		backup = MockBackup(self.fsc.get_home())
+		ctx = backup.start_increment("for restoring")
+		
+		# Create the directory structure
+		file_data = {"file1":FSCFile("kuku"), "dir1": {"file2":FSCFile("kuku"),"file3":FSCFile("bebe")}}
+		self.fsc.reset()
+		self.fsc.add_files(file_data)
+
+		# Scan the directory structure
+		basedir = Directory(backup, None, self.fsc.get_home())
+		basedir.scan(ctx,[])
+		digest = basedir.get_digest()
+
+		file_data["file_new"] = FSCFile("kukui")
+		self.fsc.add_files({"file_new":"kukui"})
+		ctx = backup.start_increment("test prev")
+		basedir = Directory(backup, None, self.fsc.get_home())
+		basedir.scan(ctx,[(NODE_TYPE_DIR,NULL_STAT,digest)])
+		digest = basedir.get_digest()
+		print "2ctx.total_nodes", ctx.total_nodes
+		print "2ctx.changed_nodes", ctx.changed_nodes
+		

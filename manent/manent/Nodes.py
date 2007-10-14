@@ -20,6 +20,12 @@ NODE_TYPE_SYMLINK = 2
 
 STAT_PRESERVED_MODES = [stat.ST_MODE, stat.ST_UID, stat.ST_GID, stat.ST_MTIME, stat.ST_CTIME, stat.ST_ATIME, stat.ST_NLINK, stat.ST_INO]
 
+NULL_STAT = {}
+for s in STAT_PRESERVED_MODES:
+	NULL_STAT[s] = 0
+# NULL_STAT = {0:s for s in []}
+# NULL_STAT = {a:b for a,b in {}.iteritems()}
+
 #--------------------------------------------------------
 # CLASS:Node
 #--------------------------------------------------------
@@ -134,10 +140,13 @@ class Node:
 		"""
 		ctx.total_nodes += 1
 		
-		for (prev_stat,prev_digest) in reversed(prev_nums):
-			if stat.S_IFMT(self.stats[stat.ST_MODE]) != stat.S_IFMT(prev_stat[stat.ST_MODE]):
-				#print "  Node type differs"
+		for (prev_type,prev_stat,prev_digest) in reversed(prev_nums):
+			if prev_type != self.get_type():
+				# print "node type differs in the db"
 				break
+			#if stat.S_IFMT(self.stats[stat.ST_MODE]) != stat.S_IFMT(prev_stat[stat.ST_MODE]):
+				##print "  Node type differs in the fs"
+				#break
 			if self.stats[stat.ST_INO] != prev_stat[stat.ST_INO]:
 				#print "  Inode number differs: was %d, now %d" % (file_stat[stat.ST_INO],old_stat[stat.ST_INO]), file_stat
 				break
@@ -157,7 +166,8 @@ class Node:
 			self.stats = prev_stat
 			self.digest = prev_digest
 			return True
-		
+
+		ctx.changed_nodes += 1
 		return False
 	def restore_stats(self,restore_chmod=True,restore_chown=True,restore_utime=True):
 		if restore_chmod:
@@ -403,7 +413,7 @@ class Directory(Node):
 			node_name = Format.read_string(file)
 			node_digest = file.read(Digest.dataDigestSize())
 			node_stat = self.unserialize_stats(file,self.stats)
-			yield (node_type,node_name,node_digest,node_stat)
+			yield (node_type,node_name,node_stat,node_digest)
 	def write(self,ctx):
 		"""
 		Write the info of the current dir to database
@@ -425,7 +435,7 @@ class Directory(Node):
 			os.mkdir(self.path())
 
 		packer = PackerIStream(self.backup,self.get_digest())
-		for (node_type,node_name,node_digest,node_stat) in self.read_directory_entries(packer):
+		for (node_type,node_name,node_stat,node_digest) in self.read_directory_entries(packer):
 			if node_type == NODE_TYPE_DIR:
 				node = Directory(self.backup,self,node_name)
 			elif node_type == NODE_TYPE_FILE:
@@ -445,7 +455,7 @@ class Directory(Node):
 			
 		print self.path()
 		packer = PackerIStream(self.backup,self.get_digest())
-		for (node_type,node_name,node_digest,node_stat) in self.read_directory_entries(packer):
+		for (node_type,node_name,node_stat,node_digest) in self.read_directory_entries(packer):
 			if node_type == NODE_TYPE_DIR:
 				node = Directory(self.backup,self,node_name)
 			elif node_type == NODE_TYPE_FILE:
