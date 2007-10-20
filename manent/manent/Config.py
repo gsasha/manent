@@ -10,7 +10,8 @@ import manent.utils.IntegerEncodings as IntegerEncodings
 
 class GlobalConfig:
 	def __init__(self):
-		self.backups = {}
+		self.backups_config = ConfigParser.ConfigParser()
+		self.options_config = ConfigParser.ConfigParser()
 		self.open_backups = []
 
 		self.staging_area_exists = False
@@ -35,7 +36,7 @@ class GlobalConfig:
 		if os.name == "nt":
 			path = os.path.join(os.environ["APPDATA"], "manent")
 		else:
-			path = os.path.join(os.environ["HOME"], "manent")
+			path = os.path.join(os.environ["HOME"], ".manent")
 		if not self.home_area_exists and not os.path.exists(path):
 			os.mkdir(path)
 			self.home_area_exists = True
@@ -104,22 +105,19 @@ class GlobalConfig:
 		if os.name == "nt":
 			path = os.path.join(os.environ["TEMP"], "manent.staging")
 		else:
-			path = "/tmp/manent.staging"
+			path = "/tmp/manent.staging."+os.environ["USER"]
 		if not self.staging_area_exists and not os.path.exists(path):
 			os.mkdir(path)
 			self.staging_area_exists = True
 		return path
 	
+	#
+	# Configuration persistence
+	#
 	def load(self):
-		if not os.path.exists(self.home_area()+"/config"):
-			return
-		file = open(self.home_area()+"/config")
-		for line in file:
-			(label,dataPath,containerType, containerParams) = re.split("\s+",line+" ",3)
-			containerParams = re.split("\s+", containerParams.rstrip())
-			self.backups[label] = (dataPath, containerType, containerParams)
+		self.backups_config.read(self.home_area()+"/backups.ini"))
 	def save(self):
-		file = open(self.home_area()+"/config","w")
+		self.config_parser.write(open(self.home_area()+"/backups.ini","w"))
 		for label in self.backups.keys():
 			(dataPath,containerType,containerParams) = self.backups[label]
 			file.write("%s %s %s %s\n" % (label, dataPath, containerType, " ".join(containerParams)))
@@ -128,29 +126,34 @@ class GlobalConfig:
 		#	backup.close()
 		pass
 	
-	def create_backup(self,label,dataPath,containerType,containerParams):
-		if self.backups.has_key(label):
+	def create_backup(self,label,root):
+		if self.backups_config.has_section(label):
 			raise "Backup %s already exists"%label
 
-		print "Creating backup label[%s] path[%s] type[%s] params[%s]"%(label, dataPath, containerType, str(containerParams))
+		print "Creating backup label[%s] path[%s]"%(label, root)
 		backup = Backup.Backup(self,label)
-		backup.configure(dataPath,containerType,containerParams)
-		backup.create()
+		backup.configure(root)
 		self.open_backups.append(backup)
 		
 		self.backups[label] = (dataPath,containerType,containerParams)
 		return backup
 	def load_backup(self,label):
-		if not self.backups.has_key(label):
+		if not self.backups_config.has_section(label):
 			raise "Backup %s does not exist"%label
 		
 		backup = Backup.Backup(self,label)
+		data_root = self.backups_config.get(label,"data_root")
+		for item,value in self.backups_config.items(label):
+			if item.startswith("storage"):
 		(dataPath,containerType,containerParams) = self.backups[label]
 		#print self.backups[label]
 		backup.configure(dataPath,containerType,containerParams)
 		self.open_backups.append(backup)
 		return backup
 	def reconstruct_backup(self,label,dataPath,containerType,containerParams):
+		# TODO: there is no more such thing as reconstruct!
+		# Just adding a storage to the list of backups will cause that storage
+		# to be rescanned, which is the same as reconstruction
 		if self.backups.has_key(label):
 			raise "Backup %s already exists" % label
 		
