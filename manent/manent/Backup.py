@@ -8,8 +8,7 @@ import traceback
 #from Nodes import Directory
 import Nodes
 import Container
-from BlockDatabase import BlockDatabase
-from Block import Block
+import BlockDatabase
 from Database import *
 from StreamAdapter import *
 import manent.utils.Digest as Digest
@@ -50,7 +49,7 @@ class Backup:
 	def open_all(self):
 		self.shared_db = self.db_config.get_database(".shared",self.txn_handler)
 		self.repository = Repository(self.db_config,storages,active_storage)
-		self.blocks_database = BlockDatabase(self.db_config,self.repository)
+		self.blocks_database = BlockDatabase.BlockDatabase(self.db_config,self.repository)
 		self.increments_database = IncrementDatabase(self.repository,self.shared_db)
 	
 	def close_all(self):
