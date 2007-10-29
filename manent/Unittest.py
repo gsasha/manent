@@ -23,10 +23,11 @@ suite_DB = test_loader.loadTestsFromTestCase(TestDatabase)
 from testsuite.TestNodes import TestNodes
 suite_Nodes = test_loader.loadTestsFromTestCase(TestNodes)
 
-from testsuite.TestExclusionProcessor import TestExlusionProcessor
+from testsuite.TestExclusionProcessor import TestExclusionProcessor
 suite_Exclusion = test_loader.loadTestsFromTestCase(TestExclusionProcessor)
 
-suite = unittest.TestSuite([suite_Packer,
+suite = unittest.TestSuite([
+	suite_Packer,
 	suite_Container,
 	suite_Nodes,
 	suite_Increment,
