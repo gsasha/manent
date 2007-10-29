@@ -10,8 +10,7 @@ import manent.utils.IntegerEncodings as IntegerEncodings
 
 class GlobalConfig:
 	def __init__(self):
-		self.backups_config = ConfigParser.ConfigParser()
-		self.options_config = ConfigParser.ConfigParser()
+		self.config = ConfigParser.ConfigParser()
 		self.open_backups = []
 
 		self.staging_area_exists = False
@@ -118,16 +117,16 @@ class GlobalConfig:
 		self.backups_config.read(self.home_area()+"/backups.ini"))
 	def save(self):
 		self.config_parser.write(open(self.home_area()+"/backups.ini","w"))
-		for label in self.backups.keys():
-			(dataPath,containerType,containerParams) = self.backups[label]
-			file.write("%s %s %s %s\n" % (label, dataPath, containerType, " ".join(containerParams)))
+		for backup in self.open_backups:
+			# Save the data for the backup
+			pass
 	def close(self):
 		#for backup in self.open_backups:
 		#	backup.close()
 		pass
 	
 	def create_backup(self,label,root):
-		if self.backups_config.has_section(label):
+		if self.backups_config.has_section("backups/"+label):
 			raise "Backup %s already exists"%label
 
 		print "Creating backup label[%s] path[%s]"%(label, root)
@@ -135,34 +134,40 @@ class GlobalConfig:
 		backup.configure(root)
 		self.open_backups.append(backup)
 		
-		self.backups[label] = (dataPath,containerType,containerParams)
 		return backup
 	def load_backup(self,label):
-		if not self.backups_config.has_section(label):
+		backup_prefix = "backups/"+label
+		if not self.config.has_section(backup_prefix):
 			raise "Backup %s does not exist"%label
 		
 		backup = Backup.Backup(self,label)
-		data_root = self.backups_config.get(label,"data_root")
-		for item,value in self.backups_config.items(label):
-			if item.startswith("storage"):
-		(dataPath,containerType,containerParams) = self.backups[label]
-		#print self.backups[label]
-		backup.configure(dataPath,containerType,containerParams)
 		self.open_backups.append(backup)
-		return backup
-	def reconstruct_backup(self,label,dataPath,containerType,containerParams):
-		# TODO: there is no more such thing as reconstruct!
-		# Just adding a storage to the list of backups will cause that storage
-		# to be rescanned, which is the same as reconstruction
-		if self.backups.has_key(label):
-			raise "Backup %s already exists" % label
 		
-		backup = Backup.Backup(self,label)
-		backup.reconstruct(dataPath,containerType,containerParams)
-		
-		self.open_backups.append(backup)
-		self.backups[label] = (dataPath,containerType,containerParams)
+		data_root = self.config.get(backup_prefix,"data_root")
+		for section in self.config.sections():
+			if section.startswith(backup_prefix+"/excludes"):
+				self.load_backup_excludes(backup,section)
+			if section.startswith(backup_prefix+"/storages/"):
+				self.load_backup_storages(backup,section)
 		return backup
+	def save_backup(self,backup):
+		# Remove and re-create the section to make sure it's empty
+		for section in self.config.sections():
+			if section.startswith("backups/"+backup.get_label):
+				section.remove
+		self.config.remove_section(backup.get_label())
+		self.config.add_section(backup.get_label())
+	def load_backup_excludes(self,backup,section):
+		for key,value in sorted(self.config.items(section)):
+			if key.endswith("exclude_regexp"):
+				backup.add_exclude_regexp(value)
+			elif key.endswith("include_regexp"):
+				backup.add_include_regexp(value)
+			elif key.endswith("exclude"):
+				backup.add_exclude(value)
+			elif key.endswith("include"):
+				backup.add_include(value)
+	def save_backup
 	def remove_backup(self,label):
 		if not self.backups.has_key(label):
 			raise "Backup %s does not exist"%label
@@ -171,8 +176,12 @@ class GlobalConfig:
 		del self.backups[label]
 		
 	def has_backup(self,label):
-		return self.backups.has_key(label)
+		return self.backups.has_key("backups/"+label)
 	def list_backups(self):
+		for key in self.backups_config.sections():
+			match = re.match("backups/([^/]+)",key)
+			if match:
+				print "Backup", match.group(1)
 		return self.backups.keys()
 	def get_backup(self, label):
 		return self.backups[label]
