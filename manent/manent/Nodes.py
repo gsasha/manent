@@ -18,7 +18,15 @@ NODE_TYPE_DIR     = 0
 NODE_TYPE_FILE    = 1
 NODE_TYPE_SYMLINK = 2
 
-STAT_PRESERVED_MODES = [stat.ST_MODE, stat.ST_UID, stat.ST_GID, stat.ST_MTIME, stat.ST_CTIME, stat.ST_ATIME, stat.ST_NLINK, stat.ST_INO]
+STAT_PRESERVED_MODES = [
+	stat.ST_MODE,
+	stat.ST_UID,
+	stat.ST_GID,
+	stat.ST_MTIME,
+	stat.ST_CTIME,
+	stat.ST_ATIME,
+	stat.ST_NLINK,
+	stat.ST_INO]
 
 NULL_STAT = {}
 for s in STAT_PRESERVED_MODES:
@@ -38,7 +46,6 @@ class Node:
 		self.parent = parent
 		self.name = name
 		self.stats = None
-
 		self.cached_path = None
 	def get_digest(self):
 		return self.digest
@@ -173,13 +180,18 @@ class Node:
 		#print "changed node", self.path()
 		ctx.changed_nodes += 1
 		return False
-	def restore_stats(self,restore_chmod=True,restore_chown=True,restore_utime=True):
+	def restore_stats(self,
+		              restore_chmod=True,
+					  restore_chown=True,
+		              restore_utime=True):
 		if restore_chmod:
 			os.chmod(self.path(),self.stats[stat.ST_MODE])
 		if restore_chown:
-			os.lchown(self.path(),self.stats[stat.ST_UID],self.stats[stat.ST_GID])
+			os.lchown(self.path(),self.stats[stat.ST_UID],
+				      self.stats[stat.ST_GID])
 		if restore_utime:
-			os.utime(self.path(),(self.stats[stat.ST_ATIME],self.stats[stat.ST_MTIME]))
+			os.utime(self.path(),(self.stats[stat.ST_ATIME],
+				                  self.stats[stat.ST_MTIME]))
 
 #--------------------------------------------------------
 # CLASS:File
@@ -207,7 +219,8 @@ class File(Node):
 		
 		# --- File not yet in database, process it
 		packer = PackerOStream(self.backup,Container.CODE_DATA)
-		for data in read_blocks(open(self.path(), "rb"), self.backup.container_config.blockSize()):
+		for data in read_blocks(open(self.path(), "rb"),
+			                    self.backup.container_config.blockSize()):
 			packer.write(data)
 			
 		self.digest = packer.get_digest()
@@ -232,7 +245,8 @@ class File(Node):
 		packer = PackerIStream(self.backup,self.digest)
 		file = open(self.path(), "wb")
 		for data in read_blocks(packer,Digest.dataDigestSize()):
-			#print "File", self.path(), "reading digest", base64.b64encode(digest)
+			#print "File", self.path(), "reading digest",
+			#    base64.b64encode(digest)
 			file.write(data)
 		file.close()
 		

@@ -15,17 +15,17 @@ class Backup:
 		self.global_config = global_config
 		self.label = label
 
-		self.db_config =
-			Database.DatabaseConfig(self.global_config,"manent.%s.db"%self.label)
-		self.txn_handler =
-			Database.TransactionHandler(self.db_config)
+		self.db_config = Database.DatabaseConfig(self.global_config,
+			"manent.%s.db"%self.label)
+		self.txn_handler = Database.TransactionHandler(self.db_config)
 
 	#
 	# Three initialization methods:
 	# Creation of new Backup, loading from live DB, loading from backups
 	#
 	def configure(self,data_path):
-		#print "Creating backup", self.label, "type:", container_type, container_params
+		#print "Creating backup", self.label, "type:",\
+		# container_type, container_params
 		self.data_path = data_path
 		self.storages = []
 		self.active_storage = None
@@ -130,10 +130,12 @@ class Backup:
 	
 	def __open_all(self):
 		self.shared_db = self.db_config.get_database(".shared",self.txn_handler)
-		self.repository = Repository.Repository(self.db_config,storages,active_storage)
-		self.blocks_database = BlockDatabase.BlockDatabase(self.db_config,self.repository)
-		self.increments_database =
-			IncrementDatabase.IncrementDatabase(self.repository,self.shared_db)
+		self.repository = Repository.Repository(self.db_config,
+			storages,active_storage)
+		self.blocks_database = BlockDatabase.BlockDatabase(self.db_config,
+			self.repository)
+		self.increments_database = IncrementDatabase.IncrementDatabase(
+			self.repository,self.shared_db)
 	
 	def __close_all(self):
 		self.increments_database.close()
@@ -141,9 +143,9 @@ class Backup:
 		self.repository.close()
 		self.shared_db.close()
 	
-#=========================================================
+#===============================================================================
 # ScanContext
-#=========================================================
+#===============================================================================
 class ScanContext:
 	def __init__(self,backup,root_node):
 		ContextBase.__init__(self,backup)
@@ -164,3 +166,4 @@ class ScanContext:
 class RestoreContext:
 	def __init__(self):
 		self.inodes_db = {}
+

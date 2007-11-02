@@ -1,7 +1,7 @@
 import unittest
 
-import manent.ExclusionProcessor as ExclusionProcessor
-import testsuite.UtilFilesystemCreator as UtilFilesystemCreator
+import manent.ExclusionProcessor as EP
+import testsuite.UtilFilesystemCreator as FSC
 
 class EPDriver:
 	"""Exclusion Processor Driver.
@@ -11,9 +11,9 @@ class EPDriver:
 		self.exclusion_processor = exclusion_processor
 		self.path = path
 	
-	def check(self, expected_filesystem):
-		filtered_filesystem = self.check_rec(self.exclusion_processor, self.path)
-		return expected_filesystem == filtered_filesystem
+	def check(self, expected_fs):
+		filtered_fs = self.check_rec(self.exclusion_processor, self.path)
+		return expected_fs == filtered_fs
 	
 	def check_rec(self, ep, path):
 		fs = {}
@@ -32,12 +32,13 @@ class TestExclusionProcessor(unittest.TestCase):
 
 	def test_wildcard_pattern(self):
 		filesystem = {"a":{"b":""}, "kuku.txt":"", "kuku.txt.bak": ""}
-		fsc = UtilFilesystemCreator()
+		fsc = FSC.FilesystemCreator("/tmp/manent.test.scratch.exclusion")
 		fsc.add_files(filesystem)
 		
-		ep = ExclusionProcessor.ExclusionProcessor()
-		ep.add_wildcard_rule(ExclusionProcessor.RULE_EXCLUDE, "*.txt")
-		filtered_files = ep.filter_files()
-
+		ep = EP.ExclusionProcessor(fsc.get_home())
+		ep.add_wildcard_rule('*.txt', EP.RULE_EXCLUDE)
+		
 		expected_files = {"a":{"b":""}, "kuku.txt.bak": ""}
-		self.ASSERT_EQUAL(filtered_files, expected_files)
+		driver = EPDriver(ep, fsc.get_home())
+		self.failUnless(driver.check(expected_files))
+
