@@ -6,7 +6,7 @@ RULE_INCLUDE = 1
 
 class FileListFilter:
 	"""Filters a given list of files with a given wildcard pattern"""
-	def __init__(self, pattern, action):
+	def __init__(self, action, pattern):
 		self.action = action
 		self.pattern = pattern
 	
@@ -22,7 +22,7 @@ class FileListFilter:
 					new_in_files.append(file)
 			#print "  Rule=exclude, pattern=", self.pattern
 			#print "  Result: ", new_in_files, ":", new_ex_files
-			return (new_in_files,new_ex_files)
+			return (new_in_files, new_ex_files)
 		else:
 			new_in_files = [n for n in in_files]
 			new_ex_files = []
@@ -33,7 +33,7 @@ class FileListFilter:
 					new_ex_files.append(file)
 			#print "  Rule=exclude, pattern=", self.pattern
 			#print "  Result: ", new_in_files, ":", new_ex_files
-			return (new_in_files,new_ex_files)
+			return (new_in_files, new_ex_files)
 	
 class ExclusionProcessor:
 	def __init__(self, root):
@@ -49,7 +49,7 @@ class ExclusionProcessor:
 		self.rules = []
 		self.wildcard_rules = []
 
-	def add_rule(self, pattern, action):
+	def add_rule(self, action, pattern):
 		"""Adds a new rule to the database of rules at this level.
 		The rule represents a relative path and applies only to subdirs
 		that are below this path."""
@@ -62,7 +62,7 @@ class ExclusionProcessor:
 		
 		self.rules.append((action, steps))
 	
-	def add_absolute_rule(self, pattern, action):
+	def add_absolute_rule(self, action, pattern):
 		patern = os.path.expanduser(pattern)
 		assert os.path.isabs(patern)
 		
@@ -74,7 +74,7 @@ class ExclusionProcessor:
 				# The pattern does not reach to the root
 				return
 			if len(root_steps) == 0:
-				self.add_rule(os.path.join(patt_steps), action)
+				self.add_rule(action, os.path.join(patt_steps))
 				return
 			if not fnmatch.fnmatch(root_steps[0], pat_steps[0]):
 				# The pattern does not apply to this path
@@ -83,7 +83,7 @@ class ExclusionProcessor:
 			root_steps = root_steps[1:]
 			patt_steps = patt_steps[1:]
 
-	def add_wildcard_rule(self, pattern, action):
+	def add_wildcard_rule(self, action, pattern):
 		(dir_pattern, file_pattern) = os.path.split(pattern)
 		if dir_pattern != "":
 			raise Exception("Global rule must be either an absolute path or a file wildcard")
@@ -114,7 +114,7 @@ class ExclusionProcessor:
 		ex_files = []
 		ex_dirs = []
 		for (action, pattern) in final_rules:
-			filter = FileListFilter(pattern, action)
+			filter = FileListFilter(action, pattern)
 			in_files, ex_files = filter.apply(in_files, ex_files)
 			inc_dirs, ex_dirs = filter.apply(in_dirs, ex_dirs)
 			
@@ -140,7 +140,7 @@ class ExclusionProcessor:
 			if fnmatch.fnmatch(directory, patterns[0]):
 				ep.add_rule((action, patterns[1:]))
 		for (action, pattern) in self.wildcard_rules:
-			ep.add_wildcard_rule(pattern, action)
+			ep.add_wildcard_rule(action, pattern)
 
 		return ep
 	def __scan(self):

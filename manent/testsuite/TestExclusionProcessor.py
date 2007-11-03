@@ -46,7 +46,7 @@ class TestExclusionProcessor(unittest.TestCase):
 		fsc.add_files(filesystem)
 		
 		ep = EP.ExclusionProcessor(fsc.get_home())
-		ep.add_wildcard_rule('*.txt', EP.RULE_EXCLUDE)
+		ep.add_wildcard_rule(EP.RULE_EXCLUDE, '*.txt')
 		
 		expected_files = {"a":{"b":""}, "kuku.txt.bak": ""}
 		driver = EPDriver(ep, fsc.get_home())
