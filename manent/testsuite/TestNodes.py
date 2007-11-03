@@ -10,7 +10,7 @@ import manent.utils.IntegerEncodings as IE
 from manent.Nodes import *
 
 # test util imports
-from UtilFilesystemCreator import *
+import UtilFilesystemCreator as FSC
 from Mock import *
 
 #TODO:
@@ -20,9 +20,9 @@ from Mock import *
 
 class TestNodes(unittest.TestCase):
 	def setUp(self):
-		self.fsc = FilesystemCreator("/tmp/manent.test.scratch.nodes")
+		self.fsc = FSC.FilesystemCreator()
 	def tearDown(self):
-		pass
+		self.fsc.cleanup()
 
 	def test_path(self):
 		"""Test that path is computed correctly"""
@@ -131,8 +131,8 @@ class TestNodes(unittest.TestCase):
 		#
 		# Scan the files
 		#
-		f1 = FSCFile("kuku")
-		f2 = FSCSymlink("file1")
+		f1 = FSC.FSCFile("kuku")
+		f2 = FSC.FSCSymlink("file1")
 		# TODO(gsasha): On a Mac, it appears that it is not possible to have a hard
 		# link to a symlink
 		file_data = {"file1":f1, "file2":f2, "file3":f1, "file4":f2}
@@ -158,7 +158,9 @@ class TestNodes(unittest.TestCase):
 		ctx = backup.start_increment("for restoring")
 
 		# Create the directory structure
-		file_data = {"file1":FSCFile("kuku"), "dir1": {"file2":FSCFile("kuku"),"file3":FSCFile("bebe")}}
+		file_data = {"file1":FSC.FSCFile("kuku"),
+		    "dir1": {"file2":FSC.FSCFile("kuku"),
+			"file3":FSC.FSCFile("bebe")}}
 		self.fsc.reset()
 		self.fsc.add_files(file_data)
 		self.failUnless(self.fsc.test_files(file_data))
@@ -181,7 +183,9 @@ class TestNodes(unittest.TestCase):
 		ctx = backup.start_increment("for restoring")
 		
 		# Create the directory structure
-		file_data = {"file1":FSCFile("kuku"), "dir1": {"file2":FSCFile("kuku"),"file3":FSCFile("bebe")}}
+		file_data = {"file1":FSC.FSCFile("kuku"),
+		    "dir1": {"file2":FSC.FSCFile("kuku"),
+			"file3":FSC.FSCFile("bebe")}}
 		self.fsc.reset()
 		self.fsc.add_files(file_data)
 
@@ -191,7 +195,7 @@ class TestNodes(unittest.TestCase):
 		digest = basedir.get_digest()
 
 		time.sleep(1.1)
-		file_data["file_new"] = FSCFile("kukui")
+		file_data["file_new"] = FSC.FSCFile("kukui")
 		self.fsc.add_files({'dir1':{"file_new":"kukui"}})
 		#self.fsc.add_files({"file_new":"kukui"})
 		ctx = backup.start_increment("test prev")

@@ -116,11 +116,16 @@ class ExclusionProcessor:
 		for (action, pattern) in final_rules:
 			filter = FileListFilter(action, pattern)
 			in_files, ex_files = filter.apply(in_files, ex_files)
-			inc_dirs, ex_dirs = filter.apply(in_dirs, ex_dirs)
-			
+			in_dirs, ex_dirs = filter.apply(in_dirs, ex_dirs)
+
 		self.included_files = in_files
 		self.included_dirs = in_dirs
 		self.dir_rules = middle_rules
+		
+		#print "Result of filtering in %s:" % self.root
+		#print "  files", self.included_files
+		#print "  dirs ", self.included_dirs
+		#print "  rules", self.dir_rules
 
 	def get_included_files(self):
 		return self.included_files

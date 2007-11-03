@@ -2,6 +2,7 @@ import unittest
 import random
 from cStringIO import StringIO
 import os
+import tempfile
 
 import manent.utils.Digest
 from manent.Container import *
@@ -47,10 +48,16 @@ class MockHandler:
 class MockStorage:
 	def __init__(self,password):
 		self.password = password
-		self.header_file_name = "/tmp/manent.test_container.header"
-		self.body_file_name = "/tmp/manent.test_container.body"
+		handle, self.header_file_name = tempfile.mkstemp(
+			".header","manent.test_container", "/tmp")
+		handle, self.body_file_name = tempfile.mkstemp(
+			".body", "manent.test_container", "/tmp")
 		self.cur_index = 0
-		
+
+	def cleanup(self):
+		os.unlink(self.header_file_name)
+		os.unlink(self.body_file_name)
+
 	def get_container(self,index):
 		container = Container(self,self.header_file_name,self.body_file_name)
 		container.start_load(index)
@@ -266,3 +273,6 @@ class TestContainer(unittest.TestCase):
 
 		container.load_blocks(handler)
 		self.failUnless(handler.check())
+		
+		storage.cleanup()
+

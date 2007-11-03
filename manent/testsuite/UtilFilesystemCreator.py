@@ -1,5 +1,6 @@
 import os, os.path, shutil
 import stat
+import tempfile
 
 class FSCSymlink:
 	def __init__(self,link):
@@ -14,8 +15,9 @@ class FSCFile:
 		return self.data
 
 class FilesystemCreator:
-	def __init__(self,home):
-		self.home = home
+	def __init__(self):
+		self.home = tempfile.mkdtemp("","manent.test.scratch","/tmp")
+		#print "*** Selected homedir %s " % self.home
 		try:
 			shutil.rmtree(self.home)
 		except:
@@ -23,12 +25,16 @@ class FilesystemCreator:
 			pass
 		os.mkdir(self.home)
 
-	def reset(self):
+	def cleanup(self):
 		try:
 			shutil.rmtree(self.home)
 		except:
 			pass
+
+	def reset(self):
+		self.cleanup()
 		os.mkdir(self.home)
+
 	def get_home(self):
 		return self.home
 	

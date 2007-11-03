@@ -2,7 +2,7 @@ import unittest
 import os, os.path
 
 import manent.ExclusionProcessor as EP
-import testsuite.UtilFilesystemCreator as FSC
+import UtilFilesystemCreator as FSC
 
 class EPDriver:
 	"""Exclusion Processor Driver.
@@ -40,28 +40,42 @@ class EPDriver:
 
 class TestExclusionProcessor(unittest.TestCase):
 
+	def setUp(self):
+		self.fsc = FSC.FilesystemCreator()
+	def tearDown(self):
+		self.fsc.cleanup()
+		
 	def test_wildcard_pattern(self):
 		filesystem = {"a":{"b":""}, "kuku.txt":"", "kuku.txt.bak": ""}
-		fsc = FSC.FilesystemCreator("/tmp/manent.test.scratch.exclusion")
-		fsc.add_files(filesystem)
+		self.fsc.reset()
+		self.fsc.add_files(filesystem)
 		
-		ep = EP.ExclusionProcessor(fsc.get_home())
+		ep = EP.ExclusionProcessor(self.fsc.get_home())
+		ep.add_wildcard_rule(EP.RULE_EXCLUDE, 'a')
 		ep.add_wildcard_rule(EP.RULE_EXCLUDE, '*.txt')
 		
-		expected_files = {"a":{"b":""}, "kuku.txt.bak": ""}
-		driver = EPDriver(ep, fsc.get_home())
+		expected_files = {"kuku.txt.bak": ""}
+		driver = EPDriver(ep, self.fsc.get_home())
 		self.failUnless(driver.check(expected_files))
 
 	def test_deep_pattern(self):
 		"""Test that a pattern with several wildcards in it works"""
 		filesystem = {"a":{"b":""},"c":{"d.txt":"","e.cc":""}}
-		fsc = FSC.FilesystemCreator("/tmp/manent.test.scratch.exclusion")
-		fsc.add_files(filesystem)
+		self.fsc.reset()
+		self.fsc.add_files(filesystem)
 		
-		ep = EP.ExclusionProcessor(fsc.get_home())
+		ep = EP.ExclusionProcessor(self.fsc.get_home())
 		ep.add_rule(EP.RULE_EXCLUDE, "*/*.txt")
 		
 		expected_fs = {"a":{"b":""}, "c":{"e.cc":""}}
-		driver = EPDriver(ep, fsc.get_home())
+		driver = EPDriver(ep, self.fsc.get_home())
 		self.failUnless(driver.check(expected_fs))
 
+	def test_rule_override(self):
+		"""Test that a include rule overrides an exclude one, and
+		   vice versa"""
+		return
+		
+	def test_rule_absolute(self):
+		"""Test that absolute path rules work"""
+		return
