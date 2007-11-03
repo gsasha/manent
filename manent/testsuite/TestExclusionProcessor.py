@@ -1,4 +1,5 @@
 import unittest
+import os, os.path
 
 import manent.ExclusionProcessor as EP
 import testsuite.UtilFilesystemCreator as FSC
@@ -13,19 +14,28 @@ class EPDriver:
 	
 	def check(self, expected_fs):
 		filtered_fs = self.check_rec(self.exclusion_processor, self.path)
+		if expected_fs != filtered_fs:
+			print "Expected fs: ", expected_fs
+			print "Filtered fs: ", filtered_fs
 		return expected_fs == filtered_fs
 	
 	def check_rec(self, ep, path):
 		fs = {}
 		
-		filtered_files = ep.filter_files()
-		for file in filtered_files:
-			new_path = os.path.join(path, file)
-			if os.isdir(new_path):
-				new_ep = ep.descend(file)
-				fs[file] = self.check_rec(new_ep,new_path)
-			else:
-				fs[file] = {}
+		ep.filter_files()
+		filtered_files = ep.get_included_files()
+		filtered_dirs = ep.get_included_dirs()
+
+		for name in filtered_files:
+			new_path = os.path.join(path, name)
+			assert not os.path.isdir(new_path)
+			fs[name] = ""
+		for name in filtered_dirs:
+			new_path = os.path.join(path, name)
+			assert os.path.isdir(new_path)
+			new_ep = ep.descend(name)
+			fs[name] = self.check_rec(new_ep, new_path)
+
 		return fs
 
 class TestExclusionProcessor(unittest.TestCase):

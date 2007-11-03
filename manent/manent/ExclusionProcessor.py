@@ -6,28 +6,33 @@ RULE_INCLUDE = 1
 
 class FileListFilter:
 	"""Filters a given list of files with a given wildcard pattern"""
-	def __init__(self, pattern, rule):
-		self.rule = rule
+	def __init__(self, pattern, action):
+		self.action = action
 		self.pattern = pattern
 	
 	def apply(self, in_files, ex_files):
-		if self.rule == RULE_EXCLUDE:
+		#print "Filtering ", in_files, ":", ex_files
+		if self.action == RULE_EXCLUDE:
 			new_in_files = []
 			new_ex_files = [n for n in ex_files]
 			for file in in_files:
-				if fnmatch.fnmatch(file,pattern):
+				if fnmatch.fnmatch(file, self.pattern):
 					new_ex_files.append(file)
 				else:
 					new_in_files.append(file)
+			#print "  Rule=exclude, pattern=", self.pattern
+			#print "  Result: ", new_in_files, ":", new_ex_files
 			return (new_in_files,new_ex_files)
 		else:
 			new_in_files = [n for n in in_files]
 			new_ex_files = []
 			for file in in_files:
-				if fnmatch.fnmatch(file,pattern):
+				if fnmatch.fnmatch(file, self.pattern):
 					new_in_files.append(file)
 				else:
 					new_ex_files.append(file)
+			#print "  Rule=exclude, pattern=", self.pattern
+			#print "  Result: ", new_in_files, ":", new_ex_files
 			return (new_in_files,new_ex_files)
 	
 class ExclusionProcessor:
@@ -41,7 +46,7 @@ class ExclusionProcessor:
 		# Absolute rules are defined with respect to the root of the filesystem
 		# Wildcard rules are simple patterns without a directory path.
 		self.root = root
-		self.relative_rules = []
+		self.rules = []
 		self.wildcard_rules = []
 
 	def add_rule(self, pattern, action):
@@ -95,6 +100,7 @@ class ExclusionProcessor:
 				final_rules.append((action, patterns[0]))
 			else:
 				middle_rules.append((action, patterns))
+		final_rules += self.wildcard_rules
 
 		in_files = []
 		in_dirs = []
@@ -108,7 +114,7 @@ class ExclusionProcessor:
 		ex_files = []
 		ex_dirs = []
 		for (action, pattern) in final_rules:
-			filter = FileListFilter(action, pattern)
+			filter = FileListFilter(pattern, action)
 			in_files, ex_files = filter.apply(in_files, ex_files)
 			inc_dirs, ex_dirs = filter.apply(in_dirs, ex_dirs)
 			
@@ -118,24 +124,25 @@ class ExclusionProcessor:
 
 	def get_included_files(self):
 		return self.included_files
+
 	def get_included_dirs(self):
 		return self.included_dirs
-		
+
 	def descend(self,directory):
 		"""Returns a new filter that can process files
 		   in the given subdirectory.
 		   The directory that is given as a parameter must be
 		   a valid subdir of this one"""
 		assert directory in self.included_dirs
-		fe = FileFilterEngine()
+		ep = ExclusionProcessor(os.path.join(self.root, directory))
 
 		for (action, patterns) in self.dir_rules:
 			if fnmatch.fnmatch(directory, patterns[0]):
-				fe.add_rule((action, patterns[1:]))
-		for (action, patterns) in self.wildcard_rules:
-			fe.add_wildcard_rule((action, patterns))
+				ep.add_rule((action, patterns[1:]))
+		for (action, pattern) in self.wildcard_rules:
+			ep.add_wildcard_rule(pattern, action)
 
-		return fe
+		return ep
 	def __scan(self):
 		"""Private implementation.
 		Scans the current directory for additional include and exclude
