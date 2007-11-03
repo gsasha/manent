@@ -52,3 +52,16 @@ class TestExclusionProcessor(unittest.TestCase):
 		driver = EPDriver(ep, fsc.get_home())
 		self.failUnless(driver.check(expected_files))
 
+	def test_deep_pattern(self):
+		"""Test that a pattern with several wildcards in it works"""
+		filesystem = {"a":{"b":""},"c":{"d.txt":"","e.cc":""}}
+		fsc = FSC.FilesystemCreator("/tmp/manent.test.scratch.exclusion")
+		fsc.add_files(filesystem)
+		
+		ep = EP.ExclusionProcessor(fsc.get_home())
+		ep.add_rule(EP.RULE_EXCLUDE, "*/*.txt")
+		
+		expected_fs = {"a":{"b":""}, "c":{"e.cc":""}}
+		driver = EPDriver(ep, fsc.get_home())
+		self.failUnless(driver.check(expected_fs))
+

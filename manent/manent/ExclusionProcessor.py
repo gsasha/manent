@@ -138,7 +138,7 @@ class ExclusionProcessor:
 
 		for (action, patterns) in self.dir_rules:
 			if fnmatch.fnmatch(directory, patterns[0]):
-				ep.add_rule((action, patterns[1:]))
+				ep.add_rule(action, os.path.join(*patterns[1:]))
 		for (action, pattern) in self.wildcard_rules:
 			ep.add_wildcard_rule(action, pattern)
 
