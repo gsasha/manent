@@ -320,7 +320,7 @@ class Directory(Node):
 		Node.__init__(self, backup, parent, name)
 	def get_type(self):
 		return NODE_TYPE_DIR
-	def scan(self, ctx, prev_nums):
+	def scan(self, ctx, prev_nums, exclusion_processor):
 		"""Scan the node, considering data in all the previous increments
 		"""
 		#
@@ -344,7 +344,7 @@ class Directory(Node):
 				prev_name_data[node_name].append(
 					(node_type, node_stat, node_digest))
 
-		last_type,last_stat,last_digest = None,None,None
+		last_type, last_stat, last_digest = None, None, None
 		if len(prev_nums) != 0:
 			last_type, last_stat, last_digest = prev_nums[-1]
 
@@ -357,23 +357,9 @@ class Directory(Node):
 		# Scan the directory
 		#
 		#print "starting scan for", self.path()
-		entries = os.listdir(self.path())
-		for name in entries:
-			# Exclude nonessential names automatically
-			if (name=="..") or (name=="."):
-				continue
-
+		exclusion_processor.filter_files()
+		for name in exclusion_processor.get_included_files():
 			path = os.path.join(self.path(),name)
-			
-			# Check if the file name should be excluded
-			excluded = False
-			for checker in self.backup.global_config.excludes():
-				if checker(path):
-					print "Excluding file from scan:", path
-					excluded = True
-					break
-			if excluded: continue
-			
 			file_mode = os.lstat(path)[stat.ST_MODE]
 
 			if prev_name_data.has_key(name):
@@ -392,15 +378,6 @@ class Directory(Node):
 					node.compute_stats()
 					node.scan(ctx,cur_prev)
 					self.children.append(node)
-				elif stat.S_ISDIR(file_mode):
-					node = Directory(self.backup,self,name)
-					#
-					# The order is different here, and it's all because directory can
-					# produce temporary digest of its contents during scanning
-					#
-					node.compute_stats()
-					self.children.append(node)
-					node.scan(ctx,cur_prev)
 				else:
 					print "Ignoring unrecognized file type", path
 			except OSError:
@@ -408,6 +385,35 @@ class Directory(Node):
 				traceback.print_exc()
 			except IOError, (errno, strerror):
 				print "IOError %s accessing '%s'" % (errno,strerror), path
+				traceback.print_exc()
+
+		for name in exclusion_processor.get_included_dirs():
+			path = os.path.join(self.path(), name)
+			file_mode = os.lstat(path)[stat.ST_MODE]
+
+			if prev_name_data.has_key(name):
+				cur_prev = prev_name_data[name]
+			else:
+				cur_prev = []
+
+			try:
+				if stat.S_ISDIR(file_mode):
+					node = Directory(self.backup, self, name)
+					#
+					# The order is different here, and it's all because directory can
+					# produce temporary digest of its contents during scanning
+					#
+					node.compute_stats()
+					self.children.append(node)
+					child_ep = exclusion_processor.descend(name)
+					node.scan(ctx, cur_prev, child_ep)
+				else:
+					print "Ignoring unrecognized file type", path
+			except OSError:
+				print "OSError accessing", path
+				traceback.print_exc()
+			except IOError, (errno, strerror):
+				print "IOError %s accessing '%s'" % (errno, strerror), path
 				traceback.print_exc()
 
 		self.write(ctx)

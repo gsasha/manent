@@ -7,6 +7,7 @@ import base64
 
 # manent imports
 import manent.utils.IntegerEncodings as IE
+import manent.ExclusionProcessor as EP
 from manent.Nodes import *
 
 # test util imports
@@ -142,7 +143,8 @@ class TestNodes(unittest.TestCase):
 
 		# Scan the directory structure
 		basedir = Directory(backup, None, self.fsc.get_home())
-		basedir.scan(ctx,[])
+		ep = EP.ExclusionProcessor(self.fsc.get_home())
+		basedir.scan(ctx, [], ep)
 		digest = basedir.get_digest()
 		
 		# Try to restore
@@ -167,7 +169,8 @@ class TestNodes(unittest.TestCase):
 
 		# Scan the directory structure
 		basedir = Directory(backup, None, self.fsc.get_home())
-		basedir.scan(ctx,[])
+		ep = EP.ExclusionProcessor(self.fsc.get_home())
+		basedir.scan(ctx, [], ep)
 		digest = basedir.get_digest()
 
 		# Try to restore
@@ -177,6 +180,7 @@ class TestNodes(unittest.TestCase):
 		restore_dir.restore(ctx)
 
 		self.failUnless(self.fsc.test_files(file_data))
+
 	def test_prev(self):
 		"""Test that the information from previous versions is taken into account"""
 		backup = MockBackup(self.fsc.get_home())
@@ -191,7 +195,8 @@ class TestNodes(unittest.TestCase):
 
 		# Scan the directory structure
 		basedir = Directory(backup, None, self.fsc.get_home())
-		basedir.scan(ctx,[])
+		ep = EP.ExclusionProcessor(self.fsc.get_home())
+		basedir.scan(ctx, [], ep)
 		digest = basedir.get_digest()
 
 		time.sleep(1.1)
@@ -200,10 +205,9 @@ class TestNodes(unittest.TestCase):
 		#self.fsc.add_files({"file_new":"kukui"})
 		ctx = backup.start_increment("test prev")
 		basedir = Directory(backup, None, self.fsc.get_home())
-		basedir.scan(ctx,[(NODE_TYPE_DIR,None,digest)])
+		basedir.scan(ctx,[(NODE_TYPE_DIR,None,digest)], ep)
 		digest = basedir.get_digest()
 
 		self.assertEquals(ctx.total_nodes, 6)
 		# 3 nodes have changed: the new file and the directories that contain it.
 		self.assertEquals(ctx.changed_nodes, 3)
-		

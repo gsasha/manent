@@ -126,4 +126,8 @@ class TestExclusionProcessor(unittest.TestCase):
 		expected_fs = {"a":{"c.txt":"", "d.txt":""}, ".manent-exclude":""}
 		driver = EPDriver(ep, self.fsc.get_home())
 		self.failUnless(driver.check(expected_fs))
-	#TODO: add curr dir scanning for rules
+
+	# TODO: test that a symlink to a directory is not considered directory
+	#       for purposes of exclusion
+	def test_symlink_to_dir(self):
+		self.failUnless(False)
