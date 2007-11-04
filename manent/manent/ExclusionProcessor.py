@@ -63,8 +63,8 @@ class ExclusionProcessor:
 		self.rules.append((action, steps))
 	
 	def add_absolute_rule(self, action, pattern):
-		patern = os.path.expanduser(pattern)
-		assert os.path.isabs(patern)
+		pattern = os.path.expanduser(pattern)
+		assert os.path.isabs(pattern)
 		
 		root_steps = self.root.split(os.path.sep)
 		patt_steps = pattern.split(os.path.sep)
@@ -74,9 +74,9 @@ class ExclusionProcessor:
 				# The pattern does not reach to the root
 				return
 			if len(root_steps) == 0:
-				self.add_rule(action, os.path.join(patt_steps))
+				self.add_rule(action, os.path.join(*patt_steps))
 				return
-			if not fnmatch.fnmatch(root_steps[0], pat_steps[0]):
+			if not fnmatch.fnmatch(root_steps[0], patt_steps[0]):
 				# The pattern does not apply to this path
 				return
 			

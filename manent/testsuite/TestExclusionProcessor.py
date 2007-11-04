@@ -101,4 +101,16 @@ class TestExclusionProcessor(unittest.TestCase):
 
 	def test_rule_absolute(self):
 		"""Test that absolute path rules work"""
-		return
+		filesystem = {"a":{"b.txt":""},".manent":{"config":"a", "db":"b"}}
+		self.fsc.reset()
+		self.fsc.add_files(filesystem)
+		
+		ep = EP.ExclusionProcessor(self.fsc.get_home())
+		ep.add_absolute_rule(EP.RULE_EXCLUDE, os.path.join(
+			self.fsc.get_home(),".manent"))
+			
+		expected_fs = {"a":{"b.txt":""}}
+		driver = EPDriver(ep, self.fsc.get_home())
+		self.failUnless(driver.check(expected_fs))
+		
+	#TODO: add curr dir scanning for rules
