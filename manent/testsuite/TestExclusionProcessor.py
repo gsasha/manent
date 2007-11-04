@@ -74,7 +74,17 @@ class TestExclusionProcessor(unittest.TestCase):
 	def test_rule_override(self):
 		"""Test that a include rule overrides an exclude one, and
 		   vice versa"""
-		return
+		filesystem = {"a":{"b.txt":"","c.txt":"","d.txt":""}}
+		self.fsc.reset()
+		self.fsc.add_files(filesystem)
+		
+		ep = EP.ExclusionProcessor(self.fsc.get_home())
+		ep.add_rule(EP.RULE_EXCLUDE, "*/*.txt")
+		ep.add_rule(EP.RULE_INCLUDE, "a/b*")
+		
+		expected_fs = {"a":{"b.txt":""}}
+		driver = EPDriver(ep, self.fsc.get_home())
+		self.failUnless(driver.check(expected_fs))
 		
 	def test_rule_absolute(self):
 		"""Test that absolute path rules work"""

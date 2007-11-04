@@ -26,12 +26,12 @@ class FileListFilter:
 		else:
 			new_in_files = [n for n in in_files]
 			new_ex_files = []
-			for file in in_files:
+			for file in ex_files:
 				if fnmatch.fnmatch(file, self.pattern):
 					new_in_files.append(file)
 				else:
 					new_ex_files.append(file)
-			#print "  Rule=exclude, pattern=", self.pattern
+			#print "  Rule=include, pattern=", self.pattern
 			#print "  Result: ", new_in_files, ":", new_ex_files
 			return (new_in_files, new_ex_files)
 	
