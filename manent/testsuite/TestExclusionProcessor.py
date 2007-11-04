@@ -74,18 +74,31 @@ class TestExclusionProcessor(unittest.TestCase):
 	def test_rule_override(self):
 		"""Test that a include rule overrides an exclude one, and
 		   vice versa"""
-		filesystem = {"a":{"b.txt":"","c.txt":"","d.txt":""}}
+		filesystem = {"a":{"b.txt":"", "b.bak":"","c.txt":"","d.txt":""}}
 		self.fsc.reset()
 		self.fsc.add_files(filesystem)
 		
+		# Test that inclusion overrides exclusion
 		ep = EP.ExclusionProcessor(self.fsc.get_home())
 		ep.add_rule(EP.RULE_EXCLUDE, "*/*.txt")
 		ep.add_rule(EP.RULE_INCLUDE, "a/b*")
 		
-		expected_fs = {"a":{"b.txt":""}}
+		expected_fs = {"a":{"b.txt":"", "b.bak":""}}
 		driver = EPDriver(ep, self.fsc.get_home())
 		self.failUnless(driver.check(expected_fs))
 		
+		# Test that exclusion overrides inclusion
+		ep = EP.ExclusionProcessor(self.fsc.get_home())
+		# - Note the rule order: the wildcard rules are executed last
+		#   although they can be defined earlier
+		ep.add_wildcard_rule(EP.RULE_EXCLUDE, "*.bak")
+		ep.add_rule(EP.RULE_EXCLUDE, "*/*")
+		ep.add_rule(EP.RULE_INCLUDE, "a/b*")
+
+		expected_fs = {"a":{"b.txt":""}}
+		driver = EPDriver(ep, self.fsc.get_home())
+		self.failUnless(driver.check(expected_fs))
+
 	def test_rule_absolute(self):
 		"""Test that absolute path rules work"""
 		return
