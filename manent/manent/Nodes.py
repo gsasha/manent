@@ -316,11 +316,11 @@ class Symlink(Node):
 # CLASS:Directory
 #--------------------------------------------------------
 class Directory(Node):
-	def __init__(self,backup,parent,name):
-		Node.__init__(self,backup,parent,name)
+	def __init__(self, backup, parent, name):
+		Node.__init__(self, backup, parent, name)
 	def get_type(self):
 		return NODE_TYPE_DIR
-	def scan(self,ctx,prev_nums):
+	def scan(self, ctx, prev_nums):
 		"""Scan the node, considering data in all the previous increments
 		"""
 		#
@@ -330,21 +330,23 @@ class Directory(Node):
 		# prev data indexed by file, for directory scan
 		prev_name_data = {}
 
-		for (prev_type,prev_stat,prev_digest) in prev_nums:
+		for (prev_type, prev_stat, prev_digest) in prev_nums:
 			if prev_type is not None and prev_type != self.get_type():
 				# This previous entry is not a directory.
 				# Definitely shouldn't read it.
 				break
 
 			dir_stream = PackerIStream(self.backup, prev_digest)
-			for node_type,node_name,node_stat,node_digest in self.read_directory_entries(dir_stream,prev_stat):
+			for node_type, node_name, node_stat, node_digest in\
+			      self.read_directory_entries(dir_stream,prev_stat):
 				if not prev_name_data.has_key(node_name):
 					prev_name_data[node_name] = []
-				prev_name_data[node_name].append((node_type,node_stat,node_digest))
+				prev_name_data[node_name].append(
+					(node_type, node_stat, node_digest))
 
 		last_type,last_stat,last_digest = None,None,None
 		if len(prev_nums) != 0:
-			last_type,last_stat,last_digest = prev_nums[-1]
+			last_type, last_stat, last_digest = prev_nums[-1]
 
 		#
 		# Initialize scanning data
