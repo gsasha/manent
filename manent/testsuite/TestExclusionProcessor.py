@@ -119,5 +119,11 @@ class TestExclusionProcessor(unittest.TestCase):
 		filesystem = {"a":{"b.txt":"", "c.txt":"", "d.txt":""}}
 		self.fsc.add_files(filesystem)
 		self.fsc.add_files(
-			{".manent-exclude":"exclude=*.txt\ninclude=a/d*"})
+			{".manent-exclude":"exclude=b.txt\ninclude=a/d*"})
+		
+		ep = EP.ExclusionProcessor(self.fsc.get_home())
+			
+		expected_fs = {"a":{"c.txt":"", "d.txt":""}, ".manent-exclude":""}
+		driver = EPDriver(ep, self.fsc.get_home())
+		self.failUnless(driver.check(expected_fs))
 	#TODO: add curr dir scanning for rules

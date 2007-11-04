@@ -92,6 +92,12 @@ class ExclusionProcessor:
 	def filter_files(self):
 		"""Returns the list of files that pass filtering
 		   in the current directory"""
+		self.scan_local_excludes()
+
+		#print "Filtering in %s:" % self.root
+		#print "  rules", self.rules
+		#print " wrules", self.wildcard_rules
+
 		# We process files and directories differently.
 		final_rules = []
 		middle_rules = []
@@ -154,7 +160,7 @@ class ExclusionProcessor:
 		directives"""
 		pass
 	
-	def scan_local_exclusion(self):
+	def scan_local_excludes(self):
 		"""
 		Local exclude files contain the following lines:
 			#<text> : comment
@@ -168,7 +174,8 @@ class ExclusionProcessor:
 		some very complex interactions. For example:
 		"""
 		try:
-			exclude_file_name = os.path.join(self.path, ".manent-exclude")
+			exclude_file_name = os.path.join(self.root, ".manent-exclude")
+			#print "Trying to find local exclude in", exclude_file_name
 			file = open(exclude_file_name)
 		except:
 			# If the file does not exist or can't be opened, ignore it
@@ -177,17 +184,18 @@ class ExclusionProcessor:
 		for line in file:
 			line = line.strip()
 			if line.startswith("#"):
-				# This is a comment
+				# Nothing to do for a comment line
 				continue
 			elif line.startswith("include="):
 				action = RULE_INCLUDE
 				pattern = line[len("include="):]
 			elif line.startswith("exclude="):
 				action = RULE_EXCLUDE
-				pattern = line[len("exclude=")]
+				pattern = line[len("exclude="):]
 			else:
 				print "Warning: unrecognized rule line in file %s: %s" % (
 					exclude_file_name, line)
+				continue
 			dir_pat, file_patt = os.path.split(pattern)
 			if dir_pat == "":
 				self.add_wildcard_rule(action, pattern)
