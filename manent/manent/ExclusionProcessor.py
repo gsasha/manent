@@ -155,14 +155,42 @@ class ExclusionProcessor:
 		pass
 	
 	def scan_local_exclusion(self):
+		"""
+		Local exclude files contain the following lines:
+			#<text> : comment
+			exclude=<pattern>
+			include=<pattern>
+		Include and exclude patterns can be only relative and wildcards
+		No absolute patterns are accepted (and why should they be in local
+		rules?)
+		
+		The reason to disallow absolute rules is that they can cause
+		some very complex interactions. For example:
+		"""
 		try:
-			file = open(os.path.join(self.path, ".manent-excludes"))
+			exclude_file_name = os.path.join(self.path, ".manent-exclude")
+			file = open(exclude_file_name)
 		except:
 			# If the file does not exist or can't be opened, ignore it
 			return
 		
 		for line in file:
-			if line.startswith():
-				pass
-			
+			line = line.strip()
+			if line.startswith("#"):
+				# This is a comment
+				continue
+			elif line.startswith("include="):
+				action = RULE_INCLUDE
+				pattern = line[len("include="):]
+			elif line.startswith("exclude="):
+				action = RULE_EXCLUDE
+				pattern = line[len("exclude=")]
+			else:
+				print "Warning: unrecognized rule line in file %s: %s" % (
+					exclude_file_name, line)
+			dir_pat, file_patt = os.path.split(pattern)
+			if dir_pat == "":
+				self.add_wildcard_rule(action, pattern)
+			else:
+				self.add_rule(action, pattern)
 

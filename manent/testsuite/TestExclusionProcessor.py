@@ -112,5 +112,12 @@ class TestExclusionProcessor(unittest.TestCase):
 		expected_fs = {"a":{"b.txt":""}}
 		driver = EPDriver(ep, self.fsc.get_home())
 		self.failUnless(driver.check(expected_fs))
-		
+
+	def test_rule_local(self):
+		"""Test that local rules defined in the filesystem work"""
+		self.fsc.reset()
+		filesystem = {"a":{"b.txt":"", "c.txt":"", "d.txt":""}}
+		self.fsc.add_files(filesystem)
+		self.fsc.add_files(
+			{".manent-exclude":"exclude=*.txt\ninclude=a/d*"})
 	#TODO: add curr dir scanning for rules
