@@ -112,7 +112,7 @@ class ExclusionProcessor:
 		in_dirs = []
 		for file in os.listdir(self.root):
 			file_path = os.path.join(self.root, file)
-			if os.path.isdir(file_path):
+			if os.path.isdir(file_path) and not os.path.islink(file_path):
 				in_dirs.append(file)
 			else:
 				in_files.append(file)

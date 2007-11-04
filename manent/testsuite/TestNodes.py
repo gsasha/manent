@@ -134,8 +134,6 @@ class TestNodes(unittest.TestCase):
 		#
 		f1 = FSC.FSCFile("kuku")
 		f2 = FSC.FSCSymlink("file1")
-		# TODO(gsasha): On a Mac, it appears that it is not possible to have a hard
-		# link to a symlink
 		file_data = {"file1":f1, "file2":f2, "file3":f1, "file4":f2}
 		self.fsc.reset()
 		self.fsc.add_files(file_data)

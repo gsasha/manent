@@ -28,7 +28,7 @@ class EPDriver:
 
 		for name in filtered_files:
 			new_path = os.path.join(path, name)
-			assert not os.path.isdir(new_path)
+			assert not os.path.isdir(new_path) or os.path.islink(new_path)
 			fs[name] = ""
 		for name in filtered_dirs:
 			new_path = os.path.join(path, name)
@@ -130,4 +130,15 @@ class TestExclusionProcessor(unittest.TestCase):
 	# TODO: test that a symlink to a directory is not considered directory
 	#       for purposes of exclusion
 	def test_symlink_to_dir(self):
-		self.failUnless(False)
+		self.fsc.reset()
+		f2 = FSC.FSCSymlink("d")
+		fs = {"d":{"a":"", "b":""}, "f":f2}
+		self.fsc.add_files(fs)
+		
+		ep = EP.ExclusionProcessor(self.fsc.get_home())
+		ep.add_rule(EP.RULE_EXCLUDE, "d/a")
+		ep.add_rule(EP.RULE_EXCLUDE, "f/b")
+		
+		expected_fs = {"d":{"b":""}, "f":""}
+		driver = EPDriver(ep, self.fsc.get_home())
+		self.failUnless(driver.check(expected_fs))
