@@ -19,6 +19,19 @@ class Repository:
 		self.storages = storages
 		self.active_storage_index = active_storage_index
 
+	def add_base_storage(self, storage_params):
+		# When we add a storage, the following algorithm is executed:
+		# 1. If the storage is already in the shared db, it is just added
+		# 2. If the storage is not in the shared db, the storage location
+		#    is rescanned. All storage locations found there are added as
+		#    base storages, and a new one is created.
+		pass
+	def add_active_storage(self, storage_params):
+		# When we add a storage, it 
+		pass
+	def add_passive_storage(self, storage_params):
+		pass
+
 	def get_active_storage_index(self):
 		return self.active_storage_index
 	

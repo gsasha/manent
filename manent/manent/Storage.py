@@ -28,9 +28,11 @@ class Storage:
 		self.label = label
 
 	def compute_header_filename(self,index):
-		return "manent.%s.%s.header" % (self.label, ascii_encode_int_varlen(index))
+		return "manent.%s.%s.header" % (self.label,
+			ascii_encode_int_varlen(index))
 	def compute_body_filename(self,index):
-		return "manent.%s.%s.body" % (self.label, ascii_encode_int_varlen(index))
+		return "manent.%s.%s.body" % (self.label,
+			ascii_encode_int_varlen(index))
 	
 	def close(self):
 		pass
@@ -42,8 +44,8 @@ class Storage:
 	#
 	def reconstruct(self,handler):
 		#
-		# It is the specific implementation of Storage that knows how to reconstruct the
-		# containers
+		# It is the specific implementation of Storage that knows how to
+		# reconstruct the containers
 		#
 		container_files = self.list_container_files()
 		container_header_files = {}
@@ -60,7 +62,9 @@ class Storage:
 			if not container_body_files.has_key(index):
 				print "Container %d has header but no index\n" % index
 				continue
-			container = Container(self,index,container_header_files[index],container_body_files[index])
+			container = Container(
+				self,index,container_header_files[index],
+				container_body_files[index])
 			container.load_header()
 
 			has_requested_blocks = False
@@ -111,7 +115,7 @@ class Storage:
 		pass
 	def load_container_body(self,index,file_name):
 		pass
-	def upload_container(seof,index,header_file_name,body_file_name):
+	def upload_container(self,index,header_file_name,body_file_name):
 		pass
 	
 	def rescan(self):
@@ -147,18 +151,25 @@ class FTPStorage(Storage):
 	def load_container_header(self,index,filename):
 		print "Loading header for container", index, "     "
 		remote_filename = self.compute_header_filename(index)
-		self.fs_handler.download(FileWriter(filename,self.down_bw_limiter), remote_filename)
+		self.fs_handler.download(
+			FileWriter(filename,self.down_bw_limiter), remote_filename)
 	
 	def load_container_data(self,index,filename):
 		print "Loading body for container", index, "     "
 		remote_filename = self.compute_body_filename(index)
-		self.fs_handler.download(FileWriter(filename,self.down_bw_limiter), remote_filename)
+		self.fs_handler.download(
+			FileWriter(filename,self.down_bw_limiter),
+			remote_filename)
 	
 	def upload_container(self,index,header_file_name,body_file_name):
 		remote_header_file_name = self.compute_header_filename(index)
 		remote_body_file_name = self.compute_body_filename(index)
-		self.fs_handler.upload(FileReader(header_file_name,self.up_bw_limiter), remote_header_file_name)
-		self.fs_handler.upload(FileReader(body_file_name,self.up_bw_limiter), remote_body_file_name)
+		self.fs_handler.upload(
+			FileReader(header_file_name,self.up_bw_limiter),
+			remote_header_file_name)
+		self.fs_handler.upload(
+			FileReader(body_file_name,self.up_bw_limiter),
+			remote_body_file_name)
 	
 	def list_container_files(self):
 		print "Scanning containers:"
@@ -185,10 +196,12 @@ class DirectoryStorage(Storage):
 		container_files = {}
 		container_data_files = {}
 		for file in os.listdir(self.path):
-			container_index = self.backup.global_config.container_index(file,self.backup.label,"")
+			container_index = self.backup.global_config.container_index(
+				file,self.backup.label,"")
 			if container_index != None:
 				container_files[container_index] = file
-			container_index = self.backup.global_config.container_index(file,self.backup.label,".data")
+			container_index = self.backup.global_config.container_index(
+				file,self.backup.label,".data")
 			if container_index != None:
 				container_data_files[container_index] = file
 		max_container = 0
@@ -216,7 +229,8 @@ class DirectoryStorage(Storage):
 		container = Container(self.backup,index)
 
 		filename = container.filename()
-		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
+		staging_path = os.path.join(
+			self.backup.global_config.staging_area(),filename)
 		target_path  = os.path.join(self.path, filename)
 		container.load(os.path.join(self.path,filename))
 		return container
@@ -226,14 +240,16 @@ class DirectoryStorage(Storage):
 		container = Container(self.backup,index)
 
 		filename = container.filename()+".data"
-		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
+		staging_path = os.path.join(
+			self.backup.global_config.staging_area(),filename)
 		target_path  = os.path.join(self.path, filename)
 		return target_path
 	def save_container(self,container):
 		index = container.index
 		
 		filename = container.filename()
-		staging_path = os.path.join(self.backup.global_config.staging_area(),filename)
+		staging_path = os.path.join(
+			self.backup.global_config.staging_area(),filename)
 		target_path  = os.path.join(self.path, filename)
 		
 		if staging_path != target_path:
@@ -275,9 +291,11 @@ class MailStorage(Storage):
 		file = open(filename,"wb")
 		Storage.save(self,file)
 		account = self.accounts[0]
-		file.write("%s %s %s" % (account["user"],account["pass"],account["quota"]))
+		file.write("%s %s %s" %
+			(account["user"],account["pass"],account["quota"]))
 	def add_account(self,username,password,quota):
-		self.accounts.append({"user":username, "pass":password, "quota":quota, "used":0})
+		self.accounts.append(
+			{"user":username, "pass":password, "quota":quota, "used":0})
 	def container_size(self):
 		return 2<<20
 	def save_container(self,container):
@@ -298,32 +316,39 @@ class MailStorage(Storage):
 		print "sending header in mail"
 		#s.set_debuglevel(0)
 		header_msg = MIMEMultipart()
-		header_msg["Subject"] = "manent.%s.%s.header" % (self.backup.label, str(container.index))
+		header_msg["Subject"] = "manent.%s.%s.header" % (
+			self.backup.label, str(container.index))
 		#header_msg["To"] = "gsasha@gmail.com"
 		#header_msg["From"] = "gsasha@gmail.com"
 		header_attch = MIMEBase("application", "manent-container")
 		filename = container.filename()
-		header_file = open(os.path.join(self.backup.global_config.staging_area(),filename), "rb")
+		header_file = open(os.path.join(
+			self.backup.global_config.staging_area(),filename), "rb")
 		header_attch.set_payload(header_file.read())
 		header_file.close()
 		Encoders.encode_base64(header_attch)
 		header_msg.attach(header_attch)
 		s.set_debuglevel(0)
-		s.sendmail("gsasha.manent1@gmail.com", "gsasha.manent1@gmail.com", header_msg.as_string())
+		s.sendmail("gsasha.manent1@gmail.com",
+			"gsasha.manent1@gmail.com", header_msg.as_string())
 		s.set_debuglevel(1)
 		
 		print "sending data in mail"
 		data_msg = MIMEMultipart()
-		data_msg["Subject"] = "manent.%s.%s.data" % (self.backup.label, str(container.index))
+		data_msg["Subject"] = "manent.%s.%s.data" % (self.backup.label,
+			str(container.index))
 		data_attch = MIMEBase("application", "manent-container")
 		filename = container.filename()
-		data_file = open(os.path.join(self.backup.global_config.staging_area(),filename+".data"), "rb")
+		data_file = open(
+			os.path.join(self.backup.global_config.staging_area(),
+				filename+".data"), "rb")
 		data_attch.set_payload(data_file.read())
 		data_file.close()
 		Encoders.encode_base64(data_attch)
 		data_msg.attach(data_attch)
 		s.set_debuglevel(0)
-		s.sendmail("gsasha.manent1@gmail.com", "gsasha.manent1@gmail.com", data_msg.as_string())
+		s.sendmail("gsasha.manent1@gmail.com",
+			"gsasha.manent1@gmail.com", data_msg.as_string())
 		s.set_debuglevel(1)
 		print "all done"
 		

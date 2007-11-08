@@ -3,7 +3,6 @@ import base64
 from cStringIO import StringIO
 import struct
 
-from Block import Block
 import Container
 
 class BlockDatabase:
@@ -11,15 +10,17 @@ class BlockDatabase:
 		self.db_config = db_config
 		self.block_repository = repository
 
-		# These two databases are scratch-only, so they don't need to reliably survive
-		# through program restarts
-		self.requested_data_blocks = self.db_config.get_scratch_database(".scratch-blocks")
-		self.loaded_data_blocks = self.db_config.get_scratch_database(".scratch-blocks-data")
+		# These two databases are scratch-only, so they don't need to reliably
+		# survive through program restarts
+		self.requested_data_blocks = self.db_config.get_scratch_database(
+			".scratch-blocks")
+		self.loaded_data_blocks = self.db_config.get_scratch_database(
+			".scratch-blocks-data")
 		self.cached_blocks = self.db_config.get_database(".blocks-data")
 		self.block_type_db = self.db_config.get_database(".blocks-types")
 		#
-		# It is possible that the program was terminated before the scratch cache was
-		# removed. In that case, it contains junk data
+		# It is possible that the program was terminated before the scratch
+		# cache was removed. In that case, it contains junk data
 		#
 		self.requested_data_blocks.truncate()
 		self.loaded_data_blocks.truncate()
@@ -37,11 +38,12 @@ class BlockDatabase:
 	#
 	def request_block(self,digest):
 		"""
-		Used for preprocessing, to make all the future needed blocks known - this is to avoid
-		reloading containers unnecessarily.
+		Used for preprocessing, to make all the future needed blocks known -
+		this is to avoid reloading containers unnecessarily.
 		"""
 		if self.requested_blocks.has_key(digest):
-			self.requested_blocks[digest] = str(int(self.requested_blocks[digest])+1)
+			self.requested_blocks[digest] = str(
+				int(self.requested_blocks[digest])+1)
 		else:
 			self.requested_blocks[digest] = "1"
 	def add_block(self,digest,data,code):
@@ -52,8 +54,8 @@ class BlockDatabase:
 	def load_block(self,digest):
 		"""
 		Actually perform loading of the block. Assumes that the block
-		was reported by request_block, and was loaded not more times than it was
-		requested.
+		was reported by request_block, and was loaded not more times than
+		it was requested.
 		"""
 		if self.cached_blocks.has_key(digest):
 			#
@@ -95,7 +97,8 @@ class BlockDatabase:
 			return Container.CODE_DATA
 		
 class BlockLoadHandler:
-	"""Callback class used by repository to return loaded blocks to the database"""
+	"""Callback class used by repository to return loaded blocks
+	   to the database"""
 	def __init__(self,blocks_db):
 		self.blocks_db = blocks_db
 	def is_block_necessary(self,digest):
@@ -111,3 +114,4 @@ class BlockLoadHandler:
 			self.cached_blocks[digest] = data
 		else:
 			self.loaded_data_blocks[digest] = data
+

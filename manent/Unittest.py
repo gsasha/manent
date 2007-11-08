@@ -14,9 +14,6 @@ suite_Increment = test_loader.loadTestsFromTestCase(TestIncrement)
 from testsuite.TestFormat import TestFormat
 suite_Format = test_loader.loadTestsFromTestCase(TestFormat)
 
-from testsuite.TestBlock import TestBlock
-suite_Block = test_loader.loadTestsFromTestCase(TestBlock)
-
 from testsuite.TestDatabase import TestDatabase
 suite_DB = test_loader.loadTestsFromTestCase(TestDatabase)
 
