@@ -1,3 +1,4 @@
+import util.IntegerEncodings as IE
 
 def create_storage(storage_type):
 	if storage_type == "directory":
@@ -10,12 +11,14 @@ def create_storage(storage_type):
 		return FTPStorage(SFTPHandler)
 	elif storage_type == "dummy don't use me!!!":
 		return DummyStorage()
-	raise "Unknown storage_type type", storage_type
+	else:
+		raise Exception("Unknown storage_type type" + storage_type)
 
 class Storage:
-	def __init__(self,shared_db):
-		self.shared_db = shared_db
-		pass
+	def __init__(self, index, config_db):
+		self.index = index
+		self.config_db = config_db
+		self.sequences = {}
 	
 	# How do we know for a given storage if it is just created or rescanned?
 	# Ah well, each storage stores its data in the shared db!
@@ -23,9 +26,33 @@ class Storage:
 	#
 	# Loading
 	#
-	def init(self,db_config,label,txn_handler):
+	def init(self, db_config, txn_handler, name, active):
 		self.db_config = db_config
-		self.label = label
+		self.txn_handler = txn_handler
+		self.name = name
+		self.active = active
+		
+		if not self.shared_db.has_key(name):
+			self.load_sequences()
+			if self.active:
+				self.create_sequence()
+		else:
+			self.load_sequences()
+
+	# Data structure stored in a database for a specific storage:
+	# storage.%d.active_sequence - the sequence to which new containers
+	#                              are added
+	# storage.%d.$sequence.index  - the index of the sequence with the given
+	#     storage id. Used to determine if the sequence has been loaded already
+	# storage.%d.$sequence.last_container - the index of the last known
+	#     container in the given sequence. Used to determine which new
+	#     containers have appeared for the sequence
+	def create_sequence(self):
+		self.sequence_id = os.urandom(18)
+		self.shared_db["storage.%d.active_sequence"%self.index]\
+			= self.sequence_id
+		self.shared_db["storage.%s.%s.last_container"%(self.index,self.id)]\
+			= self.something
 
 	def compute_header_filename(self,index):
 		return "manent.%s.%s.header" % (self.label,
@@ -33,12 +60,25 @@ class Storage:
 	def compute_body_filename(self,index):
 		return "manent.%s.%s.body" % (self.label,
 			ascii_encode_int_varlen(index))
-	
+
 	def close(self):
 		pass
 	def info(self):
 		pass
-	
+
+	def encode_container_name(self, sequence, index, extension):
+		return "manent.%s.%s.%s" % (base64.urlsafe_b64encode(sequence),
+			IE.ascii_encode_int_varlen(index), extension)
+	def decode_container_name(self, name):
+		name_re = re.compile("manent.([^.]+).([^.]+).([^.]+)")
+		match = name_re.match(name)
+		if not match:
+			return (None, None, None)
+		sequence = base64.urlsafe_b64decode(match.groups(1))
+		index = IE.ascii_decode_int_varlen(match.groups(2))
+		extension = match.groups(3)
+
+		return (sequence, index, extension)
 	#
 	# Reconstruction!
 	#
@@ -47,7 +87,7 @@ class Storage:
 		# It is the specific implementation of Storage that knows how to
 		# reconstruct the containers
 		#
-		container_files = self.list_container_files()
+		container_files = self.list_s()
 		container_header_files = {}
 		container_body_files = {}
 		for file in file_list:
@@ -81,7 +121,7 @@ class Storage:
 
 			container.load_blocks(handler)
 			if has_unrequested_blocks:
-				container.
+				container.TODO()
 		
 		for (index, file) in container_header_files.iteritems():
 			print "  ", index, "\t", file,
@@ -89,9 +129,9 @@ class Storage:
 				print "\t", container_data_files[index]
 			else:
 				print
-			if max_container<index:
+			if max_container < index:
 				max_container = index
-		for index in range(0,max_container+1):
+		for index in range(0, max_container + 1):
 			self.containers.append(None)
 		self.containers_db["Containers"] = str(len(self.containers))
 		print " Before loading we have %d containers " % self.num_containers()

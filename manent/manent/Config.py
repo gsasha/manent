@@ -8,6 +8,43 @@ import Container
 import manent.utils.Format as Format
 import manent.utils.IntegerEncodings as IntegerEncodings
 
+# Need to decide how do I store all the configuration:
+# - Do I store all in the config file ~/.manent/config
+#   Pros: The configuration is stored in a centralized location,
+#         and one class can be dedicated to manage it
+#   Pros: The configuration is user-readable and user-writable.
+#         If it needs user intervention, it will be easier
+#         (from "the inmates": there should be no need for user intervention!)
+# - Do I store only the basic data in the config file, and the rest
+#   in the database?
+#   Pros: The data is stored where it is usualy consumed
+#   Cons: Sometimes the data must be accessed from the outside. The classes
+#         that store the data must provide some query interface
+#   Cons: There will be an artificial split, since some data needs to be
+#         still stored in the configuration file.
+#   Pros: On the other hand, some information still needs to be stored
+#         privately
+#
+# Ok, let's write down which data we need:
+# 1. The list of backups
+#    For each backup
+# 1.1 Exclusion/Inclusion patterns
+# 1.2 Repository configuration
+#     List of storages. For each storage:
+# 1.2.1 Location specification
+# 1.2.2 Private information required by the Repository class
+# 2. Global configuration parameters:
+# 2.1. Global exclusion/inclusion patterns
+#
+# The information will be stored in the following databases:
+# ~/.manent/config.db:global: the global configuration
+#   backups=<list of backups>
+#   exclusions=<list of exclusion rule names> (names are auto-generated)
+#   exclusion.$name.pattern=<pattern of the rule>
+#   exclusion.$name.acion=include|exclude
+#
+# ~/.manent/config.db:backup.$backupName: config data for backup $backupName
+# The lists of names are stored as arrays of strings.
 class GlobalConfig:
 	def __init__(self):
 		self.config = ConfigParser.ConfigParser()
@@ -85,18 +122,6 @@ class GlobalConfig:
 		# TODO: replace prefixes and regexps by fnmatch
 		#
 		self.excludes_list = [prefix_check_maker(self.home_area())]
-		if cp.has_section("EXCLUDE/REGEXP"):
-			for key,val in cp.items("EXCLUDE/REGEXP"):
-				if not is_relative(val):
-					val = os.path.join(base,val)
-				print "excluding regexp",val
-				self.excludes_list += [regexp_check_maker(val)]
-		if cp.has_section("EXCLUDE/PREFIX"):
-			for key,val in cp.items("EXCLUDE/PREFIX"):
-				if not is_relative(val):
-					val = os.path.join(base,val)
-				print "excluding prefix",val
-				self.excludes_list += [prefix_check_maker(val)]
 
 		return self.excludes_list
 

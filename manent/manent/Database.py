@@ -50,7 +50,6 @@ class DatabaseConfig:
 	def txn_begin(self):
 		self.dbenv.txn_checkpoint()
 		return self.dbenv.txn_begin(flags=db.DB_DIRTY_READ)
-	
 	def close(self):
 		#
 		# Close up the db environment. The user should have been

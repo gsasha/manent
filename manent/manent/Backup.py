@@ -6,41 +6,52 @@ import Database
 import IncrementDatabase
 import Nodes
 import Repository
+import ExclusionProcessor
 
 class Backup:
 	"""
 	Database of a complete backup set
 	"""
-	def __init__(self,global_config,label):
+	def __init__(self, label):
 		self.global_config = global_config
 		self.label = label
 
 		self.db_config = Database.DatabaseConfig(self.global_config,
 			"manent.%s.db"%self.label)
 		self.txn_handler = Database.TransactionHandler(self.db_config)
-
+		self.global_config_db = self.db_config.get_database(
+			"config.db", "global_config")
+		self.private_config_db = self.db_config.get_database(
+			"config.db", "config.%s" % self.label)
+		
+		self.repository = Repository.Repository(self)
+		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(self)
 	#
-	# Three initialization methods:
-	# Creation of new Backup, loading from live DB, loading from backups
+	# Two initialization methods:
+	# Creation of new backup, loading from live DB
 	#
-	def configure(self,data_path):
-		#print "Creating backup", self.label, "type:",\
-		# container_type, container_params
+	def create(self, data_path):
+		assert not self.private_config_db.has_key("data_path")
 		self.data_path = data_path
-		self.storages = []
-		self.active_storage = None
+		self.private_config_db["data_path"] = data_path
+	def load(self):
+		self.data_path = self.private_config_db["data_path"]
+		self.repository.load()
+		self.exclusion_processor.load()
+		
+	# Storage configuration
+	def add_base_storage(self, storage_params):
+		self.repository.add_base_storage(storage_params)
+	def add_main_storage(self, storage_params):
+		self.repository.add_main_storage(storage_params)
 
-	def add_base_storage(self,storage_type,storage_params):
-		pass
-	def add_active_storage(self,storage_type,storage_params):
-		pass
+	# Exclusion configuration
+	def add_exclusion_rule(self, action, pattern):
+		self.exclusion_processor.add_rule(action, pattern)
 	
 	def remove(self):
 		print "Removing backup", self.label
-		try:
-			self.db_config.remove_database()
-		finally:
-			self.db_config.close()
+		raise Exception("Not implemented")
 
 	def create(self):
 		try:
@@ -87,7 +98,7 @@ class Backup:
 	#
 	# Restoring an increment to filesystem
 	#
-	def restore(self,target_path):
+	def restore(self, target_path):
 		try:
 			self.__open_all()
 

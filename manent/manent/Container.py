@@ -131,7 +131,6 @@ def unserialize_blocks(file):
 		code = Format.read_int(file)
 		blocks.append((digest,size,code))
 	return blocks
-
 def serialize_blocks(file, blocks):
 	for (digest,size,code) in blocks:
 		file.write(digest)
@@ -465,16 +464,16 @@ class Container:
 		               MAX_COMPRESSED_DATA + 64
 		return current_size <= self.storage.container_size()
 	
-	def add_block(self,digest,data,code):
+	def add_block(self, digest, data,code):
 		if self.compression_active and self.compressed_data > MAX_COMPRESSED_DATA:
 			self.body_dumper.stop_compression()
 			self.body_dumper.start_compression(CODE_COMPRESSION_BZ2)
 			self.compressed_data = 0
 
-		self.body_dumper.add_block(digest,data,code)
+		self.body_dumper.add_block(digest, data, code)
 		self.compressed_data += len(data)
 	
-	def finish_dump(self,index):
+	def finish_dump(self, index):
 
 		self.index = index
 
@@ -496,9 +495,12 @@ class Container:
 		#
 		# Serialize the header table
 		#
-		message = "Manent container %d of backup '%s'" % (self.index, self.storage.get_label())
-		self.header_dumper.add_block(Digest.dataDigest(message),message,CODE_CONTAINER_DESCRIPTOR)
-		self.header_dumper.add_block(Digest.dataDigest(body_table_str),body_table_str,CODE_BLOCK_TABLE)
+		message = "Manent container %d of backup '%s'" % (
+			self.index, self.storage.get_label())
+		self.header_dumper.add_block(Digest.dataDigest(message),
+									 message, CODE_CONTAINER_DESCRIPTOR)
+		self.header_dumper.add_block(Digest.dataDigest(body_table_str),
+									 body_table_str, CODE_BLOCK_TABLE)
 
 		if self.encryption_active:
 			self.header_dumper.stop_encryption()
@@ -536,11 +538,12 @@ class Container:
 		#
 		#self.test_blocks(self.dataFileName)
 
-		self.storage.upload_container(self.index,self.header_file_name,self.body_file_name)
+		self.storage.upload_container(self.index, self.header_file_name,
+			self.body_file_name)
 	#
 	# Loading mode implementation
 	#
-	def start_load(self,index):
+	def start_load(self, index):
 		assert self.mode is None
 		self.mode = "LOAD"
 		self.index = index
@@ -557,7 +560,9 @@ class Container:
 			raise Exception("Container %d has unsupported version" % self.index)
 		index = Format.read_int(header_file)
 		if index != self.index:
-			raise Exception("Manent: wrong index of container file. Expected %s, found %s" % (str(self.index),str(index)))
+			raise Exception(
+				"Manent: wrong container file index. Expected %s, found %s"
+				% (str(self.index),str(index)))
 		
 		header_table_size = Format.read_int(header_file)
 		header_table_digest = header_file.read(Digest.dataDigestSize())
@@ -581,7 +586,8 @@ class Container:
 
 		handler = Handler()
 		header_dump_str_io = StringIO(header_dump_str)
-		header_dump_loader = DataDumpLoader(header_dump_str_io, header_blocks, password=self.storage.get_password())
+		header_dump_loader = DataDumpLoader(header_dump_str_io, header_blocks,
+			password=self.storage.get_password())
 		header_dump_loader.load_blocks(handler)
 
 		body_table_io = StringIO(handler.body_table_str)
@@ -591,13 +597,15 @@ class Container:
 		return self.body_blocks
 	
 	def load_body(self):
-		self.storage.load_container_body(self.index,self.body_file_name)
+		self.storage.load_container_body(self.index, self.body_file_name)
 		
 		body_file = open(self.body_file_name, "rb")
-		self.body_dump_loader = DataDumpLoader(body_file,self.body_blocks,password=self.storage.get_password())
+		self.body_dump_loader = DataDumpLoader(body_file, self.body_blocks,
+			password=self.storage.get_password())
 
 	def info(self):
-		print "Manent container #%d of storage %s" % (self.index, self.storage.get_label())
+		print "Manent container #%d of storage %s" % (
+			self.index, self.storage.get_label())
 	
 	def test_blocks(self,filename=None):
 		class TestingBlockCache:

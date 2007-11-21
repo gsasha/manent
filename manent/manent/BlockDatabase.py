@@ -80,16 +80,14 @@ class BlockDatabase:
 		#
 		block_type = self.get_block_type(digest)
 		
-		self.repository.load_block(digest, BlockHandler(self))
+		self.repository.load_block(digest, BlockLoadHandler(self))
 		if self.block_type_db.has_key(digest):
 			data = self.cached_blocks[digest]
 		else:
 			data = self.loaded_data_blocks[digest]
 		return data
-
 	def get_block_storage(self,digest):
 		return self.repository.get_block_storage(digest)
-	
 	def get_block_type(self,digest):
 		if self.block_type_db.has_key(digest):
 			return int(self.block_type_db[digest])
@@ -110,8 +108,9 @@ class BlockLoadHandler:
 			return True
 		return False
 	def block_loaded(self,digest,data):
+		# TODO(gsasha): I don't understand the logic - when does the block
+		# go to cached_blocks?
 		if self.blocks_db.has_key(digest):
 			self.cached_blocks[digest] = data
 		else:
 			self.loaded_data_blocks[digest] = data
-
