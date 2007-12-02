@@ -50,3 +50,17 @@ class TestDatabase(unittest.TestCase):
 			txn.commit()
 			db.close()
 			dbc.close()
+
+	def testIterate(self):
+		try:
+			dbc = DB.DatabaseConfig(self.config,"test1")
+			txn = DB.TransactionHandler(dbc)
+			db = dbc.get_database("table3",txn)
+			db["aaa1"] = "bbb1"
+			db["aaa2"] = "bbb2"
+			db_vals = [(key, val) for (key, val) in db]
+			self.assertEqual(db_vals, [("aaa1", "bbb1"), ("aaa2", "bbb2")])
+		finally:
+			txn.commit()
+			db.close()
+			dbc.close()

@@ -76,7 +76,8 @@ class DatabaseConfig:
 		return DatabaseWrapper(self, fname, tablename, txn_handler)
 	def get_scratch_database(self,tablename):
 		fname = self.__scratch_db_fname(tablename)
-		return DatabaseWrapper(self, fname, tablename, txn_handler=None)
+		return DatabaseWrapper(self, fname, tablename, txn_handler=None,
+			is_scratch = True)
 	def get_queue_database(self,tablename):
 		raise Exception("Not implemented")
 	def remove_database(self,tablename=None):
@@ -133,11 +134,13 @@ class DatabaseWrapper:
 	Provides a Python Dictionary-like interface to a single database table.
 	Objects of this class are meant to be created by db_config, not by the user!
 	"""
-	def __init__(self,db_config,filename,dbname,txn_handler=None):
+	def __init__(self,db_config,filename,dbname,txn_handler = None,
+			is_scratch = False):
 		self.db_config = db_config
 		self.filename = filename
 		self.dbname = dbname
 		self.txn_handler = txn_handler
+		self.is_scratch = is_scratch
 		
 		self.d = db.DB(self.db_config.dbenv)
 		self.cursor = None
@@ -197,27 +200,46 @@ class DatabaseWrapper:
 		#print "Closing database filename=%s, dbname=%s" %(self.__get_filename(),self.__get_dbname())
 		self.d.close()
 		self.d = None
+		if self.is_scratch:
+			self.db_config.remove_scratch_database(self.dbname)
 		self.filename=None
 	#
 	# Iteration support
 	#
+	class Iter:
+		def __init__(self, cursor):
+			self.cursor = cursor
+			if self.cursor.first() == None:
+				self.cursor.close()
+				self.cursor = None
+			else:
+				self.last_key = None
+		def next(self):
+			if self.cursor == None:
+				raise StopIteration
+			(key, value) = self.cursor.current()
+			if key == self.last_key:
+				self.cursor.close()
+				self.cursor = None
+			else:
+				self.last_key = key
+				self.cursor.next()
+			return (key, value)
 	def __iter__(self):
-		self.cursor = self.d.cursor(self.__get_txn())
-		if self.cursor.first() == None:
-			self.cursor.close()
-			self.cursor = None
-		else:
-			self.last_key = None
-		return self
-	def next(self):
-		if self.cursor == None:
-			raise StopIteration
-		(key,value) = self.cursor.current()
-		if key == self.last_key:
-			self.cursor.close()
-			self.cursor = None
-		else:
-			self.last_key = key
-			self.cursor.next()
-		return (key,value)
-
+		return DatabaseWrapper.Iter(self.d.cursor(self.__get_txn()))
+	#
+	# Iteration over a subset of keys
+	#
+	def get_all_by_prefix(self, prefix):
+		class PrefixIter(Iter):
+			def __init__(self, cursor, prefix):
+				cursor.set_range(prefix)
+				self.prefix = prefix
+				Iter.__init__(self, cursor)
+			def next(self):
+				result = Iter.next(self)
+				if not result.startswith(self.prefix):
+					raise StopIteration
+				return result
+		cursor.set_range(prefix)
+		return PrefixIter(self.d.cursor(self.__get_txn()), prefix)

@@ -31,27 +31,25 @@ class BlockDatabase:
 		self.loaded_data_blocks.close()
 		self.cached_blocks.close()
 		self.block_type_db.close()
-		self.db_config.remove_scratch_database(".scratch-blocks")
-		self.db_config.remove_scratch_database(".scratch-data")
 	#
 	# Methods for the user side of the cache
 	#
-	def request_block(self,digest):
+	def request_block(self, digest):
 		"""
 		Used for preprocessing, to make all the future needed blocks known -
 		this is to avoid reloading containers unnecessarily.
 		"""
 		if self.requested_blocks.has_key(digest):
 			self.requested_blocks[digest] = str(
-				int(self.requested_blocks[digest])+1)
+				int(self.requested_blocks[digest]) + 1)
 		else:
 			self.requested_blocks[digest] = "1"
-	def add_block(self,digest,data,code):
-		self.repository.add_block(digest,data,code)
+	def add_block(self, digest, data, code):
+		self.repository.add_block(digest, data, code)
 		if code != Container.CODE_DATA:
 			self.block_type_db[digest] = code
 			self.cached_blocks[digest] = data
-	def load_block(self,digest):
+	def load_block(self, digest):
 		"""
 		Actually perform loading of the block. Assumes that the block
 		was reported by request_block, and was loaded not more times than
@@ -86,9 +84,9 @@ class BlockDatabase:
 		else:
 			data = self.loaded_data_blocks[digest]
 		return data
-	def get_block_storage(self,digest):
+	def get_block_storage(self, digest):
 		return self.repository.get_block_storage(digest)
-	def get_block_type(self,digest):
+	def get_block_type(self, digest):
 		if self.block_type_db.has_key(digest):
 			return int(self.block_type_db[digest])
 		else:
@@ -97,17 +95,17 @@ class BlockDatabase:
 class BlockLoadHandler:
 	"""Callback class used by repository to return loaded blocks
 	   to the database"""
-	def __init__(self,blocks_db):
+	def __init__(self, blocks_db):
 		self.blocks_db = blocks_db
-	def is_block_necessary(self,digest):
+	def is_block_necessary(self, digest, code):
 		if self.requested_blocks.has_key(digest):
 			# Data blocks must be specifically requested
 			return True
-		if self.block_type_db.has_key(digest):
+		if code != Container.CODE_DATA:
 			# Other kinds of blocks are cached always
 			return True
 		return False
-	def block_loaded(self,digest,data):
+	def block_loaded(self, digest, data, code):
 		# TODO(gsasha): I don't understand the logic - when does the block
 		# go to cached_blocks?
 		if self.blocks_db.has_key(digest):

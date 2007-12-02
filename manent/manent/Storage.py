@@ -26,11 +26,10 @@ class Storage:
 	#
 	# Loading
 	#
-	def init(self, db_config, txn_handler, name, active):
-		self.db_config = db_config
-		self.txn_handler = txn_handler
-		self.name = name
-		self.active = active
+	def configure(self, config):
+		PREFIX = "STORAGE.%d." % self.index
+		for key, val in config:
+			self.config_db[PREFIX+key] = val
 		
 		if not self.shared_db.has_key(name):
 			self.load_sequences()
@@ -38,6 +37,8 @@ class Storage:
 				self.create_sequence()
 		else:
 			self.load_sequences()
+	def get_config(self):
+		PREFIX = "STORAGE.%d." % self.index
 
 	# Data structure stored in a database for a specific storage:
 	# storage.%d.active_sequence - the sequence to which new containers
@@ -221,13 +222,15 @@ class DirectoryStorage(Storage):
 	"""
 	Handler for a simple directory.
 	"""
-	def __init__(self):
-		Storage.__init__(self)
+	def __init__(self, index, config_db):
+		Storage.__init__(self, index, config_db)
 		self.path = None
-	def init(self,backup,txn_handler,params):
-		Storage.init(self,backup,txn_handler)
+	def configure(self, params):
+		Storage.configure(self, params)
 		(path,) = params
 		self.path = path
+	def load_configuration(self):
+		Storage.load_configuration(self)
 	def container_size(self):
 		#return 4<<20
 		return 4<<20

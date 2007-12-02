@@ -149,7 +149,6 @@ class DataDumper:
 		
 		self.encryptor = None
 		self.compressor = None
-
 	def add_block(self,digest,data,code):
 		self.blocks.append((digest,len(data),code))
 		if self.compressor is not None:
@@ -158,7 +157,6 @@ class DataDumper:
 			data = self.__encrypt(data)
 		self.file.write(data)
 		self.total_size += len(data)
-
 	#
 	# Encryption support
 	#
@@ -206,7 +204,6 @@ class DataDumper:
 		self.compressor_algorithm = algorithm_code
 		self.uncompressed_size = 0
 		self.compressed_size = 0
-
 	def stop_compression(self):
 		assert self.compressor is not None
 		tail = self.compressor.flush()
@@ -218,7 +215,6 @@ class DataDumper:
 		self.total_size += len(tail)
 		self.blocks.append((Digest.dataDigest(""),self.compressed_size,CODE_COMPRESSION_END))
 		self.compressor = None
-
 	def __compress(self,data):
 		self.uncompressed_size += len(data)
 		compressed = self.compressor.compress(data)
@@ -248,8 +244,7 @@ class DataDumpLoader:
 
 		self.uncompressor = None
 		self.decryptor = None
-
-	def load_blocks(self,handler):
+	def load_blocks(self, handler):
 		total_offset = 0
 		uncompressed_offset = 0
 		skip_until = None
@@ -262,11 +257,11 @@ class DataDumpLoader:
 				# find out if any of the blocks contained within
 				# the section is actually needed
 				requested = False
-				for j in range(i+1,len(self.blocks)):
-					(s_digest,s_size,s_code) = self.blocks[j]
+				for j in range(i + 1, len(self.blocks)):
+					(s_digest, s_size, s_code) = self.blocks[j]
 					if s_code == CODE_ENCRYPTION_END:
 						break
-					if handler.is_requested(s_digest,s_code):
+					if handler.is_requested(s_digest, s_code):
 						requested = True
 				else:
 					raise Exception("Block table error: encryption start without end")
@@ -275,7 +270,7 @@ class DataDumpLoader:
 					skip_until = CODE_ENCRYPTION_END
 
 				# We always perform decryption, even when it's needed only for checking
-				key = Digest.dataDigest(digest+self.password)
+				key = Digest.dataDigest(digest + self.password)
 				self.decryptor = Crypto.Cipher.ARC4.new(key)
 				self.decryptor_data_digest = Digest.DataDigestAccumulator()
 				self.decrypted_bytes = 0
@@ -408,14 +403,13 @@ class Container:
 	            out, or its blocks can be read back.
 
 	"""
-	def __init__(self,storage,header_file_name,body_file_name):
+	def __init__(self, storage, header_file_name, body_file_name):
 		# Configuration data
 		self.storage = storage
 		self.header_file_name = header_file_name
 		self.body_file_name = body_file_name
 		
 		self.mode = None
-
 	def get_index(self):
 		return self.index
 	#
@@ -443,28 +437,24 @@ class Container:
 
 		self.body_dumper.start_compression(CODE_COMPRESSION_BZ2)
 		self.compression_active = True
-		self.compressed_data = 0
-		
+		self.compressed_data = 0	
 	def enable_compression(self):
 		if not self.compression_active:
 			self.body_dumper.start_compression(CODE_COMPRESSION_BZ2)
 			self.compression_active = True
 			self.compressed_data = 0
-
 	def disable_compression(self):
 		if self.compression_active:
 			self.body_dumper.stop_compression()
 			self.compression_active = False
-
 	def can_add(self,data):
 		# MAX_COMPRESSED_DATA is a safeguard for compressed data which was not yet
 		# put into the output
 		# 64 is for the header of the header
 		current_size = self.body_dumper.total_size + self.header_dumper.total_size +\
 		               MAX_COMPRESSED_DATA + 64
-		return current_size <= self.storage.container_size()
-	
-	def add_block(self, digest, data,code):
+		return current_size <= self.storage.container_size()	
+	def add_block(self, digest, data, code):
 		if self.compression_active and self.compressed_data > MAX_COMPRESSED_DATA:
 			self.body_dumper.stop_compression()
 			self.body_dumper.start_compression(CODE_COMPRESSION_BZ2)
@@ -472,7 +462,6 @@ class Container:
 
 		self.body_dumper.add_block(digest, data, code)
 		self.compressed_data += len(data)
-	
 	def finish_dump(self, index):
 
 		self.index = index
@@ -547,7 +536,6 @@ class Container:
 		assert self.mode is None
 		self.mode = "LOAD"
 		self.index = index
-
 	def load_header(self):
 		self.storage.load_container_header(self.index,self.header_file_name)
 		
@@ -592,21 +580,17 @@ class Container:
 
 		body_table_io = StringIO(handler.body_table_str)
 		self.body_blocks = unserialize_blocks(body_table_io)
-
 	def list_blocks(self):
 		return self.body_blocks
-	
 	def load_body(self):
 		self.storage.load_container_body(self.index, self.body_file_name)
 		
 		body_file = open(self.body_file_name, "rb")
 		self.body_dump_loader = DataDumpLoader(body_file, self.body_blocks,
 			password=self.storage.get_password())
-
 	def info(self):
 		print "Manent container #%d of storage %s" % (
 			self.index, self.storage.get_label())
-	
 	def test_blocks(self,filename=None):
 		class TestingBlockCache:
 			def __init__(self):
@@ -619,10 +603,8 @@ class Container:
 					raise Exception("Critical error: Bad digest in container!")
 		bc = TestingBlockCache()
 		self.read_blocks(bc,filename)
-	
 	def load_blocks(self,handler):
 		self.body_dump_loader.load_blocks(handler)
-
 	def remove_files(self):
 		os.unlink(self.header_file_name)
 		os.unlink(self.body_file_name)
