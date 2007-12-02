@@ -212,18 +212,14 @@ class DatabaseWrapper:
 			if self.cursor.first() == None:
 				self.cursor.close()
 				self.cursor = None
-			else:
-				self.last_key = None
 		def next(self):
 			if self.cursor == None:
 				raise StopIteration
-			(key, value) = self.cursor.current()
-			if key == self.last_key:
+			(key, value) = self.cursor.next()
+			if key == None:
 				self.cursor.close()
 				self.cursor = None
-			else:
-				self.last_key = key
-				self.cursor.next()
+				raise StopIteration
 			return (key, value)
 	def __iter__(self):
 		return DatabaseWrapper.Iter(self.d.cursor(self.__get_txn()))
