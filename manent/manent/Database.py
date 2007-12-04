@@ -70,6 +70,12 @@ class DatabaseConfig:
 	def get_database(self,tablename,txn_handler):
 		fname = self.__db_fname(tablename)
 		return DatabaseWrapper(self, fname, tablename, txn_handler)
+	def get_database_btree(self, tablename, txn_handler):
+		fname = self.__db_fname(tablename)
+		return DatabaseWrapper(self, fname, tablename, txn_handler, db_type=db.DB_BTREE)
+	def get_database_hash(self,tablename,txn_handler):
+		fname = self.__db_fname(tablename)
+		return DatabaseWrapper(self, fname, tablename, txn_handler, db_type=db.DB_HASH)
 	def get_scratch_database(self,tablename):
 		fname = self.__scratch_db_fname(tablename)
 		return DatabaseWrapper(self, fname, tablename, txn_handler=None,
@@ -131,7 +137,7 @@ class DatabaseWrapper:
 	Objects of this class are meant to be created by db_config, not by the user!
 	"""
 	def __init__(self,db_config,filename,dbname,txn_handler = None,
-			is_scratch = False):
+			is_scratch = False, db_type = db.DB_HASH):
 		self.db_config = db_config
 		self.filename = filename
 		self.dbname = dbname
@@ -143,7 +149,7 @@ class DatabaseWrapper:
 		
 		#print "Opening database filename=%s, dbname=%s" %(self.__get_filename(),self.__get_dbname())
 		start = time.time()
-		self.d.open(self.__get_filename(), self.__get_dbname(), db.DB_HASH, db.DB_CREATE, txn=self.__get_txn())
+		self.d.open(self.__get_filename(), self.__get_dbname(), db_type, db.DB_CREATE, txn=self.__get_txn())
 		end = time.time()
 		#print "opening database %s:%s takes %f seconds" % (self.__get_filename(),self.__get_dbname(),end-start)
 

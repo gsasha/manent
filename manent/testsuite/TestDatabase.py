@@ -27,7 +27,7 @@ class TestDatabase(unittest.TestCase):
 		try:
 			dbc = DB.DatabaseConfig(self.config,"test1")
 			txn = DB.TransactionHandler(dbc)
-			db = dbc.get_database("table3",txn)
+			db = dbc.get_database_btree("table3",txn)
 			db["aaa1"] = "bbb1"
 			db["aaa2"] = "bbb2"
 			db["aaa3"] = "bbb3"
