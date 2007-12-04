@@ -56,11 +56,6 @@ class DatabaseConfig:
 		# Close up the db environment. The user should have been
 		# smart enough to close it himself.
 		#
-		#self.close_cursors()
-		#self.close_dbs()
-		#if self.txn:
-			#self.txn.abort()
-			#self.txn = None
 
 		#
 		# Free up the files that the database held
