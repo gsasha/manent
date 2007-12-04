@@ -39,6 +39,10 @@ class Storage:
 			self.load_sequences()
 	def get_config(self):
 		PREFIX = "STORAGE.%d." % self.index
+		config = {}
+		for key, val in self.config_db.get_all_by_prefix(PREFIX):
+			config[key] = val
+		return config
 
 	# Data structure stored in a database for a specific storage:
 	# storage.%d.active_sequence - the sequence to which new containers
