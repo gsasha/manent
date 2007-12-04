@@ -2,6 +2,7 @@ import unittest
 import random
 import os,shutil
 import exceptions
+import traceback
 
 import manent.Database as DB
 
@@ -21,6 +22,25 @@ class TestDatabase(unittest.TestCase):
 		self.config = MockupConfig()
 	def tearDown(self):
 		shutil.rmtree(TEST_DIR)
+
+	def testAAIterate(self):
+		try:
+			dbc = DB.DatabaseConfig(self.config,"test1")
+			txn = DB.TransactionHandler(dbc)
+			db = dbc.get_database("table3",txn)
+			db["aaa1"] = "bbb1"
+			db["aaa2"] = "bbb2"
+			db["aaa3"] = "bbb3"
+			db_vals = [(key, val) for (key, val) in db]
+			self.assertEqual(db_vals, [("aaa1", "bbb1"), ("aaa2", "bbb2")])
+			txn.commit()
+		except:
+			print "Caught exception"
+			traceback.print_exc()
+			txn.abort()
+		finally:
+			db.close()
+			dbc.close()
 
 	def testCommit(self):
 		try:
@@ -51,16 +71,3 @@ class TestDatabase(unittest.TestCase):
 			db.close()
 			dbc.close()
 
-	def testIterate(self):
-		try:
-			dbc = DB.DatabaseConfig(self.config,"test1")
-			txn = DB.TransactionHandler(dbc)
-			db = dbc.get_database("table3",txn)
-			db["aaa1"] = "bbb1"
-			db["aaa2"] = "bbb2"
-			db_vals = [(key, val) for (key, val) in db]
-			self.assertEqual(db_vals, [("aaa1", "bbb1"), ("aaa2", "bbb2")])
-		finally:
-			txn.commit()
-			db.close()
-			dbc.close()

@@ -4,6 +4,7 @@ from bsddb import db
 import base64
 import time
 from threading import *
+import traceback
 
 class CheckpointThread(Thread):
 	def __init__(self, dbenv, done_event,checkpoint_finished):
@@ -43,10 +44,10 @@ class DatabaseConfig:
 		open_end_time = time.time()
 		#print "dbenv.open() takes", (open_end_time-open_start_time), "seconds"
 		
-		self.done_event = Event()
-		self.checkpoint_finished = Event()
-		self.checkpoint_thread = CheckpointThread(self.dbenv, self.done_event, self.checkpoint_finished)
-		self.checkpoint_thread.start()
+		#self.done_event = Event()
+		#self.checkpoint_finished = Event()
+		#self.checkpoint_thread = CheckpointThread(self.dbenv, self.done_event, self.checkpoint_finished)
+		#self.checkpoint_thread.start()
 	def txn_begin(self):
 		self.dbenv.txn_checkpoint()
 		return self.dbenv.txn_begin(flags=db.DB_DIRTY_READ)
@@ -64,9 +65,9 @@ class DatabaseConfig:
 		#
 		# Free up the files that the database held
 		#
-		self.done_event.set()
+		#self.done_event.set()
 		#print "Waiting for the checkpoint thread to finish"
-		self.checkpoint_finished.wait()
+		#self.checkpoint_finished.wait()
 		self.dbenv.close()
 		dbenv = db.DBEnv()
 		dbenv.remove(self.__dbenv_dir())
@@ -208,19 +209,29 @@ class DatabaseWrapper:
 	#
 	class Iter:
 		def __init__(self, cursor):
+			print "Starting iteration for cursor", cursor
 			self.cursor = cursor
-			if self.cursor.first() == None:
+			self.rec = cursor.first()
+			if self.rec is None:
+				print "Iteration not even started. Closing cursor"
 				self.cursor.close()
 				self.cursor = None
 		def next(self):
-			if self.cursor == None:
+			if self.cursor is None:
 				raise StopIteration
-			(key, value) = self.cursor.next()
-			if key == None:
+			try:
+				rec = self.rec
+				self.rec = self.cursor.next()
+				if self.rec is None:
+					self.cursor.close()
+					self.cursor = None
+				return rec
+			except:
+				print "Ouch, there is some exception:"
+				traceback.print_exc()
 				self.cursor.close()
 				self.cursor = None
 				raise StopIteration
-			return (key, value)
 	def __iter__(self):
 		return DatabaseWrapper.Iter(self.d.cursor(self.__get_txn()))
 	#
