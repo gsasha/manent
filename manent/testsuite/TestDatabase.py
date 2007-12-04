@@ -22,26 +22,6 @@ class TestDatabase(unittest.TestCase):
 		self.config = MockupConfig()
 	def tearDown(self):
 		shutil.rmtree(TEST_DIR)
-
-	def testAAIterate(self):
-		try:
-			dbc = DB.DatabaseConfig(self.config,"test1")
-			txn = DB.TransactionHandler(dbc)
-			db = dbc.get_database_btree("table3",txn)
-			db["aaa1"] = "bbb1"
-			db["aaa2"] = "bbb2"
-			db["aaa3"] = "bbb3"
-			db_vals = [(key, val) for (key, val) in db]
-			self.assertEqual(db_vals, [("aaa1", "bbb1"), ("aaa2", "bbb2")])
-			txn.commit()
-		except:
-			print "Caught exception"
-			traceback.print_exc()
-			txn.abort()
-		finally:
-			db.close()
-			dbc.close()
-
 	def testCommit(self):
 		try:
 			dbc = DB.DatabaseConfig(self.config,"test1")
@@ -54,7 +34,6 @@ class TestDatabase(unittest.TestCase):
 			txn.commit()
 			db.close()
 			dbc.close()
-
 	def testAbort(self):
 		try:
 			dbc = DB.DatabaseConfig(self.config,"test1")
@@ -70,4 +49,37 @@ class TestDatabase(unittest.TestCase):
 			txn.commit()
 			db.close()
 			dbc.close()
-
+	def testIterate(self):
+		try:
+			dbc = DB.DatabaseConfig(self.config,"test1")
+			txn = DB.TransactionHandler(dbc)
+			db = dbc.get_database_btree("table3",txn)
+			vals = [("aaa1", "bbb1"), ("aaa2", "bbb2"), ("aaa3", "bbb3")]
+			for key, val in vals:
+				db[key] = val
+			db_vals = [(key, val) for (key, val) in db]
+			self.assertEqual(db_vals, vals)
+			txn.commit()
+		except:
+			traceback.print_exc()
+			txn.abort()
+		finally:
+			db.close()
+			dbc.close()
+	def testIteratePrefix(self):
+		try:
+			dbc = DB.DatabaseConfig(self.config,"test1")
+			txn = DB.TransactionHandler(dbc)
+			db = dbc.get_database_btree("table3",txn)
+			vals = [("aaa1", "bbb1"), ("aab1", "bbb2"), ("aab2", "bbb3"), ("aac1", "bbb4")]
+			for key, val in vals:
+				db[key] = val
+			db_vals = [(key, val) for (key, val) in db.get_all_by_prefix("aab")]
+			self.assertEqual(db_vals, [("aab1", "bbb2"), ("aab2", "bbb3")])
+			txn.commit()
+		except:
+			traceback.print_exc()
+			txn.abort()
+		finally:
+			db.close()
+			dbc.close()

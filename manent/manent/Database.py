@@ -210,22 +210,15 @@ class DatabaseWrapper:
 	#
 	class Iter:
 		def __init__(self, cursor):
-			print "Starting iteration for cursor", cursor
 			self.cursor = cursor
-			self.rec = cursor.first()
+		def next(self):
 			if self.rec is None:
-				print "Iteration not even started. Closing cursor"
 				self.cursor.close()
 				self.cursor = None
-		def next(self):
-			if self.cursor is None:
 				raise StopIteration
 			try:
 				rec = self.rec
 				self.rec = self.cursor.next()
-				if self.rec is None:
-					self.cursor.close()
-					self.cursor = None
 				return rec
 			except:
 				print "Ouch, there is some exception:"
@@ -233,21 +226,29 @@ class DatabaseWrapper:
 				self.cursor.close()
 				self.cursor = None
 				raise StopIteration
+	class PrefixIter(Iter):
+		def __init__(self, cursor, prefix):
+			DatabaseWrapper.Iter.__init__(self, cursor)
+			self.rec = cursor.set_range(prefix)
+			self.prefix = prefix
+		def __iter__(self):
+			return self
+		def next(self):
+			k,v = DatabaseWrapper.Iter.next(self)
+			if not k.startswith(self.prefix):
+				raise StopIteration
+			return (k,v)
+	class AllIter(Iter):
+		def __init__(self, cursor):
+			DatabaseWrapper.Iter.__init__(self, cursor)
+			self.rec = cursor.first()
+
 	def __iter__(self):
-		return DatabaseWrapper.Iter(self.d.cursor(self.__get_txn()))
+		return self.get_all()
+	def get_all(self):
+		return DatabaseWrapper.AllIter(self.d.cursor(self.__get_txn()))
 	#
 	# Iteration over a subset of keys
 	#
 	def get_all_by_prefix(self, prefix):
-		class PrefixIter(Iter):
-			def __init__(self, cursor, prefix):
-				cursor.set_range(prefix)
-				self.prefix = prefix
-				Iter.__init__(self, cursor)
-			def next(self):
-				result = Iter.next(self)
-				if not result.startswith(self.prefix):
-					raise StopIteration
-				return result
-		cursor.set_range(prefix)
-		return PrefixIter(self.d.cursor(self.__get_txn()), prefix)
+		return DatabaseWrapper.PrefixIter(self.d.cursor(self.__get_txn()), prefix)
