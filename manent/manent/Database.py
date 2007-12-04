@@ -40,13 +40,16 @@ class DatabaseConfig:
 		self.dbenv.set_lk_detect(db.DB_LOCK_DEFAULT)
 		self.dbenv.set_flags(db.DB_LOG_AUTOREMOVE, True)
 		open_start_time = time.time()
-		self.dbenv.open(self.__dbenv_dir(), db.DB_RECOVER| db.DB_CREATE |db.DB_INIT_TXN| db.DB_INIT_MPOOL| db.DB_INIT_LOCK|db.DB_THREAD)
+		self.dbenv.open(self.__dbenv_dir(),
+		    db.DB_RECOVER| db.DB_CREATE |db.DB_INIT_TXN|
+		    db.DB_INIT_MPOOL| db.DB_INIT_LOCK|db.DB_THREAD)
 		open_end_time = time.time()
 		#print "dbenv.open() takes", (open_end_time-open_start_time), "seconds"
 		
 		#self.done_event = Event()
 		#self.checkpoint_finished = Event()
-		#self.checkpoint_thread = CheckpointThread(self.dbenv, self.done_event, self.checkpoint_finished)
+		#self.checkpoint_thread = CheckpointThread(self.dbenv, self.done_event,
+		#                                          self.checkpoint_finished)
 		#self.checkpoint_thread.start()
 	def txn_begin(self):
 		self.dbenv.txn_checkpoint()
