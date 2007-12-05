@@ -1,4 +1,7 @@
-import util.IntegerEncodings as IE
+import base64
+import re
+
+import utils.IntegerEncodings as IE
 
 def create_storage(storage_type):
 	if storage_type == "directory":
@@ -28,10 +31,10 @@ class Storage:
 	#
 	def configure(self, config):
 		PREFIX = "STORAGE.%d." % self.index
-		for key, val in config:
+		for key, val in config.iteritems():
 			self.config_db[PREFIX+key] = val
 		
-		if not self.shared_db.has_key(name):
+		if not self.config_db.has_key(name):
 			self.load_sequences()
 			if self.active:
 				self.create_sequence()
@@ -53,17 +56,19 @@ class Storage:
 	#     container in the given sequence. Used to determine which new
 	#     containers have appeared for the sequence
 	def create_sequence(self):
-		self.sequence_id = os.urandom(18)
-		self.shared_db["storage.%d.active_sequence"%self.index]\
+		self.sequence_id = os.urandom(10)
+		self.config_db["storage.%d.active_sequence"%self.index]\
 			= self.sequence_id
-		self.shared_db["storage.%s.%s.last_container"%(self.index,self.id)]\
+		self.config_db["storage.%s.%s.last_container"%(self.index,self.id)]\
 			= self.something
 
 	def compute_header_filename(self,index):
-		return "manent.%s.%s.header" % (self.label,
+		return "manent.%s.%s.header" % (
+			base64.urlsafe_b64encode(self.sequence_id),
 			ascii_encode_int_varlen(index))
 	def compute_body_filename(self,index):
-		return "manent.%s.%s.body" % (self.label,
+		return "manent.%s.%s.body" % (
+			base64.urlsafe_b64encode(self.sequence_id),
 			ascii_encode_int_varlen(index))
 
 	def close(self):
@@ -79,9 +84,9 @@ class Storage:
 		match = name_re.match(name)
 		if not match:
 			return (None, None, None)
-		sequence = base64.urlsafe_b64decode(match.groups(1))
-		index = IE.ascii_decode_int_varlen(match.groups(2))
-		extension = match.groups(3)
+		sequence = base64.urlsafe_b64decode(match.groups()[0])
+		index = IE.ascii_decode_int_varlen(match.groups()[1])
+		extension = match.groups()[2]
 
 		return (sequence, index, extension)
 	#
