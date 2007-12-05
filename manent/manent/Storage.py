@@ -26,22 +26,20 @@ class Storage:
 	# How do we know for a given storage if it is just created or rescanned?
 	# Ah well, each storage stores its data in the shared db!
 	
+	def get_prefix(self):
+		return "STORAGE.%d." % self.index
 	#
 	# Loading
 	#
 	def configure(self, config):
-		PREFIX = "STORAGE.%d." % self.index
+		PREFIX = self.get_prefix()
 		for key, val in config.iteritems():
 			self.config_db[PREFIX+key] = val
 		
-		if not self.config_db.has_key(name):
-			self.load_sequences()
-			if self.active:
-				self.create_sequence()
-		else:
-			self.load_sequences()
+		self.load_sequences()
+		self.create_sequence()
 	def get_config(self):
-		PREFIX = "STORAGE.%d." % self.index
+		PREFIX = self.get_prefix()
 		config = {}
 		for key, val in self.config_db.get_all_by_prefix(PREFIX):
 			config[key] = val
@@ -56,21 +54,22 @@ class Storage:
 	#     container in the given sequence. Used to determine which new
 	#     containers have appeared for the sequence
 	def create_sequence(self):
+		PREFIX = self.get_prefix()
 		self.sequence_id = os.urandom(10)
-		self.config_db["storage.%d.active_sequence"%self.index]\
+		self.config_db[PREFIX+"active_sequence"]\
 			= self.sequence_id
-		self.config_db["storage.%s.%s.last_container"%(self.index,self.id)]\
+		self.config_db[PREFIX+"%s.last_container"%(self.id)]\
 			= self.something
-
-	def compute_header_filename(self,index):
-		return "manent.%s.%s.header" % (
-			base64.urlsafe_b64encode(self.sequence_id),
-			ascii_encode_int_varlen(index))
-	def compute_body_filename(self,index):
-		return "manent.%s.%s.body" % (
-			base64.urlsafe_b64encode(self.sequence_id),
-			ascii_encode_int_varlen(index))
-
+	def load_sequences(self):
+		sequences = {}
+		for file in self.list_files():
+			seq_id, index, extension = self.decode_container_name(file)
+			if self.sequences.has_key(seq_id):
+				self.sequences[seq_id] = max(self.sequences[seq_id], index)
+			else:
+				self.sequences[seq_id] = index
+		# TODO: put the sequences to self.sequences structure
+		# TODO: report on the extra containers that have appeared
 	def close(self):
 		pass
 	def info(self):
