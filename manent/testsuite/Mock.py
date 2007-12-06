@@ -22,7 +22,10 @@ class MockIncrementsDB:
 		self.next_index += 1
 	def finalize_increment(self):
 		pass
-		
+
+class MockDBWrapper:
+	def __init__(self):
+		self.data = {}
 
 class MockBlockCtx:
 	def __init__(self,backup):

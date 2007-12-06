@@ -1,5 +1,6 @@
 import base64
 import re
+import os
 
 import utils.IntegerEncodings as IE
 
@@ -36,6 +37,7 @@ class Storage:
 		for key, val in config.iteritems():
 			self.config_db[PREFIX+key] = val
 		
+		self.path = config["path"]
 		self.load_sequences()
 		self.create_sequence()
 	def get_config(self):
@@ -50,19 +52,17 @@ class Storage:
 	#                              are added
 	# storage.%d.$sequence.index  - the index of the sequence with the given
 	#     storage id. Used to determine if the sequence has been loaded already
-	# storage.%d.$sequence.last_container - the index of the last known
+	# storage.%d.$sequence.next_container - the index of the last known
 	#     container in the given sequence. Used to determine which new
 	#     containers have appeared for the sequence
 	def create_sequence(self):
 		PREFIX = self.get_prefix()
-		self.sequence_id = os.urandom(10)
-		self.config_db[PREFIX+"active_sequence"]\
-			= self.sequence_id
-		self.config_db[PREFIX+"%s.last_container"%(self.id)]\
-			= self.something
+		sequence_id = os.urandom(10)
+		self.config_db[PREFIX+"active_sequence"] = sequence_id
+		self.config_db[PREFIX+"%s.next_container"%(sequence_id)] = '0'
 	def load_sequences(self):
 		sequences = {}
-		for file in self.list_files():
+		for file in self.list_container_files():
 			seq_id, index, extension = self.decode_container_name(file)
 			if self.sequences.has_key(seq_id):
 				self.sequences[seq_id] = max(self.sequences[seq_id], index)
@@ -96,7 +96,7 @@ class Storage:
 		# It is the specific implementation of Storage that knows how to
 		# reconstruct the containers
 		#
-		container_files = self.list_s()
+		container_files = self.list_container_files()
 		container_header_files = {}
 		container_body_files = {}
 		for file in file_list:
@@ -275,7 +275,9 @@ class DirectoryStorage(Storage):
 				continue
 			container = self.load_container(index)
 			self.containers[index] = container
-	def load_container(self,index):
+	def list_container_files(self):
+		return os.listdir(self.path)
+	def load_container(self, index):
 		print "Loading header for container", index, "     "
 		container = Container(self.backup,index)
 
@@ -283,9 +285,8 @@ class DirectoryStorage(Storage):
 		staging_path = os.path.join(
 			self.backup.global_config.staging_area(),filename)
 		target_path  = os.path.join(self.path, filename)
-		container.load(os.path.join(self.path,filename))
+		container.load(os.path.join(self.path, filename))
 		return container
-	
 	def load_container_data(self,index):
 		print "Loading data for container", index, "     "
 		container = Container(self.backup,index)
