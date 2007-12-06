@@ -246,12 +246,12 @@ class DatabaseWrapper:
 			DatabaseWrapper.Iter.__init__(self, cursor)
 			self.rec = cursor.first()
 
-	def __iter__(self):
-		return self.get_all()
-	def get_all(self):
+	#def __iter__(self):
+		#return self.get_all()
+	def iteritems(self):
 		return DatabaseWrapper.AllIter(self.d.cursor(self.__get_txn()))
 	#
 	# Iteration over a subset of keys
 	#
-	def get_all_by_prefix(self, prefix):
+	def iteritems_prefix(self, prefix):
 		return DatabaseWrapper.PrefixIter(self.d.cursor(self.__get_txn()), prefix)

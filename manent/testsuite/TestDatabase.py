@@ -74,7 +74,7 @@ class TestDatabase(unittest.TestCase):
 			vals = [("aaa1", "bbb1"), ("aab1", "bbb2"), ("aab2", "bbb3"), ("aac1", "bbb4")]
 			for key, val in vals:
 				db[key] = val
-			db_vals = [(key, val) for (key, val) in db.get_all_by_prefix("aab")]
+			db_vals = [(key, val) for (key, val) in db.iteritems_prefix("aab")]
 			self.assertEqual(db_vals, [("aab1", "bbb2"), ("aab2", "bbb3")])
 			txn.commit()
 		except:
