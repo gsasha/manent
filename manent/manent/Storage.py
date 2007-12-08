@@ -61,6 +61,7 @@ class Storage:
 		sequence_id = os.urandom(10)
 		self.config_db[PREFIX+"active_sequence"] = sequence_id
 		self.config_db[PREFIX+"%s.next_container"%(sequence_id)] = '0'
+		return sequence_id
 	def load_sequences(self):
 		sequences = {}
 		for file in self.list_container_files():
