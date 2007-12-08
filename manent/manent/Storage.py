@@ -33,7 +33,7 @@ class Storage:
 	# Loading
 	#
 	def configure(self, config):
-		PREFIX = self.get_prefix()
+		PREFIX = self.get_prefix() + 'CONFIG.'
 		for key, val in config.iteritems():
 			self.config_db[PREFIX+key] = val
 		
@@ -41,10 +41,11 @@ class Storage:
 		self.load_sequences()
 		self.create_sequence()
 	def get_config(self):
-		PREFIX = self.get_prefix()
+		PREFIX = self.get_prefix() + 'CONFIG.'
+		PREFIX_len = len(PREFIX)
 		config = {}
 		for key, val in self.config_db.iteritems_prefix(PREFIX):
-			config[key] = val
+			config[key[PREFIX_len:]] = val
 		return config
 
 	# Data structure stored in a database for a specific storage:
