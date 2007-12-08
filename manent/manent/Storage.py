@@ -43,7 +43,7 @@ class Storage:
 	def get_config(self):
 		PREFIX = self.get_prefix()
 		config = {}
-		for key, val in self.config_db.get_all_by_prefix(PREFIX):
+		for key, val in self.config_db.iteritems_prefix(PREFIX):
 			config[key] = val
 		return config
 

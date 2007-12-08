@@ -22,6 +22,22 @@ class CheckpointThread(Thread):
 			#print "RUNNING DATABASE CHECKPOINT"
 			self.dbenv.txn_checkpoint(100,5,0)
 			#print "DONE RUNNING DATABASE CHECKPOINT"
+
+# A database config that operates in memory only.
+# Used for unit testing
+class MockDatabaseConfig:
+	def __init__(self):
+		self.dbenv = db.DBEnv()
+		self.dbenv.open("/tmp", db.DB_PRIVATE|db.DB_CREATE|db.DB_INIT_TXN|
+						db.DB_INIT_MPOOL| db.DB_INIT_LOCK|db.DB_THREAD)
+	def get_database(self,tablename,txn_handler):
+		return DatabaseWrapper(self, "fname", tablename, txn_handler)
+	def get_database_btree(self, tablename, txn_handler):
+		return DatabaseWrapper(self, "fname", tablename, txn_handler, db_type=db.DB_BTREE)
+	def get_database_hash(self,tablename,txn_handler):
+		return DatabaseWrapper(self, "fname", tablename, txn_handler, db_type=db.DB_HASH)
+
+# The normal database config class
 class DatabaseConfig:
 	def __init__(self,global_config,filename):
 		self.global_config = global_config
@@ -39,11 +55,9 @@ class DatabaseConfig:
 		self.dbenv.set_lk_max_objects(20000)
 		self.dbenv.set_lk_detect(db.DB_LOCK_DEFAULT)
 		self.dbenv.set_flags(db.DB_LOG_AUTOREMOVE, True)
-		open_start_time = time.time()
 		self.dbenv.open(self.__dbenv_dir(),
 		    db.DB_RECOVER| db.DB_CREATE |db.DB_INIT_TXN|
 		    db.DB_INIT_MPOOL| db.DB_INIT_LOCK|db.DB_THREAD)
-		open_end_time = time.time()
 		#print "dbenv.open() takes", (open_end_time-open_start_time), "seconds"
 		
 		#self.done_event = Event()
@@ -271,3 +285,4 @@ class DatabaseWrapper:
 		pass
 	def itervalues_prefix(self, prefix):
 		pass
+
