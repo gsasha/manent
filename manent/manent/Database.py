@@ -214,6 +214,8 @@ class DatabaseWrapper:
 	class Iter:
 		def __init__(self, cursor):
 			self.cursor = cursor
+		def __iter__(self):
+			return self
 		def next(self):
 			if self.rec is None:
 				self.cursor.close()
@@ -229,29 +231,43 @@ class DatabaseWrapper:
 				self.cursor.close()
 				self.cursor = None
 				raise StopIteration
+	class AllIter(Iter):
+		def __init__(self, cursor):
+			DatabaseWrapper.Iter.__init__(self, cursor)
+			self.rec = cursor.first()
 	class PrefixIter(Iter):
 		def __init__(self, cursor, prefix):
 			DatabaseWrapper.Iter.__init__(self, cursor)
 			self.rec = cursor.set_range(prefix)
 			self.prefix = prefix
-		def __iter__(self):
-			return self
 		def next(self):
 			k,v = DatabaseWrapper.Iter.next(self)
 			if not k.startswith(self.prefix):
 				raise StopIteration
 			return (k,v)
-	class AllIter(Iter):
-		def __init__(self, cursor):
-			DatabaseWrapper.Iter.__init__(self, cursor)
-			self.rec = cursor.first()
+	class KeysIter:
+		def __init__(self, it):
+			self.it = it
+		def __iter__(self):
+			return self
+		def next(self):
+			k,v = self.it.next()
+			return k
 
 	#def __iter__(self):
 		#return self.get_all()
 	def iteritems(self):
 		return DatabaseWrapper.AllIter(self.d.cursor(self.__get_txn()))
+	def iterkeys(self):
+		return KeysIter(self.iteritems())
+	def itervalues(self):
+		pass
 	#
 	# Iteration over a subset of keys
 	#
 	def iteritems_prefix(self, prefix):
 		return DatabaseWrapper.PrefixIter(self.d.cursor(self.__get_txn()), prefix)
+	def iterkeys_prefix(self, prefix):
+		pass
+	def itervalues_prefix(self, prefix):
+		pass
