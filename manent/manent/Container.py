@@ -403,13 +403,13 @@ class Container:
 	            out, or its blocks can be read back.
 
 	"""
-	def __init__(self, storage, header_file_name, body_file_name):
+	def __init__(self, storage):
 		# Configuration data
 		self.storage = storage
 		self.index = None
 		self.sequence_id = None
-		self.header_file_name = header_file_name
-		self.body_file_name = body_file_name
+		self.header_file = None
+		self.body_file = None
 		
 		self.mode = None
 	def get_index(self):
@@ -424,12 +424,8 @@ class Container:
 		self.mode = "DUMP"
 		self.sequence_id = sequence_id
 		self.index = index
-		try:
-			os.unlink(self.body_file_name)
-		except:
-			#it's OK if the file does not exist
-			pass
-		self.body_file = open(self.body_file_name, "wb")
+		self.header_file = self.storage.open_header_file(self.sequence_id, self.index)
+		self.body_file = self.storage.open_body_file(self.sequence_id, self.index)
 
 		self.body_dumper = DataDumper(self.body_file)
 		self.header_dump_os = StringIO()
@@ -483,8 +479,6 @@ class Container:
 		serialize_blocks(body_table_io,body_blocks)
 		body_table_str = body_table_io.getvalue()
 
-		self.body_file.close()
-
 		#
 		# Serialize the header table
 		#
@@ -507,32 +501,22 @@ class Container:
 		#
 		# Write the header
 		#
-		try:
-			os.unlink(self.header_file_name)
-		except:
-			# do nothing! We don't really expect the file to be there
-			pass
-		header_file = open(self.header_file_name, "wb")
 		
 		MAGIC = "MNNT"
 		VERSION = 2
-		header_file.write(MAGIC)
-		Format.write_int(header_file,VERSION)
-		Format.write_int(header_file,self.index)
-		Format.write_int(header_file, len(header_table_str))
-		header_file.write(Digest.dataDigest(header_table_str))
-		header_file.write(header_table_str)
+		self.header_file.write(MAGIC)
+		Format.write_int(self.header_file, VERSION)
+		Format.write_int(self.header_file, self.index)
+		Format.write_int(self.header_file, len(header_table_str))
+		self.header_file.write(Digest.dataDigest(header_table_str))
+		self.header_file.write(header_table_str)
 		header_dump_str = self.header_dump_os.getvalue()
-		header_file.write(header_dump_str)
+		self.header_file.write(header_dump_str)
 
-		header_file.close()
-		#
-		# TODO: Test that the container data is correct
-		#
-		#self.test_blocks(self.dataFileName)
-
-		self.storage.upload_container(self.index, self.header_file_name,
-			self.body_file_name)
+		self.storage.upload_container(self.sequence_id, self.index,
+			self.header_file, self.body_file)
+		self.header_file = None
+		self.body_file = None
 	#
 	# Loading mode implementation
 	#
@@ -542,27 +526,27 @@ class Container:
 		self.sequence_id = sequence_id
 		self.index = index
 	def load_header(self):
-		self.storage.load_container_header(self.index,self.header_file_name)
+		self.header_file = self.storage.load_container_header(self.sequence_id, self.index)
 		
-		header_file = open(self.header_file_name, "rb")
-		MAGIC = header_file.read(4)
+		MAGIC = self.header_file.read(4)
 		if MAGIC != "MNNT":
 			raise Exception("Manent: magic number not found")
-		version = Format.read_int(header_file)
+		version = Format.read_int(self.header_file)
 		if version != 2:
 			raise Exception("Container %d has unsupported version" % self.index)
-		index = Format.read_int(header_file)
+		index = Format.read_int(self.header_file)
 		if index != self.index:
 			raise Exception(
 				"Manent: wrong container file index. Expected %s, found %s"
 				% (str(self.index),str(index)))
 		
-		header_table_size = Format.read_int(header_file)
-		header_table_digest = header_file.read(Digest.dataDigestSize())
-		header_table_str = header_file.read(header_table_size)
+		header_table_size = Format.read_int(self.header_file)
+		header_table_digest = self.header_file.read(Digest.dataDigestSize())
+		header_table_str = self.header_file.read(header_table_size)
 		if Digest.dataDigest(header_table_str) != header_table_digest:
 			raise Exception("Manent: header of container file corrupted")
-		header_dump_str = header_file.read()
+		# TODO: read only as much as necessary
+		header_dump_str = self.header_file.read()
 		
 		header_table_io = StringIO(header_table_str)
 		header_blocks = unserialize_blocks(header_table_io)
@@ -588,10 +572,9 @@ class Container:
 	def list_blocks(self):
 		return self.body_blocks
 	def load_body(self):
-		self.storage.load_container_body(self.index, self.body_file_name)
+		self.body_file = self.storage.load_container_body(self.sequence_id, self.index)
 		
-		body_file = open(self.body_file_name, "rb")
-		self.body_dump_loader = DataDumpLoader(body_file, self.body_blocks,
+		self.body_dump_loader = DataDumpLoader(self.body_file, self.body_blocks,
 			password=self.storage.get_password())
 	def info(self):
 		print "Manent container #%d of storage %s" % (
@@ -610,6 +593,3 @@ class Container:
 		self.read_blocks(bc,filename)
 	def load_blocks(self,handler):
 		self.body_dump_loader.load_blocks(handler)
-	def remove_files(self):
-		os.unlink(self.header_file_name)
-		os.unlink(self.body_file_name)

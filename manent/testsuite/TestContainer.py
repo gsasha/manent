@@ -48,10 +48,12 @@ class MockHandler:
 class MockStorage:
 	def __init__(self,password):
 		self.password = password
-		handle, self.header_file_name = tempfile.mkstemp(
+		dummy, self.header_file_name = tempfile.mkstemp(
 			".header","manent.test_container", "/tmp")
-		handle, self.body_file_name = tempfile.mkstemp(
+		self.header_file = open(self.header_file_name, "r+w") 
+		dummy, self.body_file_name = tempfile.mkstemp(
 			".body", "manent.test_container", "/tmp")
+		self.body_file = open(self.body_file_name, "r+w")
 		self.cur_index = 0
 
 	def cleanup(self):
@@ -59,21 +61,27 @@ class MockStorage:
 		os.unlink(self.body_file_name)
 
 	def get_container(self,index):
-		container = Container(self,self.header_file_name,self.body_file_name)
+		container = Container(self)
 		container.start_load("sequence_a", index)
 		return container
 
 	def get_password(self):
 		return self.password
-	def load_container_header(self,index,header_file_name):
-		pass
-	def load_container_body(self,index,body_file_name):
-		pass
+	def open_header_file(self, sequence_id, index):
+		return self.header_file
+	def open_body_file(self, sequence_id, index):
+		return self.body_file
+	def load_container_header(self, sequence_id, index):
+		self.header_file.seek(0)
+		return self.header_file
+	def load_container_body(self, sequence_id, index):
+		self.body_file.seek(0)
+		return self.body_file
 	def get_label(self):
 		return "mukakaka"
 	
 	def create_container(self):
-		container = Container(self,self.header_file_name,self.body_file_name)
+		container = Container(self)
 		container.start_dump("sequence_a", self.cur_index)
 		self.cur_index += 1
 		return container
@@ -81,7 +89,9 @@ class MockStorage:
 	def finalize_container(self,container):
 		container.finish_dump()
 
-	def upload_container(self,index,header_file_name,body_file_name):
+	def upload_container(self, sequence_id, index, header_file, body_file):
+		# We know (in this test) that header file and body file are the same,
+		# so there's nothing to do
 		pass
 
 DATA = [

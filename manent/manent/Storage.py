@@ -162,8 +162,9 @@ class Storage:
 		random_part = os.urandom(10)
 		header_file_name = "/tmp/manent.container.%s.header" % random_part
 		body_file_name   = "/tmp/manent.container.%s.body" % random_part
-		return Container(self, header_file_name, body_file_name)
+		container = Container(self, header_file_name, body_file_name)
 		container.start_load(sequence_id, index)
+		return container
 
 	def load_container_header(self,index,file_name):
 		pass
