@@ -60,7 +60,7 @@ class MockStorage:
 
 	def get_container(self,index):
 		container = Container(self,self.header_file_name,self.body_file_name)
-		container.start_load(index)
+		container.start_load("sequence_a", index)
 		return container
 
 	def get_password(self):
@@ -74,12 +74,12 @@ class MockStorage:
 	
 	def create_container(self):
 		container = Container(self,self.header_file_name,self.body_file_name)
-		container.start_dump()
+		container.start_dump("sequence_a", self.cur_index)
+		self.cur_index += 1
 		return container
 
 	def finalize_container(self,container):
-		container.finish_dump(self.cur_index)
-		self.cur_index += 1
+		container.finish_dump()
 
 	def upload_container(self,index,header_file_name,body_file_name):
 		pass

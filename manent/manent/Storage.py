@@ -156,11 +156,14 @@ class Storage:
 	#
 	# Container management
 	#
-	def get_container(self,index):
+	def create_container(self):
+		return None
+	def get_container(self, sequence_id, index):
 		random_part = os.urandom(10)
 		header_file_name = "/tmp/manent.container.%s.header" % random_part
 		body_file_name   = "/tmp/manent.container.%s.body" % random_part
-		return Container(self,index,header_file_name,body_file_name)
+		return Container(self, header_file_name, body_file_name)
+		container.start_load(sequence_id, index)
 
 	def load_container_header(self,index,file_name):
 		pass

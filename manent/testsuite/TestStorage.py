@@ -37,5 +37,7 @@ class TestStorage(unittest.TestCase):
 		storage = Storage.DirectoryStorage(0, config_db)
 		CONFIGURATION = {"path": "/tmp"}
 		seq_id1 = storage.create_sequence()
+		container1 = storage.create_container()
 		seq_id2 = storage.create_sequence()
 		self.failUnless(seq_id1 != seq_id2)
+		container2 = storage.create_container()

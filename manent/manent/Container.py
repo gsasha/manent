@@ -406,17 +406,24 @@ class Container:
 	def __init__(self, storage, header_file_name, body_file_name):
 		# Configuration data
 		self.storage = storage
+		self.index = None
+		self.sequence_id = None
 		self.header_file_name = header_file_name
 		self.body_file_name = body_file_name
 		
 		self.mode = None
 	def get_index(self):
 		return self.index
+	def get_sequence_id(self):
+		return self.sequence_id
 	#
 	# Dumping mode implementation
 	#
-	def start_dump(self):
+	def start_dump(self, sequence_id, index):
+		assert self.mode is None
 		self.mode = "DUMP"
+		self.sequence_id = sequence_id
+		self.index = index
 		try:
 			os.unlink(self.body_file_name)
 		except:
@@ -462,10 +469,7 @@ class Container:
 
 		self.body_dumper.add_block(digest, data, code)
 		self.compressed_data += len(data)
-	def finish_dump(self, index):
-
-		self.index = index
-
+	def finish_dump(self):
 		if self.compression_active:
 			self.body_dumper.stop_compression()
 			self.compression_active = False
@@ -532,9 +536,10 @@ class Container:
 	#
 	# Loading mode implementation
 	#
-	def start_load(self, index):
+	def start_load(self, sequence_id, index):
 		assert self.mode is None
 		self.mode = "LOAD"
+		self.sequence_id = sequence_id
 		self.index = index
 	def load_header(self):
 		self.storage.load_container_header(self.index,self.header_file_name)
