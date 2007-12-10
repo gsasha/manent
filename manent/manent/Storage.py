@@ -2,6 +2,7 @@ import base64
 import re
 import os
 
+import Container
 import utils.IntegerEncodings as IE
 
 def create_storage(storage_type):
@@ -57,11 +58,21 @@ class Storage:
 	#     container in the given sequence. Used to determine which new
 	#     containers have appeared for the sequence
 	def create_sequence(self):
+		self.active_sequence_id = os.urandom(10)
+		self.active_sequence_next_index = 0
 		PREFIX = self.get_prefix()
-		sequence_id = os.urandom(10)
-		self.config_db[PREFIX+"active_sequence"] = sequence_id
-		self.config_db[PREFIX+"%s.next_container"%(sequence_id)] = '0'
-		return sequence_id
+		NEXT_INDEX_KEY = PREFIX+"%s.next_index"%(self.active_sequence_id)
+		self.config_db[PREFIX+"active_sequence"] = self.active_sequence_id
+		self.config_db[NEXT_INDEX_KEY] = str(self.active_sequence_next_index)
+		return self.active_sequence_id
+	def get_active_sequence_id(self):
+		return self.active_sequence_id
+	def get_next_index(self):
+		index = self.active_sequence_next_index
+		self.active_sequence_next_index += 1
+		PREFIX = self.get_prefix()
+		NEXT_INDEX_KEY = PREFIX+"%s.next_index"%(self.active_sequence_id)
+		self.config_db[NEXT_INDEX_KEY] = str(self.active_sequence_next_index)
 	def load_sequences(self):
 		sequences = {}
 		for file in self.list_container_files():
@@ -70,6 +81,7 @@ class Storage:
 				self.sequences[seq_id] = max(self.sequences[seq_id], index)
 			else:
 				self.sequences[seq_id] = index
+		# TODO: restore active_sequence
 		# TODO: put the sequences to self.sequences structure
 		# TODO: report on the extra containers that have appeared
 	def close(self):
@@ -77,19 +89,19 @@ class Storage:
 	def info(self):
 		pass
 
-	def encode_container_name(self, sequence, index, extension):
-		return "manent.%s.%s.%s" % (base64.urlsafe_b64encode(sequence),
+	def encode_container_name(self, sequence_id, index, extension):
+		return "manent.%s.%s.%s" % (base64.urlsafe_b64encode(sequence_id),
 			IE.ascii_encode_int_varlen(index), extension)
 	def decode_container_name(self, name):
 		name_re = re.compile("manent.([^.]+).([^.]+).([^.]+)")
 		match = name_re.match(name)
 		if not match:
 			return (None, None, None)
-		sequence = base64.urlsafe_b64decode(match.groups()[0])
+		sequence_id = base64.urlsafe_b64decode(match.groups()[0])
 		index = IE.ascii_decode_int_varlen(match.groups()[1])
 		extension = match.groups()[2]
 
-		return (sequence, index, extension)
+		return (sequence_id, index, extension)
 	#
 	# Reconstruction!
 	#
@@ -113,7 +125,7 @@ class Storage:
 			if not container_body_files.has_key(index):
 				print "Container %d has header but no index\n" % index
 				continue
-			container = Container(
+			container = Container.Container(
 				self,index,container_header_files[index],
 				container_body_files[index])
 			container.load_header()
@@ -157,20 +169,19 @@ class Storage:
 	# Container management
 	#
 	def create_container(self):
-		return None
+		container = Container.Container(self)
+		container.start_dump(self.get_active_sequence_id(), self.get_next_index())
+		return container
 	def get_container(self, sequence_id, index):
-		random_part = os.urandom(10)
-		header_file_name = "/tmp/manent.container.%s.header" % random_part
-		body_file_name   = "/tmp/manent.container.%s.body" % random_part
-		container = Container(self, header_file_name, body_file_name)
+		container = Container.Container(self)
 		container.start_load(sequence_id, index)
 		return container
 
-	def load_container_header(self,index,file_name):
+	def load_container_header(self, sequence_id, index):
 		pass
-	def load_container_body(self,index,file_name):
+	def load_container_body(self, sequence_id, index):
 		pass
-	def upload_container(self,index,header_file_name,body_file_name):
+	def upload_container(self, sequence_id, index, header_file, body_file):
 		pass
 	
 	def rescan(self):
