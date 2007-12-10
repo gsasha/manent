@@ -302,36 +302,33 @@ class DirectoryStorage(Storage):
 		body_file_name = self.encode_container_name(sequence_id, index, "manb-tmp")
 		body_file_path = os.path.join(self.path, body_file_name)
 		return open(body_file_path, "rw")
-	def load_container(self, index):
-		print "Loading header for container", index, "     "
-		container = Container(self.backup,index)
+	def upload_container(self, sequence_id, index, header_file, body_file):
+		header_file_name_tmp = self.encode_container_name(sequence_id, index, "manh-tmp")
+		header_file_name = self.encode_container_name(sequence_id, index, "manh")
+		body_file_name_tmp = self.encode_container_name(sequence_id, index, "manb-tmp")
+		body_file_name = self.encode_container_name(sequence_id, index, "manb")
+		header_file_path_tmp = os.path.join(self.path, header_file_name_tmp)
+		header_file_path = os.path.join(self.path, header_file_name)
+		body_file_path_tmp = os.path.join(self.path, body_file_name_tmp)
+		body_file_path = os.path.join(self.path, body_file_name)
+		# Rename the tmp files to permanent ones
+		shutil.move(header_file_path_tmp, header_file_path)
+		shutil.move(body_file_path_tmp, body_file_path)
+		# TODO: Remove the write permission off the permanent files
+	def load_container_header(self, sequence_id, index):
+		print "Loading header for container",\
+		  base64.urlsafe_b64include(sequence_id), index, "     "
 
-		filename = container.filename()
-		staging_path = os.path.join(
-			self.backup.global_config.staging_area(),filename)
-		target_path  = os.path.join(self.path, filename)
-		container.load(os.path.join(self.path, filename))
-		return container
+		header_file_name = self.encode_container_name(sequence_id, index, "manh")
+		header_file_path = os.path.join(self.path, header_file_name)
+		return open(header_file_path, "r")
 	def load_container_data(self,index):
-		print "Loading data for container", index, "     "
-		container = Container(self.backup,index)
-
-		filename = container.filename()+".data"
-		staging_path = os.path.join(
-			self.backup.global_config.staging_area(),filename)
-		target_path  = os.path.join(self.path, filename)
-		return target_path
-	def save_container(self,container):
-		index = container.index
+		print "Loading body for container",\
+		  base64.urlsafe_b64include(sequence_id), index, "     "
 		
-		filename = container.filename()
-		staging_path = os.path.join(
-			self.backup.global_config.staging_area(),filename)
-		target_path  = os.path.join(self.path, filename)
-		
-		if staging_path != target_path:
-			shutil.move(staging_path, target_path)
-			shutil.move(staging_path+".data", target_path+".data")
+		body_file_name = self.encode_container_name(sequence_id, index, "manb")
+		body_file_path = os.path.join(self.path, body_file_name)
+		return open(body_file_path, "r")
 
 import smtplib
 from email import Encoders
