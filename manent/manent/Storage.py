@@ -259,7 +259,7 @@ class DirectoryStorage(Storage):
 	def container_size(self):
 		#return 4<<20
 		return 4<<20
-       	def reconstruct_containers(self):
+	def reconstruct_containers(self):
 		print "Scanning containers:", self.path
 		container_files = {}
 		container_data_files = {}
@@ -294,6 +294,14 @@ class DirectoryStorage(Storage):
 			self.containers[index] = container
 	def list_container_files(self):
 		return os.listdir(self.path)
+	def open_header_file(self, sequence_id, index):
+		header_file_name = self.encode_container_name(sequence_id, index, "manh-tmp")
+		header_file_path = os.path.join(self.path, header_file_name)
+		return open(header_file_path, "rw")
+	def open_body_file(self, sequence_id, index):
+		body_file_name = self.encode_container_name(sequence_id, index, "manb-tmp")
+		body_file_path = os.path.join(self.path, body_file_name)
+		return open(body_file_path, "rw")
 	def load_container(self, index):
 		print "Loading header for container", index, "     "
 		container = Container(self.backup,index)
