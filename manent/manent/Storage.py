@@ -177,6 +177,7 @@ class Storage:
 		if self.active_sequence_id is None:
 			raise Exception("Can't create a container for an inactive storage")
 		container = Container.Container(self)
+		print "Active sequence id:", self.get_active_sequence_id()
 		container.start_dump(self.get_active_sequence_id(), self.get_next_index())
 		return container
 	def get_container(self, sequence_id, index):
