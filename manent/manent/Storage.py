@@ -24,6 +24,7 @@ class Storage:
 		self.index = index
 		self.config_db = config_db
 		self.sequences = {}
+		self.active_sequence_id = None
 	
 	# How do we know for a given storage if it is just created or rescanned?
 	# Ah well, each storage stores its data in the shared db!
@@ -57,6 +58,10 @@ class Storage:
 	# storage.%d.$sequence.next_container - the index of the last known
 	#     container in the given sequence. Used to determine which new
 	#     containers have appeared for the sequence
+	def make_active(self):
+		# If this storage is not active, create a sequence.
+		if self.active_sequence_id is None:
+			self.create_sequence()
 	def create_sequence(self):
 		self.active_sequence_id = os.urandom(10)
 		self.active_sequence_next_index = 0
@@ -169,6 +174,8 @@ class Storage:
 	# Container management
 	#
 	def create_container(self):
+		if self.active_sequence_id is None:
+			raise Exception("Can't create a container for an inactive storage")
 		container = Container.Container(self)
 		container.start_dump(self.get_active_sequence_id(), self.get_next_index())
 		return container
@@ -314,7 +321,9 @@ class DirectoryStorage(Storage):
 		# Rename the tmp files to permanent ones
 		shutil.move(header_file_path_tmp, header_file_path)
 		shutil.move(body_file_path_tmp, body_file_path)
-		# TODO: Remove the write permission off the permanent files
+		# Remove the write permission off the permanent files
+		os.chmod(header_file_path, os.S_IREAD)
+		os.chmod(body_file_path, os.S_IREAD)
 	def load_container_header(self, sequence_id, index):
 		print "Loading header for container",\
 		  base64.urlsafe_b64include(sequence_id), index, "     "
