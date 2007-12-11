@@ -32,7 +32,7 @@ class TestStorage(unittest.TestCase):
 			self.assertEqual(container_idx, dec_container_idx)
 			self.assertEqual(dec_ext, "data")
 	def test_sequence_created(self):
-		"""Test that unique sequence names are created"""
+		"""Test that unique sequence ids are created"""
 		env = Database.MockDatabaseConfig()
 		config_db = env.get_database_btree("a", None)
 		storage = Storage.DirectoryStorage(0, config_db)
@@ -59,7 +59,7 @@ class TestStorage(unittest.TestCase):
 		pass
 	def test_new_containers_in_active_sequence_caught(self):
 		"""Test that if new containers appear unexpectedly in the active sequence,
-		it is actually discovered"
+		it is actually discovered"""
 		pass
 	def test_new_active_sequence(self):
 		"""Test that when the storage is recreated from a new db, the existing active
