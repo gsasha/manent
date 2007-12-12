@@ -39,7 +39,7 @@ class Storage:
 		for key, val in config.iteritems():
 			self.config_db[PREFIX+key] = val
 		
-		self.path = config["path"]
+		self.config = config
 		self.load_sequences()
 	def get_config(self):
 		PREFIX = self.get_prefix() + 'CONFIG.'
@@ -258,21 +258,20 @@ class DirectoryStorage(Storage):
 	"""
 	def __init__(self, index, config_db):
 		Storage.__init__(self, index, config_db)
-		self.path = None
 	def configure(self, params):
 		Storage.configure(self, params)
-		(path,) = params
-		self.path = path
 	def load_configuration(self):
 		Storage.load_configuration(self)
+	def get_path(self):
+		return self.config["path"]
 	def container_size(self):
 		#return 4<<20
 		return 4<<20
 	def reconstruct_containers(self):
-		print "Scanning containers:", self.path
+		print "Scanning containers:", self.get_path()
 		container_files = {}
 		container_data_files = {}
-		for file in os.listdir(self.path):
+		for file in os.listdir(self.get_path()):
 			container_index = self.backup.global_config.container_index(
 				file,self.backup.label,"")
 			if container_index != None:
@@ -302,24 +301,24 @@ class DirectoryStorage(Storage):
 			container = self.load_container(index)
 			self.containers[index] = container
 	def list_container_files(self):
-		return os.listdir(self.path)
+		return os.listdir(self.get_path())
 	def open_header_file(self, sequence_id, index):
 		header_file_name = self.encode_container_name(sequence_id, index, "manh-tmp")
-		header_file_path = os.path.join(self.path, header_file_name)
+		header_file_path = os.path.join(self.get_path(), header_file_name)
 		return open(header_file_path, "rw")
 	def open_body_file(self, sequence_id, index):
 		body_file_name = self.encode_container_name(sequence_id, index, "manb-tmp")
-		body_file_path = os.path.join(self.path, body_file_name)
+		body_file_path = os.path.join(self.get_path(), body_file_name)
 		return open(body_file_path, "rw")
 	def upload_container(self, sequence_id, index, header_file, body_file):
 		header_file_name_tmp = self.encode_container_name(sequence_id, index, "manh-tmp")
 		header_file_name = self.encode_container_name(sequence_id, index, "manh")
 		body_file_name_tmp = self.encode_container_name(sequence_id, index, "manb-tmp")
 		body_file_name = self.encode_container_name(sequence_id, index, "manb")
-		header_file_path_tmp = os.path.join(self.path, header_file_name_tmp)
-		header_file_path = os.path.join(self.path, header_file_name)
-		body_file_path_tmp = os.path.join(self.path, body_file_name_tmp)
-		body_file_path = os.path.join(self.path, body_file_name)
+		header_file_path_tmp = os.path.join(self.get_path(), header_file_name_tmp)
+		header_file_path = os.path.join(self.get_path(), header_file_name)
+		body_file_path_tmp = os.path.join(self.get_path(), body_file_name_tmp)
+		body_file_path = os.path.join(self.get_path(), body_file_name)
 		# Rename the tmp files to permanent ones
 		shutil.move(header_file_path_tmp, header_file_path)
 		shutil.move(body_file_path_tmp, body_file_path)
@@ -331,14 +330,14 @@ class DirectoryStorage(Storage):
 		  base64.urlsafe_b64include(sequence_id), index, "     "
 
 		header_file_name = self.encode_container_name(sequence_id, index, "manh")
-		header_file_path = os.path.join(self.path, header_file_name)
+		header_file_path = os.path.join(self.get_path(), header_file_name)
 		return open(header_file_path, "r")
 	def load_container_data(self,index):
 		print "Loading body for container",\
 		  base64.urlsafe_b64include(sequence_id), index, "     "
 		
 		body_file_name = self.encode_container_name(sequence_id, index, "manb")
-		body_file_path = os.path.join(self.path, body_file_name)
+		body_file_path = os.path.join(self.get_path(), body_file_name)
 		return open(body_file_path, "r")
 
 import smtplib
