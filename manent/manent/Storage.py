@@ -41,7 +41,6 @@ class Storage:
 		
 		self.path = config["path"]
 		self.load_sequences()
-		self.create_sequence()
 	def get_config(self):
 		PREFIX = self.get_prefix() + 'CONFIG.'
 		PREFIX_len = len(PREFIX)
@@ -63,7 +62,8 @@ class Storage:
 		if self.active_sequence_id is None:
 			self.create_sequence()
 	def create_sequence(self):
-		self.active_sequence_id = os.urandom(10)
+		print "Creating sequence"
+		self.active_sequence_id = os.urandom(12)
 		self.active_sequence_next_index = 0
 		PREFIX = self.get_prefix()
 		NEXT_INDEX_KEY = PREFIX+"%s.next_index"%(self.active_sequence_id)
@@ -78,6 +78,7 @@ class Storage:
 		PREFIX = self.get_prefix()
 		NEXT_INDEX_KEY = PREFIX+"%s.next_index"%(self.active_sequence_id)
 		self.config_db[NEXT_INDEX_KEY] = str(self.active_sequence_next_index)
+		return index
 	def load_sequences(self):
 		sequences = {}
 		for file in self.list_container_files():
@@ -177,7 +178,7 @@ class Storage:
 		if self.active_sequence_id is None:
 			raise Exception("Can't create a container for an inactive storage")
 		container = Container.Container(self)
-		print "Active sequence id:", self.get_active_sequence_id()
+		print "next index:", self.get_next_index()
 		container.start_dump(self.get_active_sequence_id(), self.get_next_index())
 		return container
 	def get_container(self, sequence_id, index):
