@@ -1,8 +1,10 @@
 import os
 import unittest
 
+import manent.Container as Container
 import manent.Database as Database
 import manent.Storage as Storage
+import manent.utils.Digest as Digest
 
 class TestStorage(unittest.TestCase):
 	def test_params_stored(self):
@@ -46,7 +48,18 @@ class TestStorage(unittest.TestCase):
 		container2 = storage.create_container()
 	def test_container_created(self):
 		"""Test that containers are created and restored correctly"""
-		pass
+		env = Database.MockDatabaseConfig()
+		config_db = env.get_database_btree("a", None)
+		storage = Storage.DirectoryStorage(0, config_db)
+		CONFIGURATION = {"path": "/tmp", "password": "kuku"}
+		storage.configure(CONFIGURATION)
+		storage.make_active()
+		seq_id = storage.create_sequence()
+		container = storage.create_container()
+		block = "some strange text"
+		block_digest = Digest.dataDigest(block)
+		container.add_block(block_digest, block, Container.CODE_DATA)
+		container.finish_dump()
 	def test_sequence_restored(self):
 		"""Test that once a sequence is created, the next instantiation of storage with
 		the same sequence sees it"""

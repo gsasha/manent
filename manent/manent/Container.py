@@ -482,8 +482,8 @@ class Container:
 		#
 		# Serialize the header table
 		#
-		message = "Manent container %d of backup '%s'" % (
-			self.index, self.storage.get_label())
+		message = "Manent container %d of sequence '%s'" % (
+			self.index, base64.urlsafe_b64encode(self.sequence_id))
 		self.header_dumper.add_block(Digest.dataDigest(message),
 									 message, CODE_CONTAINER_DESCRIPTOR)
 		self.header_dumper.add_block(Digest.dataDigest(body_table_str),

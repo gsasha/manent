@@ -1,6 +1,7 @@
 import base64
-import re
 import os
+import re
+import shutil
 
 import Container
 import utils.IntegerEncodings as IE
@@ -183,7 +184,6 @@ class Storage:
 		if self.active_sequence_id is None:
 			raise Exception("Can't create a container for an inactive storage")
 		container = Container.Container(self)
-		print "next index:", self.get_next_index()
 		container.start_dump(self.get_active_sequence_id(), self.get_next_index())
 		return container
 	def get_container(self, sequence_id, index):
@@ -328,8 +328,8 @@ class DirectoryStorage(Storage):
 		shutil.move(header_file_path_tmp, header_file_path)
 		shutil.move(body_file_path_tmp, body_file_path)
 		# Remove the write permission off the permanent files
-		os.chmod(header_file_path, os.S_IREAD)
-		os.chmod(body_file_path, os.S_IREAD)
+		os.chmod(header_file_path, 0444)
+		os.chmod(body_file_path, 0444)
 	def load_container_header(self, sequence_id, index):
 		print "Loading header for container",\
 		  base64.urlsafe_b64include(sequence_id), index, "     "
