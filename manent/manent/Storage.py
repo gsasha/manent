@@ -42,6 +42,9 @@ class Storage:
 		
 		self.config = config
 		self.load_sequences()
+	def load_configuration(self):
+		self.config = self.get_config()
+		self.load_sequences()
 	def get_config(self):
 		PREFIX = self.get_prefix() + 'CONFIG.'
 		PREFIX_len = len(PREFIX)
@@ -68,7 +71,7 @@ class Storage:
 		if self.active_sequence_id is None:
 			self.create_sequence()
 	def create_sequence(self):
-		print "Creating sequence"
+		#print "Creating sequence"
 		self.active_sequence_id = os.urandom(12)
 		self.active_sequence_next_index = 0
 		PREFIX = self.get_prefix()
@@ -273,7 +276,7 @@ class DirectoryStorage(Storage):
 		#return 4<<20
 		return 4<<20
 	def reconstruct_containers(self):
-		print "Scanning containers:", self.get_path()
+		#print "Scanning containers:", self.get_path()
 		container_files = {}
 		container_data_files = {}
 		for file in os.listdir(self.get_path()):

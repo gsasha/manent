@@ -50,6 +50,7 @@ class TestStorage(unittest.TestCase):
 		"""Test that containers are created and restored correctly"""
 		env = Database.MockDatabaseConfig()
 		config_db = env.get_database_btree("a", None)
+		# Create storage and a container
 		storage = Storage.DirectoryStorage(0, config_db)
 		CONFIGURATION = {"path": "/tmp", "password": "kuku"}
 		storage.configure(CONFIGURATION)
@@ -60,6 +61,12 @@ class TestStorage(unittest.TestCase):
 		block_digest = Digest.dataDigest(block)
 		container.add_block(block_digest, block, Container.CODE_DATA)
 		container.finish_dump()
+		self.assertEqual(0, container.get_index())
+		self.assertEqual(seq_id, container.get_sequence_id())
+
+		# Reload the storage and read the container
+		storage = Storage.DirectoryStorage(0, config_db)
+		storage.load_configuration()
 	def test_sequence_restored(self):
 		"""Test that once a sequence is created, the next instantiation of storage with
 		the same sequence sees it"""
