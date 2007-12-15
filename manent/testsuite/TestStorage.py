@@ -36,7 +36,7 @@ class TestStorage(unittest.TestCase):
 		env = Database.MockDatabaseConfig()
 		config_db = env.get_database_btree("a", None)
 		storage = Storage.DirectoryStorage(0, config_db)
-		CONFIGURATION = {"path": "/tmp"}
+		CONFIGURATION = {"path": "/tmp", "password": "kuku"}
 		storage.configure(CONFIGURATION)
 		storage.make_active()
 		seq_id1 = storage.create_sequence()

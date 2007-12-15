@@ -49,6 +49,11 @@ class Storage:
 			config[key[PREFIX_len:]] = val
 		return config
 
+	def get_password(self):
+		if self.config.has_key('password'):
+			return self.config['password']
+		return None
+
 	# Data structure stored in a database for a specific storage:
 	# storage.%d.active_sequence - the sequence to which new containers
 	#                              are added
@@ -305,11 +310,11 @@ class DirectoryStorage(Storage):
 	def open_header_file(self, sequence_id, index):
 		header_file_name = self.encode_container_name(sequence_id, index, "manh-tmp")
 		header_file_path = os.path.join(self.get_path(), header_file_name)
-		return open(header_file_path, "rw")
+		return open(header_file_path, "w+")
 	def open_body_file(self, sequence_id, index):
 		body_file_name = self.encode_container_name(sequence_id, index, "manb-tmp")
 		body_file_path = os.path.join(self.get_path(), body_file_name)
-		return open(body_file_path, "rw")
+		return open(body_file_path, "w+")
 	def upload_container(self, sequence_id, index, header_file, body_file):
 		header_file_name_tmp = self.encode_container_name(sequence_id, index, "manh-tmp")
 		header_file_name = self.encode_container_name(sequence_id, index, "manh")
