@@ -334,16 +334,14 @@ class DirectoryStorage(Storage):
 		os.chmod(header_file_path, 0444)
 		os.chmod(body_file_path, 0444)
 	def load_container_header(self, sequence_id, index):
-		print "Loading header for container",\
-		  base64.urlsafe_b64include(sequence_id), index, "     "
-
+		#print "Loading header for container",\
+		  #base64.urlsafe_b64encode(sequence_id), index, "     "
 		header_file_name = self.encode_container_name(sequence_id, index, "manh")
 		header_file_path = os.path.join(self.get_path(), header_file_name)
 		return open(header_file_path, "r")
 	def load_container_data(self,index):
-		print "Loading body for container",\
-		  base64.urlsafe_b64include(sequence_id), index, "     "
-		
+		#print "Loading body for container",\
+		  #base64.urlsafe_b64include(sequence_id), index, "     "
 		body_file_name = self.encode_container_name(sequence_id, index, "manb")
 		body_file_path = os.path.join(self.get_path(), body_file_name)
 		return open(body_file_path, "r")
