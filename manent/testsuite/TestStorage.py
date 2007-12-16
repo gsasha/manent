@@ -67,6 +67,7 @@ class TestStorage(unittest.TestCase):
 		# Reload the storage and read the container
 		storage = Storage.DirectoryStorage(0, config_db)
 		storage.load_configuration()
+		container = storage.get_container(seq_id, 0)
 	def test_sequence_restored(self):
 		"""Test that once a sequence is created, the next instantiation of storage with
 		the same sequence sees it"""

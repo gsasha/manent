@@ -31,11 +31,11 @@ class MockDatabaseConfig:
 		self.dbenv.open("/tmp", db.DB_PRIVATE|db.DB_CREATE|db.DB_INIT_TXN|
 						db.DB_INIT_MPOOL| db.DB_INIT_LOCK|db.DB_THREAD)
 	def get_database(self,tablename,txn_handler):
-		return DatabaseWrapper(self, "fname", tablename, txn_handler)
+		return DatabaseWrapper(self, None, tablename, txn_handler)
 	def get_database_btree(self, tablename, txn_handler):
-		return DatabaseWrapper(self, "fname", tablename, txn_handler, db_type=db.DB_BTREE)
+		return DatabaseWrapper(self, None, tablename, txn_handler, db_type=db.DB_BTREE)
 	def get_database_hash(self,tablename,txn_handler):
-		return DatabaseWrapper(self, "fname", tablename, txn_handler, db_type=db.DB_HASH)
+		return DatabaseWrapper(self, None, tablename, txn_handler, db_type=db.DB_HASH)
 
 # The normal database config class
 class DatabaseConfig:
