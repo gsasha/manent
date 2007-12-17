@@ -94,13 +94,12 @@ class Storage:
 		self.config_db[NEXT_INDEX_KEY] = str(self.active_sequence_next_index)
 		return index
 	def load_sequences(self):
-		sequences = {}
 		container_files = self.list_container_files()
 		new_header_files = {}
 		new_body_files = {}
-		for file in container_files():
+		for file in container_files:
 			seq_id, index, extension = self.decode_container_name(file)
-			if not self_sequences.has_key(seq_id) or self.sequences[seq_id] < index:
+			if not self.sequences.has_key(seq_id) or self.sequences[seq_id] < index:
 					if extension == HEADER_EXT:
 						new_header_files[(seq_id, index)] = 1
 					elif extension == BODY_EXT:
@@ -123,6 +122,8 @@ class Storage:
 			self.active_sequence_next_index = int(self.config_db[NEXT_INDEX_KEY])
 		# report on the extra containers that have appeared
 		return new_containers
+	def get_sequence_ids(self):
+		return self.sequences.keys()
 	def close(self):
 		pass
 	def info(self):
@@ -136,11 +137,14 @@ class Storage:
 		match = name_re.match(name)
 		if not match:
 			return (None, None, None)
-		sequence_id = base64.urlsafe_b64decode(match.groups()[0])
-		index = IE.ascii_decode_int_varlen(match.groups()[1])
-		extension = match.groups()[2]
-
-		return (sequence_id, index, extension)
+		try:
+			sequence_id = base64.urlsafe_b64decode(match.groups()[0])
+			index = IE.ascii_decode_int_varlen(match.groups()[1])
+			extension = match.groups()[2]
+			return (sequence_id, index, extension)
+		except:
+			# File name unparseable. Can be junk coming from something else
+			return (None, None, None)
 	#
 	# Reconstruction!
 	#
