@@ -46,6 +46,20 @@ class TestStorage(unittest.TestCase):
 		seq_id2 = storage.create_sequence()
 		self.failUnless(seq_id1 != seq_id2)
 		container2 = storage.create_container()
+	def test_active_sequence_reloaded(self):
+		"""Test that the active sequence is reloaded correctly"""
+		env = Database.MockDatabaseConfig()
+		config_db = env.get_database_btree("a", None)
+		storage1 = Storage.DirectoryStorage(0, config_db)
+		CONFIGURATION = {"path": "/tmp", "password": "kuku"}
+		storage1.configure(CONFIGURATION)
+		storage1.make_active()
+		seq_id1 = storage1.get_active_sequence_id()
+		
+		storage2 = Storage.DirectoryStorage(0, config_db)
+		storage2.load_configuration()
+		seq_id2 = storage2.get_active_sequence_id()
+		self.assertEqual(seq_id1, seq_id2)
 	def test_container_created(self):
 		"""Test that containers are created and restored correctly"""
 		env = Database.MockDatabaseConfig()
@@ -55,7 +69,7 @@ class TestStorage(unittest.TestCase):
 		CONFIGURATION = {"path": "/tmp", "password": "kuku"}
 		storage.configure(CONFIGURATION)
 		storage.make_active()
-		seq_id = storage.create_sequence()
+		seq_id = storage.get_active_sequence_id()
 		container = storage.create_container()
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
@@ -75,7 +89,14 @@ class TestStorage(unittest.TestCase):
 	def test_sequence_restored(self):
 		"""Test that once a sequence is created, the next instantiation of storage with
 		the same sequence sees it"""
-		pass
+		env = Database.MockDatabaseConfig()
+		config_db = env.get_database_btree("a", None)
+		# Create storage and a container
+		storage = Storage.DirectoryStorage(0, config_db)
+		CONFIGURATION = {"path": "/tmp", "password": "kuku"}
+		storage.configure(CONFIGURATION)
+		storage.make_active()
+		seq_id = storage.get_active_sequence_id()
 	def test_active_sequence_restored(self):
 		"""Test that once an active sequence is created, the same sequence is reported
 		as active in the new invocation of the same storage"""
