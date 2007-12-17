@@ -90,19 +90,34 @@ class Storage:
 		return index
 	def load_sequences(self):
 		sequences = {}
-		for file in self.list_container_files():
+		container_files = self.list_container_files()
+		new_header_files = {}
+		new_body_files = {}
+		for file in container_files():
+			seq_id, index, extension = self.decode_container_name(file)
+			if not self_sequences.has_key(seq_id) or self.sequences[seq_id] < index:
+					if extension == 'manh':
+						new_header_files[(seq_id, index)] = 1
+					elif extension == 'manb':
+						new_body_files[(seq_id, index)] = 1
+		for file in container_files:
 			seq_id, index, extension = self.decode_container_name(file)
 			if self.sequences.has_key(seq_id):
 				self.sequences[seq_id] = max(self.sequences[seq_id], index)
 			else:
 				self.sequences[seq_id] = index
+		new_containers = []
+		for key in new_header_files.iterkeys():
+			if new_body_files.has_key(key):
+				new_containers.append(key)
+		# Reload the active sequence
 		PREFIX = self.get_prefix()
 		if self.config_db.has_key(PREFIX+"active_sequence"):
 			self.active_sequence_id = self.config_db[PREFIX+"active_sequence"]
 			NEXT_INDEX_KEY = PREFIX+"%s.next_index"%(self.active_sequence_id)
 			self.active_sequence_next_index = int(self.config_db[NEXT_INDEX_KEY])
-		# TODO: read the sequences into self.sequences structure
-		# TODO: report on the extra containers that have appeared
+		# report on the extra containers that have appeared
+		return new_containers
 	def close(self):
 		pass
 	def info(self):
