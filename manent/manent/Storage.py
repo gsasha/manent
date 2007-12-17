@@ -96,8 +96,12 @@ class Storage:
 				self.sequences[seq_id] = max(self.sequences[seq_id], index)
 			else:
 				self.sequences[seq_id] = index
-		# TODO: restore active_sequence
-		# TODO: put the sequences to self.sequences structure
+		PREFIX = self.get_prefix()
+		if self.config_db.has_key(PREFIX+"active_sequence"):
+			self.active_sequence_id = self.config_db[PREFIX+"active_sequence"]
+			NEXT_INDEX_KEY = PREFIX+"%s.next_index"%(self.active_sequence_id)
+			self.active_sequence_next_index = int(self.config_db[NEXT_INDEX_KEY])
+		# TODO: read the sequences into self.sequences structure
 		# TODO: report on the extra containers that have appeared
 	def close(self):
 		pass
