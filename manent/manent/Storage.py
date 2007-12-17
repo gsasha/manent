@@ -6,6 +6,11 @@ import shutil
 import Container
 import utils.IntegerEncodings as IE
 
+HEADER_EXT = "mnnh"
+HEADER_EXT_TMP = "mnnhtmp"
+BODY_EXT = "mnnb"
+BODY_EXT_TMP = "mnnbtmp"
+
 def create_storage(storage_type):
 	if storage_type == "directory":
 		return DirectoryStorage()
@@ -96,9 +101,9 @@ class Storage:
 		for file in container_files():
 			seq_id, index, extension = self.decode_container_name(file)
 			if not self_sequences.has_key(seq_id) or self.sequences[seq_id] < index:
-					if extension == 'manh':
+					if extension == HEADER_EXT:
 						new_header_files[(seq_id, index)] = 1
-					elif extension == 'manb':
+					elif extension == BODY_EXT:
 						new_body_files[(seq_id, index)] = 1
 		for file in container_files:
 			seq_id, index, extension = self.decode_container_name(file)
@@ -330,18 +335,18 @@ class DirectoryStorage(Storage):
 	def list_container_files(self):
 		return os.listdir(self.get_path())
 	def open_header_file(self, sequence_id, index):
-		header_file_name = self.encode_container_name(sequence_id, index, "manh-tmp")
+		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
 		header_file_path = os.path.join(self.get_path(), header_file_name)
 		return open(header_file_path, "w+")
 	def open_body_file(self, sequence_id, index):
-		body_file_name = self.encode_container_name(sequence_id, index, "manb-tmp")
+		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT_TMP)
 		body_file_path = os.path.join(self.get_path(), body_file_name)
 		return open(body_file_path, "w+")
 	def upload_container(self, sequence_id, index, header_file, body_file):
-		header_file_name_tmp = self.encode_container_name(sequence_id, index, "manh-tmp")
-		header_file_name = self.encode_container_name(sequence_id, index, "manh")
-		body_file_name_tmp = self.encode_container_name(sequence_id, index, "manb-tmp")
-		body_file_name = self.encode_container_name(sequence_id, index, "manb")
+		header_file_name_tmp = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
+		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
+		body_file_name_tmp = self.encode_container_name(sequence_id, index, BODY_EXT_TMP)
+		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
 		header_file_path_tmp = os.path.join(self.get_path(), header_file_name_tmp)
 		header_file_path = os.path.join(self.get_path(), header_file_name)
 		body_file_path_tmp = os.path.join(self.get_path(), body_file_name_tmp)
@@ -355,13 +360,13 @@ class DirectoryStorage(Storage):
 	def load_container_header(self, sequence_id, index):
 		#print "Loading header for container",\
 		  #base64.urlsafe_b64encode(sequence_id), index, "     "
-		header_file_name = self.encode_container_name(sequence_id, index, "manh")
+		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		header_file_path = os.path.join(self.get_path(), header_file_name)
 		return open(header_file_path, "r")
 	def load_container_data(self,index):
 		#print "Loading body for container",\
 		  #base64.urlsafe_b64include(sequence_id), index, "     "
-		body_file_name = self.encode_container_name(sequence_id, index, "manb")
+		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
 		body_file_path = os.path.join(self.get_path(), body_file_name)
 		return open(body_file_path, "r")
 
