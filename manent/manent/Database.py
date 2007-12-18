@@ -25,7 +25,7 @@ class CheckpointThread(Thread):
 
 # A database config that operates in memory only.
 # Used for unit testing
-class MockDatabaseConfig:
+class PrivateDatabaseConfig:
 	def __init__(self):
 		self.dbenv = db.DBEnv()
 		self.dbenv.open("/tmp", db.DB_PRIVATE|db.DB_CREATE|db.DB_INIT_TXN|

@@ -23,10 +23,9 @@ class Repository:
 	
 	storage idxs are stored in the config_db["storage_idxs"]
 	"""
-	def __init__(self, backup):
-		self.backup = backup
-		self.config_db = backup.get_private_config_db()
-		self.block_container_db = self.backup.get_database(".block-container")
+	def __init__(self, config_db, block_container_db):
+		self.config_db = config_db
+		self.block_container_db = block_container_db
 		self.current_open_container = None
 		
 		# Mapping of storage sequences to indices and vice versa
