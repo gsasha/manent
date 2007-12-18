@@ -110,7 +110,8 @@ class TestStorage(unittest.TestCase):
 		storage2 = Storage.DirectoryStorage(0, config_db2)
 		storage2.configure(self.CONFIGURATION)
 		storage2.make_active()
-		seq_id2 = storage1.get_active_sequence_id()
+		seq_id2 = storage2.get_active_sequence_id()
+		self.assert_(seq_id1 != seq_id2)
 		# Create a container in each storage, make sure the containers are mutually visible
 		c1 = storage1.create_container()
 		c1.finish_dump()
@@ -140,9 +141,3 @@ class TestStorage(unittest.TestCase):
 			pass
 		else:
 			self.fail("Expected load_sequences to discover the unexpected container")
-
-		
-	def test_new_active_sequence(self):
-		"""Test that when the storage is recreated from a new db, the existing active
-		sequence is not restored"""
-		pass
