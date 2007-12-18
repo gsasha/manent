@@ -26,6 +26,9 @@ suite_Exclusion = test_loader.loadTestsFromTestCase(TestExclusionProcessor)
 from testsuite.TestStorage import TestStorage
 suite_Storage = test_loader.loadTestsFromTestCase(TestStorage)
 
+from testsuite.TestRepository import TestRepository
+suite_Repository = test_loader.loadTestsFromTestCase(TestRepository)
+
 suite = unittest.TestSuite([
 	suite_Packer,
 	suite_Container,
@@ -34,7 +37,8 @@ suite = unittest.TestSuite([
 	suite_DB,
 	suite_Format,
 	suite_Exclusion,
-	suite_Storage
+	suite_Storage,
+	suite_Repository,
 	])
 #suite = unittest.TestSuite([suite_Nodes, suite_ITree, suite_Format, suite_Block, suite_DB])
 unittest.TextTestRunner(verbosity=2).run(suite)
