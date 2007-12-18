@@ -39,13 +39,14 @@ class Repository:
 		# repo.next_index = <the next index>
 		self.seq_to_index = {}
 		self.index_to_seq = {}
-		if self.config_db.has_key(PREFIX+"next_seq"):
-			self.next_seq_idx = int(self.config_db[PREFIX+"next_seq"])
+		NS_KEY = self._key("next_seq")
+		if self.config_db.has_key(NS_KEY):
+			self.next_seq_idx = int(self.config_db[NS_KEY])
 		else:
 			self.next_seq_idx = 0
 		for seq_idx in range(self.next_seq_idx):
-			seq_id = int(self.config_db[PREFIX+"%d.seq_id"%seq_idx])
-			storage_idx = int(self.config_db[PREFIX+"%d.storage_idx"%seq_idx])
+			seq_id = int(self.config_db[self._key("%d.seq_id"%seq_idx)])
+			storage_idx = int(self.config_db[self._key("%d.storage_idx"%seq_idx)])
 			self.seq_to_index[seq_id] = (storage_idx, seq_idx)
 			self.index_to_seq[seq_idx] = (storage_idx, seq_id)
 
@@ -59,13 +60,15 @@ class Repository:
 		self.storages = {}
 		for storage_idx in self.get_storage_idxs():
 			self.storages[storage_idx] = Storage.load_storage(idx)
+	def _key(self, suffix):
+		return PREFIX + suffix
 	def get_sequence_idx(self, storage_idx, sequence_id):
 		if self.seq_to_index.has_key((storage_idx, sequence_id)):
 			return self.seq_to_index[(storage_idx, sequence_id)]
 		# Generate new index for this sequence
 		index = self.next_seq_idx
 		self.next_seq_idx += 1
-		self.config_db[PREFIX+"next_seq"] = str(self.next_seq_idx)
+		self.config_db[self._key("next_seq")] = str(self.next_seq_idx)
 		self.seq_to_index[(storage_idx, sequence_id)] = index
 		self.index_to_seq[index] = (storage_idx, sequence_id)
 		return index
@@ -89,14 +92,17 @@ class Repository:
 				repository.new_sequence(sequence)
 		storage.scan_containers(NewSequenceHandler(self))
 	def get_storage_idxs(self):
-		idxs_str = self.config_db[PREFIX+"storage_idxs"]
+		KEY = self._key("storage_idxs")
+		if not self.config_db.has_key(KEY):
+			return []
+		idxs_str = self.config_db[KEY]
 		storage_idxs = IE.binary_decode_int_varlen_list(idxs_str)
 		return storage_idxs
 	def write_storage_idxs(self, storage_idxs):
 		idxs_str = IE.binary_write_int_varlen_list(storage_idxs)
-		self.config_db[PREFIX+"storage_idxs"] = idxs_str
+		self.config_db[self._key("storage_idxs")] = idxs_str
 	def compute_active_sequence(self):
-		KEY = PREFIX + "active_sequence_idx"
+		KEY = self._key("active_sequence_idx")
 		if not self.config_db.has_key(KEY):
 			return None
 		return int(self.config_db[KEY])
@@ -111,8 +117,8 @@ class Repository:
 		if self.active_storage is not None:
 			raise Exception("Switching active storage not supported yet")
 	def load(self):
-		for storage_index in range(int(self.config_db[PREFIX+"next_storage"])):
-			storage_type = self.config_db[PREFIX+"storage.%d.type"%storage_index]
+		for storage_index in range(int(self.config_db[self._key("next_storage")])):
+			storage_type = self.config_db[self._key("storage.%d.type"%storage_index)]
 	def rescan_storage(self, handler):
 		# TODO: this should proceed in a separate thread
 		# actually, each storage could be processed in its own thread
