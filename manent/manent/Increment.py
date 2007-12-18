@@ -1,8 +1,8 @@
-from cStringIO import StringIO
+import cStringIO as StringIO
 import time
 import base64
 
-from utils.IntegerEncodings import *
+import utils.IntegerEncodings as IE
 import manent.utils.Digest as Digest
 import Container
 
@@ -24,7 +24,7 @@ class Increment:
 		return self.fs_digest
 
 	def compute_message(self):
-		m = StringIO()
+		m = StringIO.StringIO()
 		m.write("index=%d\n" % self.index)
 		m.write("time=%s\n" % self.ctime)
 		m.write("comment=%s\n" % base64.b64encode(self.comment))
@@ -38,7 +38,7 @@ class Increment:
 
 	def parse_message(self,message):
 		items = {}
-		stream = StringIO(message)
+		stream = StringIO.StringIO(message)
 		for line in stream:
 			key,value = line.strip().split("=",1)
 			items[key]=value
@@ -73,8 +73,8 @@ class Increment:
 		self.readonly = True
 		
 		#print "Finalizing increment", self.fs_digest
-		storage_index_str = ascii_encode_int_varlen(self.storage_index)
-		index_str = ascii_encode_int_varlen(self.index)
+		storage_index_str = IE.ascii_encode_int_varlen(self.storage_index)
+		index_str = IE.ascii_encode_int_varlen(self.index)
 		self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)] = self.fs_digest
 		self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)] = "1"
 		self.db["Increment.%s.%s.time"     %(storage_index_str,index_str)] = str(self.ctime)
@@ -92,8 +92,8 @@ class Increment:
 		self.fs_digest = fs_digest
 		
 		#print "Creating intermediate increment", base64.b64encode(self.fs_digest)
-		storage_index_str = ascii_encode_int_varlen(self.storage_index)
-		index_str = ascii_encode_int_varlen(self.index)
+		storage_index_str = IE.ascii_encode_int_varlen(self.storage_index)
+		index_str = IE.ascii_encode_int_varlen(self.index)
 		self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)] = self.fs_digest
 		self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)] = "0"
 		self.db["Increment.%s.%s.time"     %(storage_index_str,index_str)] = self.ctime
@@ -114,8 +114,8 @@ class Increment:
 		self.storage_index = storage_index
 		self.index = index
 		
-		storage_index_str = ascii_encode_int_varlen(storage_index)
-		index_str = ascii_encode_int_varlen(index)
+		storage_index_str = IE.ascii_encode_int_varlen(storage_index)
+		index_str = IE.ascii_encode_int_varlen(index)
 		self.fs_digest =     self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)]
 		self.finalized = int(self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)])
 		self.ctime     = int(self.db["Increment.%s.%s.time"%(storage_index_str,index_str)])
@@ -143,8 +143,8 @@ class Increment:
 		#
 		# Update the data in the db
 		#
-		storage_index_str = ascii_encode_int_varlen(storage_index)
-		index_str = ascii_encode_int_varlen(self.index)
+		storage_index_str = IE.ascii_encode_int_varlen(storage_index)
+		index_str = IE.ascii_encode_int_varlen(self.index)
 		self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)] = self.fs_digest
 		if self.finalized:
 			finalized_str = '1'

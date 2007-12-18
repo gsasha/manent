@@ -1,4 +1,5 @@
 import string
+import cStringIO as StringIO
 
 def str_base( number, radix ):
    """str_base( number, radix ) -- reverse function to int(str,radix) and long(str,radix)"""
@@ -166,3 +167,10 @@ def binary_read_int_varlen_list(file):
 		if num is None:
 			return result
 		result.append(num)
+
+def binary_decode_int_varlen_list(data):
+	"""
+	Decode a given string to list of integers
+	"""
+	stream = StringIO.StringIO(data)
+	return binary_read_int_varlen_list(stream)

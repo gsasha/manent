@@ -1,5 +1,7 @@
-from Increment import *
 import re
+
+import Increment
+import utils.IntegerEncodings as IE
 
 # TODO: reconstruction of IncrementDatabase
 
@@ -30,8 +32,8 @@ class IncrementDatabase:
 		for key,value in self.db.iteritems():
 			if key.startswith('Increment') and key.endswith('finalized'):
 				match = increment_rexp.match(key)
-				storage_index = ascii_decode_int_varlen(match.group(1))
-				index = ascii_decode_int_varlen(match.group(2))
+				storage_index = IE.ascii_decode_int_varlen(match.group(1))
+				index = IE.ascii_decode_int_varlen(match.group(2))
 				finalized = int(value)
 
 				if not found_increments.has_key(storage_index):
@@ -51,7 +53,7 @@ class IncrementDatabase:
 				else:
 					selected_increments.append(index)
 			for index in selected_increments:
-				increment = Increment(self.block_database,self.db)
+				increment = Increment.Increment(self.block_database,self.db)
 				increment.load(storage_index,index)
 				selected_increment_fs_digests.append(increment.get_fs_digest())
 
@@ -65,7 +67,7 @@ class IncrementDatabase:
 		else:
 			next_index = 0
 			
-		self.active_increment = Increment(self.block_database,self.db)
+		self.active_increment = Increment.Increment(self.block_database,self.db)
 		self.active_increment.start(storage_index,next_index,comment)
 
 		return selected_increment_fs_digests
@@ -96,7 +98,7 @@ class IncrementDatabase:
 			def block_loaded(self,digest,data,code):
 				if code != CODE_INCREMENT_DESCRIPTOR:
 					return
-				increment = Increment(self.idb,self.idb.block_database,self.idb.db)
+				increment = Increment.Increment(self.idb,self.idb.block_database,self.idb.db)
 				increment.reconstruct(digest)
 		
 		handler = Handler(self)

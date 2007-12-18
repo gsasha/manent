@@ -1,4 +1,5 @@
 import Container
+import utils.IntegerEncodings as IE
 
 PREFIX = "repository."
 
@@ -38,7 +39,10 @@ class Repository:
 		# repo.next_index = <the next index>
 		self.seq_to_index = {}
 		self.index_to_seq = {}
-		self.next_seq_idx = int(self.config_db[PREFIX+"next_seq"])
+		if self.config_db.has_key(PREFIX+"next_seq"):
+			self.next_seq_idx = int(self.config_db[PREFIX+"next_seq"])
+		else:
+			self.next_seq_idx = 0
 		for seq_idx in range(self.next_seq_idx):
 			seq_id = int(self.config_db[PREFIX+"%d.seq_id"%seq_idx])
 			storage_idx = int(self.config_db[PREFIX+"%d.storage_idx"%seq_idx])
@@ -86,7 +90,7 @@ class Repository:
 		storage.scan_containers(NewSequenceHandler(self))
 	def get_storage_idxs(self):
 		idxs_str = self.config_db[PREFIX+"storage_idxs"]
-		storage_idxs = IE.binary_read_int_varlen_list(idxs_str)
+		storage_idxs = IE.binary_decode_int_varlen_list(idxs_str)
 		return storage_idxs
 	def write_storage_idxs(self, storage_idxs):
 		idxs_str = IE.binary_write_int_varlen_list(storage_idxs)
