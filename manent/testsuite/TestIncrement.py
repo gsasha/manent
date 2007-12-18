@@ -4,13 +4,13 @@ import manent.Increment as Increment
 import manent.IncrementDatabase as IncrementDatabase
 import manent.utils.Digest as Digest
 
-from Mock import *
+import Mock
 
 class TestIncrement(unittest.TestCase):
 	def test_load(self):
 		"""Test that increment saves to db and loads"""
-		repository = MockRepository()
-		blockDB = MockBlockDatabase(repository)
+		repository = Mock.MockRepository()
+		blockDB = Mock.MockBlockDatabase(repository)
 		db = {}
 
 		increment1 = Increment.Increment(blockDB,db)
@@ -28,8 +28,8 @@ class TestIncrement(unittest.TestCase):
 
 	def test_reconstruct(self):
 		"""Test that increment can reconstruct itself"""
-		repository = MockRepository()
-		blockDB = MockBlockDatabase(repository)
+		repository = Mock.MockRepository()
+		blockDB = Mock.MockBlockDatabase(repository)
 		db = {}
 
 		# create the increment
@@ -49,8 +49,8 @@ class TestIncrement(unittest.TestCase):
 
 	def test_start(self):
 		"""Test that increment database starts increments correctly"""
-		repository = MockRepository()
-		blockDB = MockBlockDatabase(repository)
+		repository = Mock.MockRepository()
+		blockDB = Mock.MockBlockDatabase(repository)
 		db = {}
 
 		#
