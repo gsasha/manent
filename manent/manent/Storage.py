@@ -106,6 +106,9 @@ class Storage:
 						new_body_files[(seq_id, index)] = 1
 		for file in container_files:
 			seq_id, index, extension = self.decode_container_name(file)
+			if seq_id == self.active_sequence_id and index >= self.active_sequence_next_index:
+				raise Exception("Unexpected container: nobody else should be adding " +
+			                    "containers to this sequence")
 			if self.sequences.has_key(seq_id):
 				self.sequences[seq_id] = max(self.sequences[seq_id], index)
 			else:

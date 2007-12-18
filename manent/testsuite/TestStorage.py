@@ -101,11 +101,47 @@ class TestStorage(unittest.TestCase):
 		self.assertEqual(block_digest, data_blocks[0][0])
 	def test_new_containers_visible(self):
 		"""Test that the new containers appearing in all the sequences are visible"""
-		pass
+		# Create two storages at the same place
+		storage1 = Storage.DirectoryStorage(0, self.config_db)
+		storage1.configure(self.CONFIGURATION)
+		storage1.make_active()
+		seq_id1 = storage1.get_active_sequence_id()
+		config_db2 = self.env.get_database_btree("b", None)
+		storage2 = Storage.DirectoryStorage(0, config_db2)
+		storage2.configure(self.CONFIGURATION)
+		storage2.make_active()
+		seq_id2 = storage1.get_active_sequence_id()
+		# Create a container in each storage, make sure the containers are mutually visible
+		c1 = storage1.create_container()
+		c1.finish_dump()
+		c2 = storage2.create_container()
+		c2.finish_dump()
+		# Reload the storages
+		containers1 = storage1.load_sequences()
+		self.assert_(containers1, [(seq_id2, c2.index)])
+		containers2 = storage2.load_sequences()
+		self.assert_(containers2, [(seq_id1, c1.index)])
 	def test_new_containers_in_active_sequence_caught(self):
 		"""Test that if new containers appear unexpectedly in the active sequence,
 		it is actually discovered"""
-		pass
+		storage1 = Storage.DirectoryStorage(0, self.config_db)
+		storage1.configure(self.CONFIGURATION)
+		storage1.make_active()
+		seq_id1 = storage1.get_active_sequence_id()
+		config_db2 = self.env.get_database_btree("b", None)
+		storage2 = Storage.DirectoryStorage(0, config_db2)
+		storage2.configure(self.CONFIGURATION)
+		storage2.make_active()
+		storage2.active_sequence_id = seq_id1
+		storage2.create_container().finish_dump()
+		try:
+			storage1.load_sequences()
+		except:
+			pass
+		else:
+			self.fail("Expected load_sequences to discover the unexpected container")
+
+		
 	def test_new_active_sequence(self):
 		"""Test that when the storage is recreated from a new db, the existing active
 		sequence is not restored"""
