@@ -11,9 +11,9 @@ HEADER_EXT_TMP = "mnnhtmp"
 BODY_EXT = "mnnb"
 BODY_EXT_TMP = "mnnbtmp"
 
-def create_storage(storage_type):
+def create_storage(storage_type, index, config_db):
 	if storage_type == "directory":
-		return DirectoryStorage()
+		return DirectoryStorage(index, config_db)
 	elif storage_type == "mail":
 		return MailStorage()
 	elif storage_type == "ftp":

@@ -3,8 +3,10 @@ import shutil
 import tempfile
 import unittest
 
+import manent.Container as Container
 import manent.Database as Database
 import manent.Repository as Repository
+import manent.utils.Digest as Digest
 
 class TestRepository(unittest.TestCase):
 	def setUp(self):
@@ -14,6 +16,9 @@ class TestRepository(unittest.TestCase):
 	def test_add_new_storage(self):
 		"""Test that adding a new storage creates it correctly"""
 		repository = Repository.Repository(self.config_db, self.block_db)
+		block = "some strange text"
+		block_digest = Digest.dataDigest(block)
+		repository.add_block(block_digest, block, container.CODE_DATA)
 		#self.fail()
 	def test_add_existing_storage(self):
 		"""Test that adding an existing storage imports and maps the storage correctly"""

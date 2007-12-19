@@ -81,16 +81,11 @@ class Repository:
 		storage_idx = max(self.get_storage_idxs()) + 1
 		self.write_storage_idxs(self.get_storage_idxs() + [storage_idx])
 
-		storage = Storage.create_storage(storage_type)
-		storage.init(storage_idx, storage_params)
+		storage = Storage.create_storage(storage_type, storage_idx,
+			self.config_db)
 		self.storages[storage_idx] = storage
-		
-		class NewSequenceHandler:
-			def __init__(self, repository):
-				pass
-			def new_sequence(self, sequence):
-				repository.new_sequence(sequence)
-		storage.scan_containers(NewSequenceHandler(self))
+		storage.configure(storage_params)
+		# TODO: get the new containers from the storage
 	def get_storage_idxs(self):
 		KEY = self._key("storage_idxs")
 		if not self.config_db.has_key(KEY):
