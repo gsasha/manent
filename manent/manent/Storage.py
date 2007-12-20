@@ -20,8 +20,8 @@ def create_storage(storage_type, index, config_db):
 		return FTPStorage(FTPHandler)
 	elif storage_type == "sftp":
 		return FTPStorage(SFTPHandler)
-	elif storage_type == "dummy don't use me!!!":
-		return DummyStorage()
+	elif storage_type == "__mock__":
+		return MemoryStorage(index, config_db)
 	else:
 		raise Exception("Unknown storage_type type" + storage_type)
 
@@ -290,6 +290,35 @@ class FTPStorage(Storage):
 		file_list = self.fs_handler.list_files()
 		print "listed files", file_list
 		return file_list
+
+# Used only for testing
+class MemoryStorage(Storage):
+	def __init__(self, index, config_db):
+		Storage.__init__(self, index, config_db)
+		self.files = {}
+	def configure(self, params):
+		Storage.configure(self, params)
+	def load_configuration(self):
+		Storage.load_ocnfiguratin(self)
+	def container_size(self):
+		return 1<<10
+	def list_container_files(self):
+		return self.files.keys()
+	def open_header_file(self, sequence_id, index):
+		return StringIO()
+	def open_body_file(self, sequence_id, index):
+		return StringIO()
+	def upload_container(self, sequence_id, index, header_file, body_file):
+		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
+		self.files[header_file_name] = header_file.value()
+		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
+		self.files[body_file_name] = body_file.value()
+	def load_container_header(self):
+		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
+		return StringIO(self.files[header_file_name])
+	def load_container_body(self):
+		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
+		return StringIO(self.files[body_file_name])
 
 class DirectoryStorage(Storage):
 	"""
