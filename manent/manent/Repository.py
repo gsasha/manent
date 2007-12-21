@@ -44,12 +44,10 @@ class Repository:
 			self.next_seq_idx = int(self.config_db[NS_KEY])
 		else:
 			self.next_seq_idx = 0
-		for seq_idx in range(self.next_seq_idx):
-			seq_id = int(self.config_db[self._key("%d.seq_id"%seq_idx)])
-			storage_idx = int(self.config_db[self._key("%d.storage_idx"%seq_idx)])
-			self.seq_to_index[seq_id] = (storage_idx, seq_idx)
-			self.index_to_seq[seq_idx] = (storage_idx, seq_id)
-
+		#for key, val in self.config_db.iteritems_prefix(PREFIX):
+			#TODO: read the mapping from the db
+			#self.seq_to_index[seq_id] = (storage_idx, seq_idx)
+			#self.index_to_seq[seq_idx] = (storage_idx, seq_id)
 		#
 		# All storages except for the specified one are inactive, i.e., base.
 		# Inactive storages can be used to pull data blocks from, and must

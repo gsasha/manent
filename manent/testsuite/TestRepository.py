@@ -22,6 +22,8 @@ class TestRepository(unittest.TestCase):
 		block_digest = Digest.dataDigest(block)
 		repository.add_block(block_digest, block, Container.CODE_DATA)
 		repository.flush()
+		for k,v in self.config_db.iteritems():
+			print k, " : ", v
 		# Recreate the repository and add another block to it
 		repository = Repository.Repository(self.config_db, self.block_db)
 		block = "some other strange text"
