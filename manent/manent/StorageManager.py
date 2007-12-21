@@ -44,10 +44,12 @@ class StorageManager:
 			self.next_seq_idx = int(self.config_db[NS_KEY])
 		else:
 			self.next_seq_idx = 0
-		#for key, val in self.config_db.iteritems_prefix(PREFIX):
-			#TODO: read the mapping from the db
-			#self.seq_to_index[seq_id] = (storage_idx, seq_idx)
-			#self.index_to_seq[seq_idx] = (storage_idx, seq_id)
+		SEQ_PREFIX = self._key("SEQ.")
+		for key, val in self.config_db.iteritems_prefix(SEQ_PREFIX):
+			sequence_id = key[len(SEQ_PREFIX):]
+			storage_idx, sequence_idx = IE.binary_decode_int_varlen_list(val)
+			self.seq_to_index[sequence_id] = (storage_idx, sequence_idx)
+			self.index_to_seq[sequence_idx] = (storage_idx, sequence_id)
 		#
 		# All storages except for the specified one are inactive, i.e., base.
 		# Inactive storages can be used to pull data blocks from, and must
@@ -66,11 +68,14 @@ class StorageManager:
 		return PREFIX + suffix
 	def register_sequence(self, storage_idx, sequence_id):
 		# Generate new index for this sequence
-		index = self.next_seq_idx
+		sequence_idx = self.next_seq_idx
 		self.next_seq_idx += 1
 		self.config_db[self._key("next_seq")] = str(self.next_seq_idx)
-		self.seq_to_index[sequence_id] = (storage_idx, index)
-		self.index_to_seq[index] = (storage_idx, sequence_id)
+		self.config_db[self._key("SEQ."+sequence_id)] = \
+			IE.binary_encode_int_varlen_list([storage_idx, sequence_idx])
+			
+		self.seq_to_index[sequence_id] = (storage_idx, sequence_idx)
+		self.index_to_seq[sequence_idx] = (storage_idx, sequence_id)
 	def get_sequence_idx(self, storage_idx, sequence_id):
 		if not self.seq_to_index.has_key(sequence_id):
 			self.register_sequence(storage_idx, sequence_id)
