@@ -412,6 +412,8 @@ class Container:
 		self.body_file = None
 		
 		self.mode = None
+		
+		self.body_blocks = []
 	def get_index(self):
 		return self.index
 	def get_sequence_id(self):
@@ -465,6 +467,8 @@ class Container:
 
 		self.body_dumper.add_block(digest, data, code)
 		self.compressed_data += len(data)
+		
+		self.body_blocks.append((digest, code))
 	def finish_dump(self):
 		if self.compression_active:
 			self.body_dumper.stop_compression()
