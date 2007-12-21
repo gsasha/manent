@@ -78,7 +78,6 @@ class Storage:
 		#print "Creating sequence"
 		self.active_sequence_id = os.urandom(12)
 		self.active_sequence_next_index = 0
-		PREFIX = self.get_prefix()
 		NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
 		self.config_db[self._key("active_sequence")] = self.active_sequence_id
 		self.config_db[NEXT_INDEX_KEY] = str(self.active_sequence_next_index)
@@ -88,7 +87,6 @@ class Storage:
 	def get_next_index(self):
 		index = self.active_sequence_next_index
 		self.active_sequence_next_index += 1
-		PREFIX = self.get_prefix()
 		NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
 		self.config_db[NEXT_INDEX_KEY] = str(self.active_sequence_next_index)
 		return index
@@ -117,7 +115,6 @@ class Storage:
 			if new_body_files.has_key(key):
 				new_containers.append(key)
 		# Reload the active sequence
-		PREFIX = self.get_prefix()
 		if self.config_db.has_key(self._key("active_sequence")):
 			self.active_sequence_id = self.config_db[self._key("active_sequence")]
 			NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
