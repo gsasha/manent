@@ -22,6 +22,12 @@ class TestRepository(unittest.TestCase):
 		block_digest = Digest.dataDigest(block)
 		repository.add_block(block_digest, block, Container.CODE_DATA)
 		repository.flush()
+		# Recreate the repository and add another block to it
+		repository = Repository.Repository(self.config_db, self.block_db)
+		block = "some other strange text"
+		block_digest = Digest.dataDigest(block)
+		repository.add_block(block_digest, block, Container.CODE_DATA)
+		repository.flush()
 		#self.fail()
 	def test_add_existing_storage(self):
 		"""Test that adding an existing storage imports and maps the storage correctly"""
