@@ -22,15 +22,18 @@ class TestStorageManager(unittest.TestCase):
 		block_digest = Digest.dataDigest(block)
 		storage_manager.add_block(block_digest, block, Container.CODE_DATA)
 		storage_manager.flush()
-		for k,v in self.config_db.iteritems():
-			print k, " : ", v
 		# Recreate the storage_manager and add another block to it
 		storage_manager = StorageManager.StorageManager(self.config_db, self.block_db)
 		block = "some other strange text"
 		block_digest = Digest.dataDigest(block)
 		storage_manager.add_block(block_digest, block, Container.CODE_DATA)
 		storage_manager.flush()
-		#self.fail()
+		for k,v in self.config_db.iteritems():
+			print k, " : ", v
+		for k,v in self.block_db.iteritems():
+			print k, " : ", v
+		# TODO: check that active sequence is the same after recreating of the
+		#       storage manager
 	def test_add_existing_storage(self):
 		"""Test that adding an existing storage imports and maps the storage correctly"""
 		self.fail()
