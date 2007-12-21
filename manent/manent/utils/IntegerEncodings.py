@@ -168,9 +168,18 @@ def binary_read_int_varlen_list(file):
 			return result
 		result.append(num)
 
+def binary_write_int_varlen_list(data, file):
+	for d in data:
+		file.write(binary_encode_int_varlen(d))
+
 def binary_decode_int_varlen_list(data):
 	"""
 	Decode a given string to list of integers
 	"""
 	stream = StringIO.StringIO(data)
 	return binary_read_int_varlen_list(stream)
+
+def binary_encode_int_varlen_list(data):
+	stream = StringIO.StringIO()
+	binary_write_int_varlen_list(data, stream)
+	return stream.getvalue()

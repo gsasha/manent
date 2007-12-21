@@ -78,7 +78,11 @@ class Repository:
 		# 2. If the storage is not in the shared db, the storage location
 		#    is rescanned. All storage locations found there are added as
 		#    base storages, and a new one is created.
-		storage_idx = max(self.get_storage_idxs()) + 1
+		storage_idxs = self.get_storage_idxs()
+		if storage_idxs == []:
+			storage_idx = 0
+		else:
+			storage_idx = max(storage_idxs) + 1
 		self.write_storage_idxs(self.get_storage_idxs() + [storage_idx])
 
 		storage = Storage.create_storage(storage_type, storage_idx,
@@ -96,7 +100,7 @@ class Repository:
 		storage_idxs = IE.binary_decode_int_varlen_list(idxs_str)
 		return storage_idxs
 	def write_storage_idxs(self, storage_idxs):
-		idxs_str = IE.binary_write_int_varlen_list(storage_idxs)
+		idxs_str = IE.binary_encode_int_varlen_list(storage_idxs)
 		self.config_db[self._key("storage_idxs")] = idxs_str
 	def compute_active_sequence(self):
 		KEY = self._key("active_sequence_idx")
