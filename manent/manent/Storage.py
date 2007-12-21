@@ -309,9 +309,9 @@ class MemoryStorage(Storage):
 		return StringIO.StringIO()
 	def upload_container(self, sequence_id, index, header_file, body_file):
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
-		self.files[header_file_name] = header_file.value()
+		self.files[header_file_name] = header_file.getvalue()
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
-		self.files[body_file_name] = body_file.value()
+		self.files[body_file_name] = body_file.getvalue()
 	def load_container_header(self):
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		return StringIO(self.files[header_file_name])

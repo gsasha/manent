@@ -1,3 +1,5 @@
+import cStringIO as StringIO
+
 import Container
 import Storage
 import utils.IntegerEncodings as IE
@@ -116,11 +118,6 @@ class Repository:
 		seq_id = storage.get_active_sequence_id()
 		self.register_sequence(storage_index, seq_id)
 		self.active_storage_idx = storage_index
-	#def is_active_storage(self, storage_idx):
-		#if self.active_sequence_idx is Null:
-			#return False
-		#active_storage_idx, seq_id = self.index_to_seq[self.active_sequence_idx]
-		#return active_storage_idx == storage_idx
 	def load(self):
 		for storage_index in range(int(self.config_db[self._key("next_storage")])):
 			storage_type = self.config_db[self._key("storage.%d.type"%storage_index)]
@@ -141,19 +138,19 @@ class Repository:
 		#
 		self.current_open_container.add_block(digest, data, code)
 	def flush(self):
-		storage_idx, seq_id = self.index_to_seq[self.active_seq_idx]
-		storage = self.storages[storage_idx]
+		storage = self.storages[self.active_storage_idx]
 
 		if self.current_open_container is not None:
 			self.write_container(self.current_open_container)
 			self.current_open_container = None
 	def write_container(self, container):
-		container.finalize()
+		container.finish_dump()
 		#
 		# Now we have container idx, update it in the blocks db
 		#
-		container_idx = container.get_idx()
-		encoded = self.encode_block_info(self.active_seq_idx, container_idx)
+		container_idx = container.get_index()
+		storage_idx, seq_idx = self.seq_to_index[container.get_sequence_id()]
+		encoded = self.encode_block_info(seq_idx, container_idx)
 		for digest, code in container.list_blocks():
 			self.block_container_db[digest] = encoded
 	def load_block(self, digest, handler):
@@ -213,12 +210,12 @@ class Repository:
 	# Utility methods
 	#--------------------------------------------------------
 	def encode_block_info(self, seq_idx, container_idx):
-		io = StringIO()
-		Format.write_int(io, seq_idx)
-		Format.write_int(io, container_idx)
-		return io.value()
+		io = StringIO.StringIO()
+		io.write(IE.binary_encode_int_varlen(seq_idx))
+		io.write(IE.binary_encode_int_varlen(container_idx))
+		return io.getvalue()
 	def decode_block_info(self, encoded):
-		io = StringIO(encoded)
-		seq_idx = Format.read_int(io)
-		container_idx = Format.read_int(io)
-		return (storage_idx, container_idx)
+		io = StringIO.StringIO(encoded)
+		seq_idx = IE.binary_read_int_varlen(io)
+		container_idx = IE.binary_read_int_varlen(io)
+		return (seq_idx, container_idx)
