@@ -1,4 +1,5 @@
 import Container
+import Storage
 import utils.IntegerEncodings as IE
 
 PREFIX = "repository."
