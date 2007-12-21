@@ -20,9 +20,6 @@ class Repository:
 	index_to_seq keeps for each global sequence idx its storage idx and sequence id
 	The information is encoded in config_db.
 	
-	active_sequence keeps the global idx of the current active sequence. stored in
-	config_db["active_sequence"]
-	
 	storage idxs are stored in the config_db["storage_idxs"]
 	"""
 	def __init__(self, config_db, block_container_db):
@@ -58,23 +55,27 @@ class Repository:
 		# blocks there
 		#
 		self.storages = {}
+		self.active_storage_idx = None
 		for storage_idx in self.get_storage_idxs():
 			storage = Storage.load_storage(idx)
 			self.storages[storage_idx] = storage
 			if storage.is_active():
 				seq_id = storage.get_active_sequence_id()
+				self.active_storage_idx, seq_idx = self.seq_to_index[seq_id]
 	def _key(self, suffix):
 		return PREFIX + suffix
-	def get_sequence_idx(self, storage_idx, sequence_id):
-		if self.seq_to_index.has_key((storage_idx, sequence_id)):
-			return self.seq_to_index[(storage_idx, sequence_id)]
+	def register_sequence(self, storage_idx, sequence_id):
 		# Generate new index for this sequence
 		index = self.next_seq_idx
 		self.next_seq_idx += 1
 		self.config_db[self._key("next_seq")] = str(self.next_seq_idx)
-		self.seq_to_index[(storage_idx, sequence_id)] = index
+		self.seq_to_index[sequence_id] = (storage_idx, index)
 		self.index_to_seq[index] = (storage_idx, sequence_id)
-		return index
+	def get_sequence_idx(self, storage_idx, sequence_id):
+		if not self.seq_to_index.has_key(sequence_id):
+			self.register_sequence(storage_idx, sequence_id)
+		dummy, sequence_idx = self.seq_to_index[sequence_id]
+		return sequence_idx
 	def add_storage(self, storage_type, storage_params):
 		# When we add a storage, the following algorithm is executed:
 		# 1. If the storage is already in the shared db, it is just added
@@ -108,20 +109,66 @@ class Repository:
 	def get_storage_config(self, storage_index):
 		return self.storages[storage_index].get_config()
 	def make_active_storage(self, storage_index):
-		if self.active_sequence_idx is not None:
+		if self.active_storage_idx is not None:
 			raise Exception("Switching active storage not supported yet")
 		storage = self.storages[storage_index]
 		storage.make_active()
 		seq_id = storage.get_active_sequence_id()
-		# TODO: get active sequence is into data of this class
-	def is_active_storage(self, storage_idx):
-		if self.active_sequence_idx is Null:
-			return False
-		active_storage_idx, seq_id = self.index_to_seq[self.active_sequence_idx]
-		return active_storage_idx == storage_idx
+		self.register_sequence(storage_index, seq_id)
+		self.active_storage_idx = storage_index
+	#def is_active_storage(self, storage_idx):
+		#if self.active_sequence_idx is Null:
+			#return False
+		#active_storage_idx, seq_id = self.index_to_seq[self.active_sequence_idx]
+		#return active_storage_idx == storage_idx
 	def load(self):
 		for storage_index in range(int(self.config_db[self._key("next_storage")])):
 			storage_type = self.config_db[self._key("storage.%d.type"%storage_index)]
+	def close(self):
+		self.block_container_db.close()
+	def add_block(self, digest, data, code):
+		storage = self.storages[self.active_storage_idx]
+		#
+		# Make sure we have a container that can take this block
+		#
+		if self.current_open_container is None:
+			self.current_open_container = storage.open_container()
+		elif not self.current_open_container.can_add_block(digest, data, code):
+			self.write_container(self.current_open_container)
+			self.current_open_container = storage.open_container()
+		#
+		# add the block to the container
+		#
+		self.current_open_container.add_block(digest, data, code)
+	def flush(self):
+		storage_idx, seq_id = self.index_to_seq[self.active_seq_idx]
+		storage = self.storages[storage_idx]
+
+		if self.current_open_container is not None:
+			self.write_container(self.current_open_container)
+			self.current_open_container = None
+	def write_container(self, container):
+		container.finalize()
+		#
+		# Now we have container idx, update it in the blocks db
+		#
+		container_idx = container.get_idx()
+		encoded = self.encode_block_info(self.active_seq_idx, container_idx)
+		for digest, code in container.list_blocks():
+			self.block_container_db[digest] = encoded
+	def load_block(self, digest, handler):
+		seq_idx, container_idx = self.decode_block_info(self.block_container_db[digest])
+		storage_idx, seq_id = self.index_to_seq[seq_idx]
+		storage = self.storages[storage_idx]
+		container = storage.get_container(container_idx, seq_id)
+		container.load_header()
+		container.load_body()
+		container.load_blocks(handler)
+		container.remove_files()
+	def get_block_storage(self, digest):
+		seq_idx, container_idx = self.decode_block_info(self.block_container_db[digest])
+		storage_idx, seq_id = self.index_to_seq[seq_idx]
+		return storage_idx
 	def rescan_storage(self, handler):
 		# TODO: this should proceed in a separate thread
 		# actually, each storage could be processed in its own thread
@@ -162,52 +209,6 @@ class Repository:
 					container.load_blocks(handler)
 				if not has_data_blocks:
 					container.remove_files()
-	def close(self):
-		self.block_container_db.close()
-	def add_block(self, digest, data, code):
-		storage_idx, seq_id = self.index_to_seq[self.active_sequence_idx]
-		storage = self.storages[storage_idx]
-		#
-		# Make sure we have a container that can take this block
-		#
-		if self.current_open_container is None:
-			self.current_open_container = self.storage.open_container()
-		if not self.current_open_container.can_add_block(digest, data, code):
-			self.write_container(self.current_open_container)
-			self.current_open_container = self.storage.open_container()
-		#
-		# add the block to the container
-		#
-		self.current_open_container.add_block(digest, data, code)
-	def flush(self):
-		storage_idx, seq_id = self.index_to_seq[self.active_seq_idx]
-		storage = self.storages[storage_idx]
-
-		if self.current_open_container is not None:
-			self.write_container(self.current_open_container)
-			self.current_open_container = None
-	def write_container(self, container):
-		container.finalize()
-		#
-		# Now we have container idx, update it in the blocks db
-		#
-		container_idx = container.get_idx()
-		encoded = self.encode_block_info(self.active_seq_idx, container_idx)
-		for digest, code in container.list_blocks():
-			self.block_container_db[digest] = encoded
-	def load_block(self, digest, handler):
-		seq_idx, container_idx = self.decode_block_info(self.block_container_db[digest])
-		storage_idx, seq_id = self.index_to_seq[seq_idx]
-		storage = self.storages[storage_idx]
-		container = storage.get_container(container_idx, seq_id)
-		container.load_header()
-		container.load_body()
-		container.load_blocks(handler)
-		container.remove_files()
-	def get_block_storage(self, digest):
-		seq_idx, container_idx = self.decode_block_info(self.block_container_db[digest])
-		storage_idx, seq_id = self.index_to_seq[seq_idx]
-		return storage_idx
 	#--------------------------------------------------------
 	# Utility methods
 	#--------------------------------------------------------
