@@ -16,7 +16,8 @@ class TestRepository(unittest.TestCase):
 	def test_add_new_storage(self):
 		"""Test that adding a new storage creates it correctly"""
 		repository = Repository.Repository(self.config_db, self.block_db)
-		repository.add_storage("__mock__", {})
+		storage_index = repository.add_storage("__mock__", {})
+		repository.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
 		repository.add_block(block_digest, block, Container.CODE_DATA)

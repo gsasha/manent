@@ -111,15 +111,15 @@ class Repository:
 	def get_storage_config(self, storage_index):
 		return self.storages[storage_index].get_config()
 	def make_active_storage(self, storage_index):
-		if self.active_storage is not None:
+		if self.active_sequence_idx is not None:
 			raise Exception("Switching active storage not supported yet")
 		KEY = self._key("active_sequence_idx")
 		storage = self.storages[storage_index]
-		
+		storage.make_active()
 	def is_active_storage(self, storage_idx):
 		if self.active_sequence_idx is Null:
 			return False
-		active_storage_idx, seq_id = self.index_to_seq[active_sequence_idx]
+		active_storage_idx, seq_id = self.index_to_seq[self.active_sequence_idx]
 		return active_storage_idx == storage_idx
 	def load(self):
 		for storage_index in range(int(self.config_db[self._key("next_storage")])):

@@ -35,15 +35,14 @@ class Storage:
 	# How do we know for a given storage if it is just created or rescanned?
 	# Ah well, each storage stores its data in the shared db!
 	
-	def get_prefix(self):
-		return "STORAGE.%d." % self.index
+	def _key(self, suffix):
+		return "STORAGE.%d.%s" % (self.index, suffix)
 	#
 	# Loading
 	#
 	def configure(self, config):
-		PREFIX = self.get_prefix() + 'CONFIG.'
 		for key, val in config.iteritems():
-			self.config_db[PREFIX+key] = val
+			self.config_db[self._key('CONFIG.'+key)] = val
 		
 		self.config = config
 		self.load_sequences()
@@ -51,7 +50,7 @@ class Storage:
 		self.config = self.get_config()
 		self.load_sequences()
 	def get_config(self):
-		PREFIX = self.get_prefix() + 'CONFIG.'
+		PREFIX = self._key('CONFIG.')
 		PREFIX_len = len(PREFIX)
 		config = {}
 		for key, val in self.config_db.iteritems_prefix(PREFIX):
@@ -80,8 +79,8 @@ class Storage:
 		self.active_sequence_id = os.urandom(12)
 		self.active_sequence_next_index = 0
 		PREFIX = self.get_prefix()
-		NEXT_INDEX_KEY = PREFIX+"%s.next_index"%(self.active_sequence_id)
-		self.config_db[PREFIX+"active_sequence"] = self.active_sequence_id
+		NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
+		self.config_db[self._key("active_sequence")] = self.active_sequence_id
 		self.config_db[NEXT_INDEX_KEY] = str(self.active_sequence_next_index)
 		return self.active_sequence_id
 	def get_active_sequence_id(self):
@@ -90,7 +89,7 @@ class Storage:
 		index = self.active_sequence_next_index
 		self.active_sequence_next_index += 1
 		PREFIX = self.get_prefix()
-		NEXT_INDEX_KEY = PREFIX+"%s.next_index"%(self.active_sequence_id)
+		NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
 		self.config_db[NEXT_INDEX_KEY] = str(self.active_sequence_next_index)
 		return index
 	def load_sequences(self):
