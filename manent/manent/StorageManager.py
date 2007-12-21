@@ -4,9 +4,9 @@ import Container
 import Storage
 import utils.IntegerEncodings as IE
 
-PREFIX = "repository."
+PREFIX = "STORAGE_MANAGER."
 
-class Repository:
+class StorageManager:
 	"""Handles the moving of blocks to and from storages.
 
 	Input: a stream of blocks
@@ -57,7 +57,7 @@ class Repository:
 		self.storages = {}
 		self.active_storage_idx = None
 		for storage_idx in self.get_storage_idxs():
-			storage = Storage.load_storage(idx)
+			storage = Storage.load_storage(self.config_db, storage_idx)
 			self.storages[storage_idx] = storage
 			if storage.is_active():
 				seq_id = storage.get_active_sequence_id()
@@ -89,8 +89,8 @@ class Repository:
 			storage_idx = max(storage_idxs) + 1
 		self.write_storage_idxs(self.get_storage_idxs() + [storage_idx])
 
-		storage = Storage.create_storage(storage_type, storage_idx,
-			self.config_db)
+		storage = Storage.create_storage(self.config_db, storage_type,
+			storage_idx)
 		self.storages[storage_idx] = storage
 		storage.configure(storage_params)
 		# TODO: read all sequences from storage

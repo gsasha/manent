@@ -5,31 +5,31 @@ import unittest
 
 import manent.Container as Container
 import manent.Database as Database
-import manent.Repository as Repository
+import manent.StorageManager as StorageManager
 import manent.utils.Digest as Digest
 
-class TestRepository(unittest.TestCase):
+class TestStorageManager(unittest.TestCase):
 	def setUp(self):
 		self.env = Database.PrivateDatabaseConfig()
 		self.config_db = self.env.get_database_btree("config", None)
 		self.block_db = self.env.get_database_btree("block_db", None)
 	def test_add_storage(self):
 		"""Test that adding a storage creates (and recreates) it correctly"""
-		repository = Repository.Repository(self.config_db, self.block_db)
-		storage_index = repository.add_storage("__mock__", {'password': 'kuku'})
-		repository.make_active_storage(storage_index)
+		storage_manager = StorageManager.StorageManager(self.config_db, self.block_db)
+		storage_index = storage_manager.add_storage("__mock__", {'password': 'kuku'})
+		storage_manager.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
-		repository.add_block(block_digest, block, Container.CODE_DATA)
-		repository.flush()
+		storage_manager.add_block(block_digest, block, Container.CODE_DATA)
+		storage_manager.flush()
 		for k,v in self.config_db.iteritems():
 			print k, " : ", v
-		# Recreate the repository and add another block to it
-		repository = Repository.Repository(self.config_db, self.block_db)
+		# Recreate the storage_manager and add another block to it
+		storage_manager = StorageManager.StorageManager(self.config_db, self.block_db)
 		block = "some other strange text"
 		block_digest = Digest.dataDigest(block)
-		repository.add_block(block_digest, block, Container.CODE_DATA)
-		repository.flush()
+		storage_manager.add_block(block_digest, block, Container.CODE_DATA)
+		storage_manager.flush()
 		#self.fail()
 	def test_add_existing_storage(self):
 		"""Test that adding an existing storage imports and maps the storage correctly"""
