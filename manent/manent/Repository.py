@@ -51,7 +51,6 @@ class Repository:
 			self.seq_to_index[seq_id] = (storage_idx, seq_idx)
 			self.index_to_seq[seq_idx] = (storage_idx, seq_id)
 
-		self.active_sequence_idx = self.compute_active_sequence()
 		#
 		# All storages except for the specified one are inactive, i.e., base.
 		# Inactive storages can be used to pull data blocks from, and must
@@ -60,7 +59,10 @@ class Repository:
 		#
 		self.storages = {}
 		for storage_idx in self.get_storage_idxs():
-			self.storages[storage_idx] = Storage.load_storage(idx)
+			storage = Storage.load_storage(idx)
+			self.storages[storage_idx] = storage
+			if storage.is_active():
+				seq_id = storage.get_active_sequence_id()
 	def _key(self, suffix):
 		return PREFIX + suffix
 	def get_sequence_idx(self, storage_idx, sequence_id):
@@ -103,19 +105,15 @@ class Repository:
 	def write_storage_idxs(self, storage_idxs):
 		idxs_str = IE.binary_encode_int_varlen_list(storage_idxs)
 		self.config_db[self._key("storage_idxs")] = idxs_str
-	def compute_active_sequence(self):
-		KEY = self._key("active_sequence_idx")
-		if not self.config_db.has_key(KEY):
-			return None
-		return int(self.config_db[KEY])
 	def get_storage_config(self, storage_index):
 		return self.storages[storage_index].get_config()
 	def make_active_storage(self, storage_index):
 		if self.active_sequence_idx is not None:
 			raise Exception("Switching active storage not supported yet")
-		KEY = self._key("active_sequence_idx")
 		storage = self.storages[storage_index]
 		storage.make_active()
+		seq_id = storage.get_active_sequence_id()
+		# TODO: get active sequence is into data of this class
 	def is_active_storage(self, storage_idx):
 		if self.active_sequence_idx is Null:
 			return False

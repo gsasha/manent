@@ -74,6 +74,8 @@ class Storage:
 		# If this storage is not active, create a sequence.
 		if self.active_sequence_id is None:
 			self.create_sequence()
+	def is_active(self):
+		return self.active_sequence_id is not None
 	def create_sequence(self):
 		#print "Creating sequence"
 		self.active_sequence_id = os.urandom(12)
