@@ -118,9 +118,9 @@ class Storage:
 				new_containers.append(key)
 		# Reload the active sequence
 		PREFIX = self.get_prefix()
-		if self.config_db.has_key(PREFIX+"active_sequence"):
-			self.active_sequence_id = self.config_db[PREFIX+"active_sequence"]
-			NEXT_INDEX_KEY = PREFIX+"%s.next_index"%(self.active_sequence_id)
+		if self.config_db.has_key(self._key("active_sequence")):
+			self.active_sequence_id = self.config_db[self._key("active_sequence")]
+			NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
 			self.active_sequence_next_index = int(self.config_db[NEXT_INDEX_KEY])
 		# report on the extra containers that have appeared
 		return new_containers
