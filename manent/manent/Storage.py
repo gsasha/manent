@@ -2,6 +2,7 @@ import base64
 import os
 import re
 import shutil
+import cStringIO as StringIO
 
 import Container
 import utils.IntegerEncodings as IE
@@ -303,9 +304,9 @@ class MemoryStorage(Storage):
 	def list_container_files(self):
 		return self.files.keys()
 	def open_header_file(self, sequence_id, index):
-		return StringIO()
+		return StringIO.StringIO()
 	def open_body_file(self, sequence_id, index):
-		return StringIO()
+		return StringIO.StringIO()
 	def upload_container(self, sequence_id, index, header_file, body_file):
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		self.files[header_file_name] = header_file.value()

@@ -132,10 +132,10 @@ class Repository:
 		# Make sure we have a container that can take this block
 		#
 		if self.current_open_container is None:
-			self.current_open_container = storage.open_container()
+			self.current_open_container = storage.create_container()
 		elif not self.current_open_container.can_add_block(digest, data, code):
 			self.write_container(self.current_open_container)
-			self.current_open_container = storage.open_container()
+			self.current_open_container = storage.create_container()
 		#
 		# add the block to the container
 		#
