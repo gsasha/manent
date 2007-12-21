@@ -12,7 +12,7 @@ HEADER_EXT_TMP = "mnnhtmp"
 BODY_EXT = "mnnb"
 BODY_EXT_TMP = "mnnbtmp"
 
-def create_storage(config_db, storage_type, index):
+def _instantiate(config_db, storage_type, index):
 	if storage_type == "directory":
 		return DirectoryStorage(index, config_db)
 	elif storage_type == "mail":
@@ -25,12 +25,16 @@ def create_storage(config_db, storage_type, index):
 		return MemoryStorage(index, config_db)
 	else:
 		raise Exception("Unknown storage_type type" + storage_type)
+	
+def create_storage(config_db, storage_type, index):
+	config_db["STORAGE.TYPE.%d" % index] = storage_type
+	return _instantiate(config_db, storage_type, index)
 
 def load_storage(config_db, index):
-	# TODO: implement this
-	# algorithm: read storage type from config db.
-	# Instantiate the storage object and load its config data
-	pass
+	storage_type = config_db["STORAGE.TYPE.%d" % index]
+	storage = _instantiate(config_db, storage_type, index)
+	storage.load_configuration()
+	return storage
 
 class Storage:
 	def __init__(self, index, config_db):
@@ -304,7 +308,7 @@ class MemoryStorage(Storage):
 	def configure(self, params):
 		Storage.configure(self, params)
 	def load_configuration(self):
-		Storage.load_ocnfiguratin(self)
+		Storage.load_configuration(self)
 	def container_size(self):
 		return 1<<10
 	def list_container_files(self):
