@@ -31,10 +31,10 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager.flush()
 		seq_id2 = storage_manager.get_active_sequence_id()
 		self.assertEqual(seq_id1, seq_id2)
-		for k,v in self.config_db.iteritems():
-			print k, " : ", v
-		for k,v in self.block_db.iteritems():
-			print k, " : ", v
+		#for k,v in self.config_db.iteritems():
+			#print k, " : ", v
+		#for k,v in self.block_db.iteritems():
+			#print k, " : ", v
 		# TODO: check that active sequence is the same after recreating of the
 		#       storage manager
 	def test_add_existing_storage(self):
