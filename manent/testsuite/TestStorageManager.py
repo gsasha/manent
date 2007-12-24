@@ -35,19 +35,27 @@ class TestStorageManager(unittest.TestCase):
 			#print k, " : ", v
 		#for k,v in self.block_db.iteritems():
 			#print k, " : ", v
-		# TODO: check that active sequence is the same after recreating of the
-		#       storage manager
-	def test_add_existing_storage(self):
-		"""Test that adding an existing storage imports and maps the storage correctly"""
+	def test_add_block(self):
+		"""Test that if blocks are added, they are available for loading back"""
+		storage_manager = StorageManager.StorageManager(self.config_db, self.block_db)
+		storage_index = storage_manager.add_storage("__mock__", {'password': 'kuku'})
+		storage_manager.make_active_storage(storage_index)
+		block = "some strange text"
+		block_digest = Digest.dataDigest(block)
+		storage_manager.add_block(block_digest, block, Container.CODE_DATA)
+		storage_manager.flush()
+		# Recreate the storage and read the block back
+		storage_manager = StorageManager.StorageManager(self.config_db, self.block_db)
+		class Handler:
+			def __init__(self, expected_block):
+				self.expected_block = expected_block
+		storage_manager.load_block(block_digest, Handler(block))
 		self.fail()
 	def test_rescan_storage(self):
 		"""Test that new sequences appearing from outside are discovered"""
 		self.fail()
 	def test_base_storage(self):
 		"""Test that base storage works"""
-		self.fail()
-	def test_add_block(self):
-		"""Test that if blocks are added, they are available for loading back"""
 		self.fail()
 	def test_container(self):
 		"""Test that containers are created when necessary"""
