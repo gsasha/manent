@@ -51,10 +51,12 @@ class TestStorageManager(unittest.TestCase):
 				self.blocks = {}
 			def is_requested(self, digest, code):
 				return True
-			def loaded(self, digest, data, code):
+			def loaded(self, digest, code, data):
 				self.blocks[(digest, code)] = data
 		handler = Handler()
 		storage_manager.load_block(block_digest, handler)
+		# TODO(gsasha): change the order of handler parameters to digest, code, data
+		#               everywhere
 		self.assertEqual({(block_digest, Container.CODE_DATA): block}, handler.blocks)
 	def test_rescan_storage(self):
 		"""Test that new sequences appearing from outside are discovered"""
