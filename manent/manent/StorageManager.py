@@ -121,6 +121,9 @@ class StorageManager:
 		seq_id = storage.get_active_sequence_id()
 		self.register_sequence(storage_index, seq_id)
 		self.active_storage_idx = storage_index
+	def get_active_sequence_id(self):
+		storage = self.storages[self.active_storage_idx]
+		return storage.get_active_sequence_id()
 	def load(self):
 		for storage_index in range(int(self.config_db[self._key("next_storage")])):
 			storage_type = self.config_db[self._key("storage.%d.type"%storage_index)]
