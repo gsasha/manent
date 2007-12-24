@@ -307,9 +307,10 @@ class FTPStorage(Storage):
 
 # Used only for testing
 class MemoryStorage(Storage):
+	# NOTE: global var. It doesn't matter, since it's for testing only.
+	files = {}
 	def __init__(self, index, config_db):
 		Storage.__init__(self, index, config_db)
-		self.files = {}
 	def configure(self, params):
 		Storage.configure(self, params)
 	def load_configuration(self):
@@ -329,10 +330,10 @@ class MemoryStorage(Storage):
 		self.files[body_file_name] = body_file.getvalue()
 	def load_container_header(self, sequence_id, index):
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
-		return StringIO(self.files[header_file_name])
+		return StringIO.StringIO(self.files[header_file_name])
 	def load_container_body(self, sequence_id, index):
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
-		return StringIO(self.files[body_file_name])
+		return StringIO.StringIO(self.files[body_file_name])
 
 class DirectoryStorage(Storage):
 	"""

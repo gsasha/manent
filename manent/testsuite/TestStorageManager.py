@@ -47,10 +47,15 @@ class TestStorageManager(unittest.TestCase):
 		# Recreate the storage and read the block back
 		storage_manager = StorageManager.StorageManager(self.config_db, self.block_db)
 		class Handler:
-			def __init__(self, expected_block):
-				self.expected_block = expected_block
-		storage_manager.load_block(block_digest, Handler(block))
-		self.fail()
+			def __init__(self):
+				self.blocks = {}
+			def is_requested(self, digest, code):
+				return True
+			def loaded(self, digest, data, code):
+				self.blocks[(digest, code)] = data
+		handler = Handler()
+		storage_manager.load_block(block_digest, handler)
+		self.assertEqual({(block_digest, Container.CODE_DATA): block}, handler.blocks)
 	def test_rescan_storage(self):
 		"""Test that new sequences appearing from outside are discovered"""
 		self.fail()
