@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import cStringIO as StringIO
+import traceback
 
 import Container
 import utils.IntegerEncodings as IE
@@ -142,8 +143,12 @@ class Storage:
 		pass
 
 	def encode_container_name(self, sequence_id, index, extension):
-		return "manent.%s.%s.%s" % (base64.urlsafe_b64encode(sequence_id),
-			IE.ascii_encode_int_varlen(index), extension)
+		try:
+			return "manent.%s.%s.%s" % (base64.urlsafe_b64encode(sequence_id),
+				IE.ascii_encode_int_varlen(index), extension)
+		except:
+			traceback.print_exc()
+			raise
 	def decode_container_name(self, name):
 		name_re = re.compile("manent.([^.]+).([^.]+).([^.]+)")
 		match = name_re.match(name)

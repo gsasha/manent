@@ -160,10 +160,10 @@ class StorageManager:
 		for digest, code in container.list_blocks():
 			self.block_container_db[digest] = encoded
 	def load_block(self, digest, handler):
-		seq_idx, container_idx = self.decode_block_info(self.block_container_db[digest])
-		storage_idx, seq_id = self.index_to_seq[seq_idx]
+		sequence_idx, container_idx = self.decode_block_info(self.block_container_db[digest])
+		storage_idx, sequence_id = self.index_to_seq[sequence_idx]
 		storage = self.storages[storage_idx]
-		container = storage.get_container(container_idx, seq_id)
+		container = storage.get_container(sequence_id, container_idx)
 		container.load_header()
 		container.load_body()
 		container.load_blocks(handler)
