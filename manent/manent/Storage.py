@@ -108,16 +108,22 @@ class Storage:
 		self.config_db[NEXT_INDEX_KEY] = str(self.active_sequence_next_index)
 		return index
 	def load_sequences(self, new_container_handler):
+		# Load previously known sequences
+		SEQ_PREFIX = self._key(".sequences.")
+		for key, value in self.config_db.iteritems_prefix(SEQ_PREFIX):
+			seq_id = key[len(SEQ_PREFIX):]
+			self.sequences[seq_id] = int(value)
+		# Load the data from the storage location
 		container_files = self.list_container_files()
 		new_header_files = {}
 		new_body_files = {}
 		for file in container_files:
 			seq_id, index, extension = self.decode_container_name(file)
 			if not self.sequences.has_key(seq_id) or self.sequences[seq_id] < index:
-					if extension == HEADER_EXT:
-						new_header_files[(seq_id, index)] = 1
-					elif extension == BODY_EXT:
-						new_body_files[(seq_id, index)] = 1
+				if extension == HEADER_EXT:
+					new_header_files[(seq_id, index)] = 1
+				elif extension == BODY_EXT:
+					new_body_files[(seq_id, index)] = 1
 		for file in container_files:
 			seq_id, index, extension = self.decode_container_name(file)
 			if seq_id == self.active_sequence_id and index >= self.active_sequence_next_index:
@@ -127,10 +133,17 @@ class Storage:
 				self.sequences[seq_id] = max(self.sequences[seq_id], index)
 			else:
 				self.sequences[seq_id] = index
-		new_containers = []
+		# Update the sequences info in the database
+		for key, value in self.sequences.iteritems():
+			config_k = self._key(".sequences." + key)
+			if self.config_db.has_key(config_k) and\
+			   self.config_db[config_k] == str(value):
+				continue
+			self.config_db[config_k] = str(value)
+		# Report the new container found
 		for seq_id, index in new_header_files.iterkeys():
 			if new_body_files.has_key((seq_id, index)):
-				new_container_handler.register_new_container(seq_id, index)
+				new_container_handler.report_new_container(seq_id, index)
 		# Reload the active sequence
 		if self.config_db.has_key(self._key("active_sequence")):
 			self.active_sequence_id = self.config_db[self._key("active_sequence")]
@@ -164,76 +177,16 @@ class Storage:
 			# File name unparseable. Can be junk coming from something else
 			return (None, None, None)
 	#
-	# Reconstruction!
-	#
-	def reconstruct(self,handler):
-		#
-		# It is the specific implementation of Storage that knows how to
-		# reconstruct the containers
-		#
-		container_files = self.list_container_files()
-		container_header_files = {}
-		container_body_files = {}
-		for file in file_list:
-			index = self.container_header_index(file,self.label)
-			if index != None:
-				container_header_files[index] = file
-			index = self.container_body_index(file,self.label)
-			if index != None:
-				container_body_files[index] = file
-
-		for index in sorted(container_header_files.keys()):
-			if not container_body_files.has_key(index):
-				print "Container %d has header but no index\n" % index
-				continue
-			container = Container.Container(
-				self,index,container_header_files[index],
-				container_body_files[index])
-			container.load_header()
-
-			has_requested_blocks = False
-			has_unrequested_blocks = False
-			
-			for digest,size,code in container.list_blocks():
-				if handler.is_requested(digest,code):
-					has_requested_blocks = True
-				else:
-					has_unrequested_blocks = True
-
-			if has_requested_blocks:
-				container.load_body()
-
-			container.load_blocks(handler)
-			if has_unrequested_blocks:
-				container.TODO()
-		
-		for (index, file) in container_header_files.iteritems():
-			print "  ", index, "\t", file,
-			if container_data_files.has_key(index):
-				print "\t", container_data_files[index]
-			else:
-				print
-			if max_container < index:
-				max_container = index
-		for index in range(0, max_container + 1):
-			self.containers.append(None)
-		self.containers_db["Containers"] = str(len(self.containers))
-		print " Before loading we have %d containers " % self.num_containers()
-		print "Loading %d containers:" % max_container
-		for (index, file) in container_files.iteritems():
-			if not container_data_files.has_key(index):
-				print "Container", index, "has no data file :("
-				continue
-			container = self.load_container(index)
-			self.containers[index] = container
-	#
 	# Container management
 	#
 	def create_container(self):
 		if self.active_sequence_id is None:
 			raise Exception("Can't create a container for an inactive storage")
 		container = Container.Container(self)
-		container.start_dump(self.get_active_sequence_id(), self.get_next_index())
+		index = self.get_next_index()
+		container.start_dump(self.active_sequence_id, index)
+		self.sequences[self.active_sequence_id] = index
+		self.config_db[self._key(".sequences." + self.active_sequence_id)] = str(index)
 		return container
 	def get_container(self, sequence_id, index):
 		container = Container.Container(self)
@@ -249,7 +202,7 @@ class Storage:
 	
 	def rescan(self):
 		# TODO: Return the list of newly appeared containers
-		pass
+		self.fail()
 	#
 	# Block parameters
 	#

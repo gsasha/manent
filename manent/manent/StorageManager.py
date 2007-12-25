@@ -60,7 +60,7 @@ class StorageManager:
 		self.active_storage_idx = None
 		for storage_idx in self.get_storage_idxs():
 			storage = Storage.load_storage(self.config_db, storage_idx,
-				new_container_handler)
+				self.get_new_container_handler())
 			self.storages[storage_idx] = storage
 			if storage.is_active():
 				seq_id = storage.get_active_sequence_id()
@@ -85,6 +85,9 @@ class StorageManager:
 			self.register_sequence(storage_idx, sequence_id)
 		dummy, sequence_idx = self.seq_to_index[sequence_id]
 		return sequence_idx
+	def get_new_container_handler(self):
+		# TODO: implement this
+		return None
 	def add_storage(self, storage_type, storage_params):
 		# When we add a storage, the following algorithm is executed:
 		# 1. If the storage is already in the shared db, it is just added
@@ -100,7 +103,7 @@ class StorageManager:
 
 		# TODO: implement new_container_handler
 		storage = Storage.create_storage(self.config_db, storage_type,
-			storage_idx, storage_params, new_container_handler)
+			storage_idx, storage_params, self.get_new_container_handler())
 		self.storages[storage_idx] = storage
 		return storage_idx
 	def get_storage_idxs(self):

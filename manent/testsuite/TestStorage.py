@@ -121,7 +121,7 @@ class TestStorage(unittest.TestCase):
 		class Handler:
 			def __init__(self):
 				self.containers = []
-			def register_new_container(self, sequence_id, index):
+			def report_new_container(self, sequence_id, index):
 				self.containers.append((sequence_id, index))
 			def get_containers(self):
 				return self.containers
