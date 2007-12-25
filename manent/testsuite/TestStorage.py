@@ -86,7 +86,7 @@ class TestStorage(unittest.TestCase):
 		container = storage.create_container()
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
-		container.add_block(block_digest, block, Container.CODE_DATA)
+		container.add_block(block_digest, Container.CODE_DATA, block)
 		container.finish_dump()
 		self.assertEqual(0, container.get_index())
 		self.assertEqual(seq_id, container.get_sequence_id())

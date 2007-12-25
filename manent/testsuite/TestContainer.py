@@ -1,11 +1,12 @@
-import unittest
+import base64
 import random
-from cStringIO import StringIO
 import os
+import cStringIO as StringIO
 import tempfile
+import unittest
 
-import manent.utils.Digest
-from manent.Container import *
+import manent.utils.Digest as Digest
+import manent.Container as Container
 
 #random.seed(23423)
 
@@ -13,18 +14,18 @@ class MockHandler:
 	def __init__(self):
 		self.expected = {}
 		self.data_loaded = {}
-	def add_expected(self,digest,data,code):
-		self.expected[digest] = (data,code)
-	def is_requested(self,digest,code):
-		if code >= CODE_CONTROL_START:
+	def add_expected(self, digest, code, data):
+		self.expected[digest] = (code, data)
+	def is_requested(self, digest, code):
+		if code >= Container.CODE_CONTROL_START:
 			return False
 		if self.expected.has_key(digest):
 			return True
-		if code != CODE_DATA:
+		if code != Container.CODE_DATA:
 			return True
 		return False
-	def loaded(self,digest,data,code):
-		self.data_loaded[digest] = (data,code)
+	def loaded(self, digest, code, data):
+		self.data_loaded[digest] = (code, data)
 	def check(self):
 		for k in self.data_loaded.keys():
 			if not self.expected.has_key(k):
@@ -46,7 +47,7 @@ class MockHandler:
 		return True
 
 class MockStorage:
-	def __init__(self,password):
+	def __init__(self, password):
 		self.password = password
 		dummy, self.header_file_name = tempfile.mkstemp(
 			".header","manent.test_container", "/tmp")
@@ -61,7 +62,7 @@ class MockStorage:
 		os.unlink(self.body_file_name)
 
 	def get_container(self,index):
-		container = Container(self)
+		container = Container.Container(self)
 		container.start_load("sequence_a", index)
 		return container
 
@@ -81,7 +82,7 @@ class MockStorage:
 		return "mukakaka"
 	
 	def create_container(self):
-		container = Container(self)
+		container = Container.Container(self)
 		container.start_dump("sequence_a", self.cur_index)
 		self.cur_index += 1
 		return container
@@ -111,18 +112,18 @@ class TestContainer(unittest.TestCase):
 	def test_data_dumper(self):
 		"""Basic test of data dumper: data in, data out"""
 		handler = MockHandler()
-		outfile = StringIO()
-		dumper = DataDumper(outfile)
+		outfile = StringIO.StringIO()
+		dumper = Container.DataDumper(outfile)
 
 		for d in DATA:
 			digest = Digest.dataDigest(d)
-			dumper.add_block(digest,d,CODE_DATA)
-			handler.add_expected(digest,d,CODE_DATA)
+			dumper.add_block(digest, Container.CODE_DATA, d)
+			handler.add_expected(digest, Container.CODE_DATA, d)
 
-		infile = StringIO(outfile.getvalue())
+		infile = StringIO.StringIO(outfile.getvalue())
 		blocks = dumper.get_blocks()
 		
-		undumper = DataDumpLoader(infile,blocks,password=None)
+		undumper = Container.DataDumpLoader(infile, blocks, password=None)
 		undumper.load_blocks(handler)
 
 		self.failUnless(handler.check())
@@ -130,20 +131,20 @@ class TestContainer(unittest.TestCase):
 	def test_data_dumper_compress(self):
 		"""Test data dumper when compression is enabled"""
 		handler = MockHandler()
-		outfile = StringIO()
-		dumper = DataDumper(outfile)
+		outfile = StringIO.StringIO()
+		dumper = Container.DataDumper(outfile)
 		
-		dumper.start_compression(CODE_COMPRESSION_BZ2)
+		dumper.start_compression(Container.CODE_COMPRESSION_BZ2)
 		for d in DATA:
 			digest = Digest.dataDigest(d)
-			dumper.add_block(digest,d,CODE_DATA)
-			handler.add_expected(digest,d,CODE_DATA)
+			dumper.add_block(digest, Container.CODE_DATA, d)
+			handler.add_expected(digest, Container.CODE_DATA, d)
 		dumper.stop_compression()
 
-		infile = StringIO(outfile.getvalue())
+		infile = StringIO.StringIO(outfile.getvalue())
 		blocks = dumper.get_blocks()
 		
-		undumper = DataDumpLoader(infile,blocks,password=None)
+		undumper = Container.DataDumpLoader(infile, blocks, password=None)
 		undumper.load_blocks(handler)
 
 		self.failUnless(handler.check())
@@ -151,21 +152,23 @@ class TestContainer(unittest.TestCase):
 	def test_data_dumper_encrypt(self):
 		"""Test data dumper when encryption is enabled"""
 		handler = MockHandler()
-		outfile = StringIO()
-		dumper = DataDumper(outfile)
+		outfile = StringIO.StringIO()
+		dumper = Container.DataDumper(outfile)
 
 		seed = Digest.dataDigest("1")
-		dumper.start_encryption(CODE_ENCRYPTION_ARC4,seed,"kakamaika")
+		dumper.start_encryption(Container.CODE_ENCRYPTION_ARC4, seed,
+			"kakamaika")
 		for d in DATA:
 			digest = Digest.dataDigest(d)
-			dumper.add_block(digest,d,CODE_DATA)
-			handler.add_expected(digest,d,CODE_DATA)
+			dumper.add_block(digest, Container.CODE_DATA, d)
+			handler.add_expected(digest, Container.CODE_DATA, d)
 		dumper.stop_encryption()
 
-		infile = StringIO(outfile.getvalue())
+		infile = StringIO.StringIO(outfile.getvalue())
 		blocks = dumper.get_blocks()
 
-		undumper = DataDumpLoader(infile,blocks,password="kakamaika")
+		undumper = Container.DataDumpLoader(infile, blocks,
+			password="kakamaika")
 		undumper.load_blocks(handler)
 
 		self.failUnless(handler.check())
@@ -173,8 +176,8 @@ class TestContainer(unittest.TestCase):
 	def test_data_dumper_stress(self):
 		"""Test with really lots of randomly generated data"""
 		handler = MockHandler()
-		outfile = StringIO()
-		dumper = DataDumper(outfile)
+		outfile = StringIO.StringIO()
+		dumper = Container.DataDumper(outfile)
 
 		encryption_active = None
 		compression_active = None
@@ -210,19 +213,27 @@ class TestContainer(unittest.TestCase):
 				# Generate new data item
 				data_size = random.randint(0,1000)
 				data = os.urandom(data_size)
-				code = random.choice([CODE_DATA, CODE_DIR, CODE_DATA, CODE_DATA_PACKER, CODE_DATA, CODE_DIR_PACKER, CODE_DATA, CODE_INCREMENT_DESCRIPTOR])
+				code = random.choice([
+					Container.CODE_DATA,
+					Container.CODE_DIR,
+					Container.CODE_DATA,
+					Container.CODE_DATA_PACKER,
+					Container.CODE_DATA,
+					Container.CODE_DIR_PACKER,
+					Container.CODE_DATA,
+					Container.CODE_INCREMENT_DESCRIPTOR])
 				digest = Digest.dataDigest(data)
 
-				if code == CODE_DATA and known_blocks.has_key(digest):
+				if code == Container.CODE_DATA and known_blocks.has_key(digest):
 					# We can't expect the same data block to be added twice to a container
 					continue
 				known_blocks[digest] = 1
 				
-				dumper.add_block(digest,data,code)
+				dumper.add_block(digest, code, data)
 
 				# test not requesting to reload every CODE_DATA item
-				if code != CODE_DATA or random.randint(0,100)>90:
-					handler.add_expected(digest,data,code)
+				if code != Container.CODE_DATA or random.randint(0, 100) > 90:
+					handler.add_expected(digest, code, data)
 
 			elif action==1:
 				#continue
@@ -235,7 +246,8 @@ class TestContainer(unittest.TestCase):
 				encryption_active = random.randint(1,100)
 				#print "  Starting encryption for %d rounds"
 				seed = os.urandom(Digest.dataDigestSize())
-				dumper.start_encryption(CODE_ENCRYPTION_ARC4,seed,"kakamaika")
+				dumper.start_encryption(Container.CODE_ENCRYPTION_ARC4, seed,
+					"kakamaika")
 				
 			elif action==2:
 				# Try to start compression
@@ -243,8 +255,8 @@ class TestContainer(unittest.TestCase):
 					continue
 				compression_active = random.randint(1,100)
 				if encryption_active != None:
-					compression_active = min(compression_active,encryption_active)
-				algorithm = random.choice([CODE_COMPRESSION_BZ2])
+					compression_active = min(compression_active, encryption_active)
+				algorithm = random.choice([Container.CODE_COMPRESSION_BZ2])
 				dumper.start_compression(algorithm)
 
 		if compression_active is not None:
@@ -252,13 +264,14 @@ class TestContainer(unittest.TestCase):
 		if encryption_active is not None:
 			dumper.stop_encryption()
 
-		infile = StringIO(outfile.getvalue())
+		infile = StringIO.StringIO(outfile.getvalue())
 		blocks = dumper.get_blocks()
 		#print "blocks:"
 		#for digest,size,code in blocks:
 			#print base64.b64encode(digest), size, code
 
-		undumper = DataDumpLoader(infile,blocks,password="kakamaika")
+		undumper = Container.DataDumpLoader(infile, blocks,
+			password="kakamaika")
 		undumper.load_blocks(handler)
 
 		self.failUnless(handler.check())
@@ -272,8 +285,8 @@ class TestContainer(unittest.TestCase):
 
 		container = storage.create_container()
 		for d in DATA:
-			container.add_block(Digest.dataDigest(d),d,CODE_DATA)
-			handler.add_expected(Digest.dataDigest(d),d,CODE_DATA)
+			container.add_block(Digest.dataDigest(d), Container.CODE_DATA, d)
+			handler.add_expected(Digest.dataDigest(d), Container.CODE_DATA, d)
 		storage.finalize_container(container)
 		index = container.index
 

@@ -1,19 +1,19 @@
-from cStringIO import StringIO
+import base64
+import bz2, zlib
+import Crypto.Cipher.ARC4
 import os, os.path, shutil
 import re
-import base64
-import bz2,zlib
-import traceback
+import cStringIO as StringIO
 import sys
-import Crypto.Cipher.ARC4
+import traceback
 
 import manent.utils.Digest as Digest
 import manent.utils.Format as Format
-from Increment import Increment
-from StreamAdapter import *
-from manent.utils.BandwidthLimiter import *
-from manent.utils.RemoteFSHandler import FTPHandler, SFTPHandler
-from manent.utils.FileIO import FileReader, FileWriter
+import Increment
+import StreamAdapter
+import manent.utils.BandwidthLimiter
+import manent.utils.RemoteFSHandler as RemoteFSHandler
+import manent.utils.FileIO as FileIO
 
 #---------------------------------------------------
 # Container file format:
@@ -129,7 +129,7 @@ def unserialize_blocks(file):
 			break
 		size = Format.read_int(file)
 		code = Format.read_int(file)
-		blocks.append((digest,size,code))
+		blocks.append((digest, size, code))
 	return blocks
 def serialize_blocks(file, blocks):
 	for (digest,size,code) in blocks:
@@ -149,8 +149,8 @@ class DataDumper:
 		
 		self.encryptor = None
 		self.compressor = None
-	def add_block(self,digest,data,code):
-		self.blocks.append((digest,len(data),code))
+	def add_block(self, digest, code, data):
+		self.blocks.append((digest, len(data), code))
 		if self.compressor is not None:
 			data = self.__compress(data)
 		if self.encryptor is not None:
@@ -160,16 +160,16 @@ class DataDumper:
 	#
 	# Encryption support
 	#
-	def start_encryption(self,algorithm_code,seed,password):
+	def start_encryption(self, algorithm_code, seed, password):
 		"""
 		Encryption can be started only when compression is inactive
 		"""
 		assert self.encryptor is None
 		assert self.compressor is None
 		
-		self.blocks.append((seed,0,algorithm_code))
+		self.blocks.append((seed, 0, algorithm_code))
 		if algorithm_code == CODE_ENCRYPTION_ARC4:
-			key = Digest.dataDigest(seed+password)
+			key = Digest.dataDigest(seed + password)
 			self.encryptor = Crypto.Cipher.ARC4.new(key)
 		self.encrypted_data_size = 0
 		self.encrypted_data_digest = Digest.DataDigestAccumulator()
@@ -178,9 +178,9 @@ class DataDumper:
 		assert self.compressor is None
 
 		self.blocks.append((self.encrypted_data_digest.digest(),
-		                    self.encrypted_data_size,CODE_ENCRYPTION_END))
+		                    self.encrypted_data_size, CODE_ENCRYPTION_END))
 		self.encryptor = None
-	def __encrypt(self,data):
+	def __encrypt(self, data):
 		self.encrypted_data_digest.update(data)
 		self.encrypted_data_size += len(data)
 		return self.encryptor.encrypt(data)
@@ -389,8 +389,8 @@ class DataDumpLoader:
 						self.decryptor_data_digest.update(data)
 						self.decrypted_bytes += len(data)
 
-				if handler.is_requested(digest,code):
-					handler.loaded(digest,data,code)
+				if handler.is_requested(digest, code):
+					handler.loaded(digest, code, data)
 
 class Container:
 	"""
@@ -430,7 +430,7 @@ class Container:
 		self.body_file = self.storage.open_body_file(self.sequence_id, self.index)
 
 		self.body_dumper = DataDumper(self.body_file)
-		self.header_dump_os = StringIO()
+		self.header_dump_os = StringIO.StringIO()
 		self.header_dumper = DataDumper(self.header_dump_os)
 
 		if self.storage.get_password() != "":
@@ -459,13 +459,13 @@ class Container:
 		current_size = self.body_dumper.total_size + self.header_dumper.total_size +\
 		               MAX_COMPRESSED_DATA + 64
 		return current_size <= self.storage.container_size()	
-	def add_block(self, digest, data, code):
+	def add_block(self, digest, code, data):
 		if self.compression_active and self.compressed_data > MAX_COMPRESSED_DATA:
 			self.body_dumper.stop_compression()
 			self.body_dumper.start_compression(CODE_COMPRESSION_BZ2)
 			self.compressed_data = 0
 
-		self.body_dumper.add_block(digest, data, code)
+		self.body_dumper.add_block(digest, code, data)
 		self.compressed_data += len(data)
 		
 		self.body_blocks.append((digest, code))
@@ -478,7 +478,7 @@ class Container:
 		#
 		# Serialize the body block table
 		#
-		body_table_io = StringIO()
+		body_table_io = StringIO.StringIO()
 		body_blocks = self.body_dumper.get_blocks()
 		serialize_blocks(body_table_io,body_blocks)
 		body_table_str = body_table_io.getvalue()
@@ -489,16 +489,16 @@ class Container:
 		message = "Manent container %d of sequence '%s'" % (
 			self.index, base64.urlsafe_b64encode(self.sequence_id))
 		self.header_dumper.add_block(Digest.dataDigest(message),
-									 message, CODE_CONTAINER_DESCRIPTOR)
+									 CODE_CONTAINER_DESCRIPTOR, message)
 		self.header_dumper.add_block(Digest.dataDigest(body_table_str),
-									 body_table_str, CODE_BLOCK_TABLE)
+									 CODE_BLOCK_TABLE, body_table_str)
 
 		if self.encryption_active:
 			self.header_dumper.stop_encryption()
 			self.encryption_active = False
 
 		header_blocks = self.header_dumper.get_blocks()
-		header_table_io = StringIO()
+		header_table_io = StringIO.StringIO()
 		serialize_blocks(header_table_io,header_blocks)
 		header_table_str = header_table_io.getvalue()
 		
@@ -552,7 +552,7 @@ class Container:
 		# TODO: read only as much as necessary
 		header_dump_str = self.header_file.read()
 		
-		header_table_io = StringIO(header_table_str)
+		header_table_io = StringIO.StringIO(header_table_str)
 		header_blocks = unserialize_blocks(header_table_io)
 
 		class Handler:
@@ -561,17 +561,17 @@ class Container:
 			def is_requested(self,digest,code):
 				if code == CODE_BLOCK_TABLE:
 					return True
-			def loaded(self,digest,data,code):
+			def loaded(self,digest, code, data):
 				assert code == CODE_BLOCK_TABLE
 				self.body_table_str = data
 
 		handler = Handler()
-		header_dump_str_io = StringIO(header_dump_str)
+		header_dump_str_io = StringIO.StringIO(header_dump_str)
 		header_dump_loader = DataDumpLoader(header_dump_str_io, header_blocks,
 			password=self.storage.get_password())
 		header_dump_loader.load_blocks(handler)
 
-		body_table_io = StringIO(handler.body_table_str)
+		body_table_io = StringIO.StringIO(handler.body_table_str)
 		self.body_blocks = unserialize_blocks(body_table_io)
 	def list_blocks(self):
 		return self.body_blocks
@@ -586,9 +586,9 @@ class Container:
 		class TestingBlockCache:
 			def __init__(self):
 				pass
-			def block_needed(self,digest):
+			def block_needed(self, digest):
 				return True
-			def block_loaded(self,digest,block):
+			def block_loaded(self, digest, block):
 				new_digest = Digest.dataDigest(block)
 				if new_digest != digest:
 					raise Exception("Critical error: Bad digest in container!")

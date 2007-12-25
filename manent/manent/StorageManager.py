@@ -129,20 +129,20 @@ class StorageManager:
 			storage_type = self.config_db[self._key("storage.%d.type"%storage_index)]
 	def close(self):
 		self.block_container_db.close()
-	def add_block(self, digest, data, code):
+	def add_block(self, digest, code, data):
 		storage = self.storages[self.active_storage_idx]
 		#
 		# Make sure we have a container that can take this block
 		#
 		if self.current_open_container is None:
 			self.current_open_container = storage.create_container()
-		elif not self.current_open_container.can_add_block(digest, data, code):
+		elif not self.current_open_container.can_add_block(digest, code, data):
 			self.write_container(self.current_open_container)
 			self.current_open_container = storage.create_container()
 		#
 		# add the block to the container
 		#
-		self.current_open_container.add_block(digest, data, code)
+		self.current_open_container.add_block(digest, code, data)
 	def flush(self):
 		storage = self.storages[self.active_storage_idx]
 

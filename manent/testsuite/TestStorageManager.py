@@ -20,14 +20,14 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
-		storage_manager.add_block(block_digest, block, Container.CODE_DATA)
+		storage_manager.add_block(block_digest, Container.CODE_DATA, block)
 		storage_manager.flush()
 		seq_id1 = storage_manager.get_active_sequence_id()
 		# Recreate the storage_manager and add another block to it
 		storage_manager = StorageManager.StorageManager(self.config_db, self.block_db)
 		block = "some other strange text"
 		block_digest = Digest.dataDigest(block)
-		storage_manager.add_block(block_digest, block, Container.CODE_DATA)
+		storage_manager.add_block(block_digest, Container.CODE_DATA, block)
 		storage_manager.flush()
 		seq_id2 = storage_manager.get_active_sequence_id()
 		self.assertEqual(seq_id1, seq_id2)
@@ -42,7 +42,7 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
-		storage_manager.add_block(block_digest, block, Container.CODE_DATA)
+		storage_manager.add_block(block_digest, Container.CODE_DATA, block)
 		storage_manager.flush()
 		# Recreate the storage and read the block back
 		storage_manager = StorageManager.StorageManager(self.config_db, self.block_db)
