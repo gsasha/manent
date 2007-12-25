@@ -156,14 +156,12 @@ class StorageManager:
 		#
 		container_idx = container.get_index()
 		storage_idx, seq_idx = self.seq_to_index[container.get_sequence_id()]
-		print "Writing container seq_id=", container.get_sequence_id(), "idx=", container.get_index()
 		encoded = self.encode_block_info(seq_idx, container_idx)
 		for digest, code in container.list_blocks():
 			self.block_container_db[digest] = encoded
 	def load_block(self, digest, handler):
 		sequence_idx, container_idx = self.decode_block_info(self.block_container_db[digest])
 		storage_idx, sequence_id = self.index_to_seq[sequence_idx]
-		print "Reading container seq_id=", sequence_id, "idx=", container_idx
 		storage = self.storages[storage_idx]
 		container = storage.get_container(sequence_id, container_idx)
 		container.load_header()

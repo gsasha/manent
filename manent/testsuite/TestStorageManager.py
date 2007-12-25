@@ -55,12 +55,34 @@ class TestStorageManager(unittest.TestCase):
 				self.blocks[(digest, code)] = data
 		handler = Handler()
 		storage_manager.load_block(block_digest, handler)
-		# TODO(gsasha): change the order of handler parameters to digest, code, data
-		#               everywhere
 		self.assertEqual({(block_digest, Container.CODE_DATA): block}, handler.blocks)
 	def test_rescan_storage(self):
 		"""Test that new sequences appearing from outside are discovered"""
-		self.fail()
+		storage_manager = StorageManager.StorageManager(self.config_db, self.block_db)
+		storage_index = storage_manager.add_storage("__mock__", {'password': 'kuku'})
+		storage_manager.make_active_storage(storage_index)
+		block = "some strange text"
+		block_digest = Digest.dataDigest(block)
+		storage_manager.add_block(block_digest, Container.CODE_DATA, block)
+		storage_manager.flush()
+		# Create second storage manager with a different db, but on the same storage
+		# (mock shares all the files), and see that it sees the block from the first one.
+		config_db2 = self.env.get_database_btree("config2", None)
+		block_db2 = self.env.get_database_btree("block_db2", None)
+		storage_manager2 = StorageManager.StorageManager(config_db2, block_db2)
+		storage_index2 = storage_manager2.add_storage("__mock__",
+		                                              {'password': 'kuku'})
+		storage_manager2.make_active_storage(storage_index2)
+		class Handler:
+			def __init__(self):
+				self.blocks = {}
+			def is_requested(self, digest, code):
+				return True
+			def loaded(self, digest, code, data):
+				self.blocks[(digest, code)] = data
+		handler = Handler()
+		storage_manager2.load_block(block_digest, handler)
+		self.assertEqual({(block_digest, Container.CODE_DATA): block}, handler.blocks)
 	def test_base_storage(self):
 		"""Test that base storage works"""
 		self.fail()
