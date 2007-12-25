@@ -71,7 +71,14 @@ class TestStorage(unittest.TestCase):
 		# Create a new db to simulate a different machine
 		config_db2 = self.env.get_database_btree("b", None)
 		storage2 = Storage.DirectoryStorage(0, config_db2)
-		storage2.configure(self.CONFIGURATION, None)
+		class NopHandler:
+			def __init__(self):
+				pass
+			def report_new_container(self, seq_id, index):
+				pass
+		# We know that there are new containers appearing.
+		# However, we don't care in this test.
+		storage2.configure(self.CONFIGURATION, NopHandler())
 		sequences = storage2.get_sequence_ids()
 		#print sequences
 		self.assert_(seq_id1 in sequences)
