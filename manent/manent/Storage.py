@@ -27,14 +27,17 @@ def _instantiate(config_db, storage_type, index):
 	else:
 		raise Exception("Unknown storage_type type" + storage_type)
 	
-def create_storage(config_db, storage_type, index):
+def create_storage(config_db, storage_type, index, params,
+		new_container_handler):
 	config_db["STORAGE.TYPE.%d" % index] = storage_type
-	return _instantiate(config_db, storage_type, index)
+	storage = _instantiate(config_db, storage_type, index)
+	storage.configure(params, new_container_handler)
+	return storage
 
-def load_storage(config_db, index):
+def load_storage(config_db, index, new_container_handler):
 	storage_type = config_db["STORAGE.TYPE.%d" % index]
 	storage = _instantiate(config_db, storage_type, index)
-	storage.load_configuration()
+	storage.load_configuration(new_container_handler)
 	return storage
 
 class Storage:
@@ -52,15 +55,15 @@ class Storage:
 	#
 	# Loading
 	#
-	def configure(self, config):
+	def configure(self, config, new_container_handler):
 		for key, val in config.iteritems():
 			self.config_db[self._key('CONFIG.'+key)] = val
 		
 		self.config = config
-		self.load_sequences()
-	def load_configuration(self):
+		self.load_sequences(new_container_handler)
+	def load_configuration(self, new_container_handler):
 		self.config = self.get_config()
-		self.load_sequences()
+		self.load_sequences(new_container_handler)
 	def get_config(self):
 		PREFIX = self._key('CONFIG.')
 		PREFIX_len = len(PREFIX)
@@ -104,7 +107,7 @@ class Storage:
 		NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
 		self.config_db[NEXT_INDEX_KEY] = str(self.active_sequence_next_index)
 		return index
-	def load_sequences(self):
+	def load_sequences(self, new_container_handler):
 		container_files = self.list_container_files()
 		new_header_files = {}
 		new_body_files = {}
@@ -125,16 +128,14 @@ class Storage:
 			else:
 				self.sequences[seq_id] = index
 		new_containers = []
-		for key in new_header_files.iterkeys():
-			if new_body_files.has_key(key):
-				new_containers.append(key)
+		for seq_id, index in new_header_files.iterkeys():
+			if new_body_files.has_key((seq_id, index)):
+				new_container_handler.register_new_container(seq_id, index)
 		# Reload the active sequence
 		if self.config_db.has_key(self._key("active_sequence")):
 			self.active_sequence_id = self.config_db[self._key("active_sequence")]
 			NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
 			self.active_sequence_next_index = int(self.config_db[NEXT_INDEX_KEY])
-		# report on the extra containers that have appeared
-		return new_containers
 	def get_sequence_ids(self):
 		return self.sequences.keys()
 	def close(self):
@@ -311,10 +312,10 @@ class MemoryStorage(Storage):
 	files = {}
 	def __init__(self, index, config_db):
 		Storage.__init__(self, index, config_db)
-	def configure(self, params):
-		Storage.configure(self, params)
-	def load_configuration(self):
-		Storage.load_configuration(self)
+	def configure(self, params, new_container_handler):
+		Storage.configure(self, params, new_container_handler)
+	def load_configuration(self, new_container_handler):
+		Storage.load_configuration(self, new_container_handler)
 	def container_size(self):
 		return 1<<10
 	def list_container_files(self):
@@ -341,10 +342,10 @@ class DirectoryStorage(Storage):
 	"""
 	def __init__(self, index, config_db):
 		Storage.__init__(self, index, config_db)
-	def configure(self, params):
-		Storage.configure(self, params)
-	def load_configuration(self):
-		Storage.load_configuration(self)
+	def configure(self, params, new_container_handler):
+		Storage.configure(self, params, new_container_handler)
+	def load_configuration(self, new_container_handler):
+		Storage.load_configuration(self, new_container_handler)
 	def get_path(self):
 		return self.config["path"]
 	def container_size(self):

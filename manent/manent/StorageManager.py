@@ -59,13 +59,17 @@ class StorageManager:
 		self.storages = {}
 		self.active_storage_idx = None
 		for storage_idx in self.get_storage_idxs():
-			storage = Storage.load_storage(self.config_db, storage_idx)
+			storage = Storage.load_storage(self.config_db, storage_idx,
+				new_container_handler)
 			self.storages[storage_idx] = storage
 			if storage.is_active():
 				seq_id = storage.get_active_sequence_id()
 				self.active_storage_idx, seq_idx = self.seq_to_index[seq_id]
 	def _key(self, suffix):
 		return PREFIX + suffix
+	def register_container(self):
+		# TODO: implement this
+		self.fail()
 	def register_sequence(self, storage_idx, sequence_id):
 		# Generate new index for this sequence
 		sequence_idx = self.next_seq_idx
@@ -94,12 +98,10 @@ class StorageManager:
 			storage_idx = max(storage_idxs) + 1
 		self.write_storage_idxs(self.get_storage_idxs() + [storage_idx])
 
+		# TODO: implement new_container_handler
 		storage = Storage.create_storage(self.config_db, storage_type,
-			storage_idx)
+			storage_idx, storage_params, new_container_handler)
 		self.storages[storage_idx] = storage
-		storage.configure(storage_params)
-		# TODO: read all sequences from storage
-		# TODO: get the new containers from the storage
 		return storage_idx
 	def get_storage_idxs(self):
 		KEY = self._key("storage_idxs")
