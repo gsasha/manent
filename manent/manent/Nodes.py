@@ -1,11 +1,11 @@
 import os, os.path, stat, time
 import base64
-from cStringIO import StringIO
+import utils.Digest as Digest
+import utils.Format as Format
+import utils.FileIO as FileIO
+import utils.IntegerEncodings as IntegerEncodings
+import cStringIO as StringIO
 import re
-import manent.utils.IntegerEncodings as IntegerEncodings
-import manent.utils.Digest as Digest
-import manent.utils.Format as Format
-from manent.utils.FileIO import read_blocks
 from PackerStream import *
 import traceback
 
@@ -219,14 +219,14 @@ class File(Node):
 		
 		# --- File not yet in database, process it
 		packer = PackerOStream(self.backup,Container.CODE_DATA)
-		for data in read_blocks(open(self.path(), "rb"),
+		for data in FileIO.read_blocks(open(self.path(), "rb"),
 			                    self.backup.container_config.blockSize()):
 			packer.write(data)
 			
 		self.digest = packer.get_digest()
 		self.update_hlink(ctx)
 
-	def restore(self,ctx):
+	def restore(self, ctx):
 		"""
 		Recreate the data from the information stored in the
 		backup
@@ -242,9 +242,9 @@ class File(Node):
 		#
 		# No, this file is new. Create it.
 		#
-		packer = PackerIStream(self.backup,self.digest)
+		packer = PackerIStream(self.backup, self.digest)
 		file = open(self.path(), "wb")
-		for data in read_blocks(packer,Digest.dataDigestSize()):
+		for data in FileIO.read_blocks(packer, Digest.dataDigestSize()):
 			#print "File", self.path(), "reading digest",
 			#    base64.b64encode(digest)
 			file.write(data)
@@ -252,7 +252,7 @@ class File(Node):
 		
 		self.restore_stats()
 	
-	def request_blocks(self,ctx):
+	def request_blocks(self, ctx):
 		"""
 		Put requests for the blocks of the file into the blocks cache
 		"""
@@ -263,13 +263,13 @@ class File(Node):
 		# Check if the file has already been processed
 		# during this pass
 		#
-		if self.restore_hlink(ctx,stats,dryrun=True):
+		if self.restore_hlink(ctx, stats, dryrun=True):
 			return
 		
 		#
 		# Ok, this file is new. Count all its blocks
 		#
-		valueS = StringIO(db[key])
+		valueS = StringIO.StringIO(db[key])
 		for digest in read_blocks(valueS,Digest.dataDigestSize()):
 			ctx.request_block(digest)
 	def list_files(self,ctx):

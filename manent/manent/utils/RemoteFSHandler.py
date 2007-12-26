@@ -1,24 +1,25 @@
-from FileIO import read_blocks
+import FileIO
+import ftplib
+import paramiko
 import os, os.path
 import traceback
-import paramiko
-from ftplib import *
 
 #----------------------------------------------------
 # Decorator that implements retrying
 #----------------------------------------------------
-def retry_decorator(retries,message):
+def retry_decorator(retries, message):
 	def impl(func):
-		def retrier(self,*args,**kwargs):
+		def retrier(self, *args, **kwargs):
 			for i in range(retries):
 				try:
 					self.connect()
-					return func(self,*args,**kwargs)
+					return func(self, *args, **kwargs)
 				except:
 					traceback.print_exc()
 					self.cleanup_connection()
 			else:
-				raise "Failed to %s for %d times. Giving up" % (message,retries)
+				raise "Failed to %s for %d times. Giving up" % (message,
+				                                                retries)
 		return retrier
 	return impl
 
@@ -34,13 +35,13 @@ class RemoteFSHandler:
 		pass
 	def list_files(self):
 		pass
-	def upload(self,file,remote_name):
+	def upload(self, file, remote_name):
 		pass
-	def download(self,file,remote_name):
+	def download(self, file, remote_name):
 		pass
 
 class FTPHandler(RemoteFSHandler):
-	def __init__(self,host,username,password,path):
+	def __init__(self, host, username, password, path):
 		self.host = host
 		self.path = path
 		self.username = username
@@ -57,16 +58,16 @@ class FTPHandler(RemoteFSHandler):
 		self.ftp.storbinary("STOR %s" % (remote_name), file)
 	
 	@retry_decorator(10, "download")
-	def download(self,file,remote_name):
-		self.ftp.retrbinary("RETR %s" % (remote_name), file.write,100<<10)
+	def download(self, file, remote_name):
+		self.ftp.retrbinary("RETR %s" % (remote_name), file.write, 100<<10)
 	# --------
 	# Internal implementation
 	# --------
 	def connect(self):
 		if self.ftp != None:
 			return
-		print "Connecting to %s as %s" % (self.host,self.username)
-		self.ftp = FTP(self.host,self.username,self.password)
+		print "Connecting to %s as %s" % (self.host, self.username)
+		self.ftp = ftplib.FTP(self.host, self.username, self.password)
 		self.ftp.set_pasv(False)
 		self.ftp.cwd(self.path)
 		print "Changing dir to", self.path
@@ -74,7 +75,7 @@ class FTPHandler(RemoteFSHandler):
 		self.ftp = None
 
 class SFTPHandler(RemoteFSHandler):
-	def __init__(self,host,username,password,path):
+	def __init__(self, host, username, password, path):
 		RemoteFSHandler.__init__(self)
 		self.host = host
 		#self.path = path
@@ -90,22 +91,22 @@ class SFTPHandler(RemoteFSHandler):
 		return self.channel.listdir(self.path)
 	
 	@retry_decorator(10, "upload")
-	def upload(self,file,remote_name):
+	def upload(self, file, remote_name):
 		#print "Dummy uploading %s" % remote_name
 		#return
-		remote_path = os.path.join(self.path,remote_name)
-		remote_path = remote_path.replace("\\","/")
+		remote_path = os.path.join(self.path, remote_name)
+		remote_path = remote_path.replace("\\", "/")
 		handle = self.channel.file(remote_path, "wb")
-		for block in read_blocks(file, 128<<10):
+		for block in FileIO.read_blocks(file, 128<<10):
 			handle.write(block)
 		handle.close()
 		
 	@retry_decorator(10, "download")
-	def download(self,file,remote_name):
-		remote_path = os.path.join(self.path,remote_name)
-		remote_path = remote_path.replace("\\","/")
+	def download(self, file, remote_name):
+		remote_path = os.path.join(self.path, remote_name)
+		remote_path = remote_path.replace("\\", "/")
 		handle = self.channel.file(remote_path, "rb")
-		for block in read_blocks(handle, 16<<10):
+		for block in FileIO.read_blocks(handle, 16<<10):
 			file.write(block)
 		handle.close()
 	#

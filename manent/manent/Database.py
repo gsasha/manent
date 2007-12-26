@@ -1,14 +1,13 @@
 import os, os.path
-import bsddb
-from bsddb import db
+import bsddb.db as db
 import base64
 import time
-from threading import *
+import threading
 import traceback
 
-class CheckpointThread(Thread):
-	def __init__(self, dbenv, done_event,checkpoint_finished):
-		Thread.__init__(self)
+class CheckpointThread(threading.Thread):
+	def __init__(self, dbenv, done_event, checkpoint_finished):
+		threading.Thread.__init__(self)
 		self.dbenv = dbenv
 		self.done_event = done_event
 		self.checkpoint_finished = checkpoint_finished
@@ -20,7 +19,7 @@ class CheckpointThread(Thread):
 				self.checkpoint_finished.set()
 				break
 			#print "RUNNING DATABASE CHECKPOINT"
-			self.dbenv.txn_checkpoint(100,5,0)
+			self.dbenv.txn_checkpoint(100, 5, 0)
 			#print "DONE RUNNING DATABASE CHECKPOINT"
 
 # A database config that operates in memory only.
@@ -39,7 +38,7 @@ class PrivateDatabaseConfig:
 
 # The normal database config class
 class DatabaseConfig:
-	def __init__(self,global_config,filename):
+	def __init__(self, global_config, filename):
 		self.global_config = global_config
 		self.filename = filename
 		
@@ -50,14 +49,14 @@ class DatabaseConfig:
 		# Configure the database environment
 		#
 		self.dbenv = db.DBEnv()
-		self.dbenv.set_cachesize(0,100*1024*1024)
+		self.dbenv.set_cachesize(0, 100*1024*1024)
 		self.dbenv.set_lk_max_locks(20000)
 		self.dbenv.set_lk_max_objects(20000)
 		self.dbenv.set_lk_detect(db.DB_LOCK_DEFAULT)
 		self.dbenv.set_flags(db.DB_LOG_AUTOREMOVE, True)
 		self.dbenv.open(self.__dbenv_dir(),
-		    db.DB_RECOVER| db.DB_CREATE |db.DB_INIT_TXN|
-		    db.DB_INIT_MPOOL| db.DB_INIT_LOCK|db.DB_THREAD)
+		    db.DB_RECOVER|db.DB_CREATE|db.DB_INIT_TXN|
+		    db.DB_INIT_MPOOL|db.DB_INIT_LOCK|db.DB_THREAD)
 		#print "dbenv.open() takes", (open_end_time-open_start_time), "seconds"
 		
 		#self.done_event = Event()

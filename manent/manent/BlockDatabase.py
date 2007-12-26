@@ -1,7 +1,5 @@
-import sys, os
 import base64
-from cStringIO import StringIO
-import struct
+import sys, os
 
 import Container
 
