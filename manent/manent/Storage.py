@@ -213,24 +213,22 @@ class Storage:
 		return 2*1024*1024
 
 
-from ftplib import FTP
-
 class FTPStorage(Storage):
 	"""
 	Handler for a FTP site storage
 	"""
-	def __init__(self,RemoteHandlerClass):
+	def __init__(self, RemoteHandlerClass):
 		Storage.__init__(self)
 		self.RemoteHandlerClass = RemoteHandlerClass
 		self.up_bw_limiter = BandwidthLimiter(15.0E3)
 		self.down_bw_limiter = BandwidthLimiter(10000.0E3)
-	def init(self,backup,txn_handler,params):
-		Storage.init(self,backup,txn_handler)
-		(host,user,password,path) = params
-		self.fs_handler = self.RemoteHandlerClass(host,user,password,path)
+	def init(self, backup, txn_handler, params):
+		Storage.init(self, backup, txn_handler)
+		(host, user, password, path) = params
+		self.fs_handler = self.RemoteHandlerClass(host, user, password, path)
 	def container_size(self):
 		return 4<<20
-	def load_container_header(self,index,filename):
+	def load_container_header(self, index, filename):
 		print "Loading header for container", index, "     "
 		remote_filename = self.compute_header_filename(index)
 		self.fs_handler.download(
@@ -376,13 +374,13 @@ class DirectoryStorage(Storage):
 		return open(body_file_path, "r")
 
 import smtplib
-from email import Encoders
-from email.Message import Message
-from email.MIMEAudio import MIMEAudio
-from email.MIMEBase import MIMEBase
-from email.MIMEMultipart import MIMEMultipart
-from email.MIMEImage import MIMEImage
-from email.MIMEText import MIMEText
+import email.Encoders as Encoders
+import email.Message as Message
+import email.MIMEAudio as MIMEAudio
+import email.MIMEBase as MIMEBase
+import email.MIMEMultipart as MIMEMultipart
+import email.MIMEImage as MIMEImage
+import email.MIMEText as MIMEText
 
 class MailStorage(Storage):
 	"""

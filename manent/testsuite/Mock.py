@@ -1,4 +1,4 @@
-from manent.Nodes import *
+import manent.Nodes as Nodes
 
 class MockContainerConfig:
 	def blockSize(self):
@@ -15,7 +15,7 @@ class MockIncrementsDB:
 	def __init__(self):
 		self.next_index = 0
 		self.increments = {}
-	def start_increment(self,comment):
+	def start_increment(self, comment):
 		self.increments[self.next_index] = comment
 		increment = MockIncrement()
 		increment.idx = self.next_index
@@ -28,11 +28,11 @@ class MockDBWrapper:
 		self.data = {}
 
 class MockBlockCtx:
-	def __init__(self,backup):
+	def __init__(self, backup):
 		self.backup = backup
-	def add_block(self,digest,data):
-		self.backup.add_block(digest,data)
-	def load_block(self,digest):
+	def add_block(self, digest, data):
+		self.backup.add_block(digest, data)
+	def load_block(self, digest):
 		return self.backup.load_block(digest)
 
 class MockHlinkCtx:
@@ -49,7 +49,7 @@ class MockChangeCtx:
 		percent = float(self.changed_nodes)/self.total_nodes
 		return percent
 		
-class MockScanCtx(MockBlockCtx,MockHlinkCtx,MockChangeCtx):
+class MockScanCtx(MockBlockCtx, MockHlinkCtx, MockChangeCtx):
 	def __init__(self,backup):
 		MockBlockCtx.__init__(self, backup)
 		MockHlinkCtx.__init__(self)
@@ -58,7 +58,7 @@ class MockScanCtx(MockBlockCtx,MockHlinkCtx,MockChangeCtx):
 		# Assume that backup filled that in
 		return self.level
 
-class MockRestoreCtx(MockBlockCtx,MockHlinkCtx):
+class MockRestoreCtx(MockBlockCtx, MockHlinkCtx):
 	def __init__(self,backup):
 		MockBlockCtx.__init__(self, backup)
 		MockHlinkCtx.__init__(self)
@@ -67,7 +67,7 @@ class MockRepository:
 	def __init__(self):
 		self.blocks_db = {}
 		self.blocks_codes_db = {}
-	def load_block(self,digest):
+	def load_block(self, digest):
 		return self.blocks_db[digest]
 	def add_block(self, digest, code, data):
 		self.blocks_db[digest] = data
@@ -109,7 +109,7 @@ class MockBackup:
 		ctx = MockScanCtx(self)
 
 		self.ctx = ctx
-		self.root_node = Directory(self, None, self.home)
+		self.root_node = Nodes.Directory(self, None, self.home)
 		return ctx
 	def finalize_increment(self):
 		self.increments.finalize_increment()
