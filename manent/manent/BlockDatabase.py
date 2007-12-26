@@ -42,8 +42,8 @@ class BlockDatabase:
 				int(self.requested_blocks[digest]) + 1)
 		else:
 			self.requested_blocks[digest] = "1"
-	def add_block(self, digest, data, code):
-		self.repository.add_block(digest, data, code)
+	def add_block(self, digest, code, data):
+		self.repository.add_block(digest, code, data)
 		if code != Container.CODE_DATA:
 			self.block_type_db[digest] = code
 			self.cached_blocks[digest] = data

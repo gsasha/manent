@@ -82,7 +82,7 @@ class Increment:
 		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
 		message = self.compute_message()
 		digest = Digest.dataDigest(message)
-		self.block_database.add_block(digest,message,Container.CODE_INCREMENT_DESCRIPTOR)
+		self.block_database.add_block(digest, Container.CODE_INCREMENT_DESCRIPTOR, message)
 		return digest
 
 	def dump_intermediate(self,fs_digest):
@@ -101,7 +101,7 @@ class Increment:
 		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
 		message = self.compute_message()
 		digest = Digest.dataDigest(message)
-		self.block_database.add_block(digest,message,Container.CODE_INCREMENT_DESCRIPTOR)
+		self.block_database.add_block(digest, Container.CODE_INCREMENT_DESCRIPTOR, message)
 		return digest
 
 	#

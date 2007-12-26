@@ -1,15 +1,18 @@
-import os, os.path, stat, time
 import base64
+import os, os.path
+import re
+import stat
+import cStringIO as StringIO
+import time
+import traceback
+
+import Backup
+import Container
 import utils.Digest as Digest
 import utils.Format as Format
 import utils.FileIO as FileIO
 import utils.IntegerEncodings as IntegerEncodings
-import cStringIO as StringIO
-import re
-from PackerStream import *
-import traceback
-
-import Backup
+import PackerStream
 
 #----------------------------------------------------
 # Node conversion
@@ -86,7 +89,7 @@ class Node:
 	
 	def serialize_stats(self,base_stats):
 		stats = self.get_stats()
-		file = StringIO()
+		file = StringIO.StringIO()
 		if base_stats is not None:
 			for mode in STAT_PRESERVED_MODES:
 				Format.write_int(file,stats[mode]-base_stats[mode])
@@ -218,7 +221,7 @@ class File(Node):
 			return
 		
 		# --- File not yet in database, process it
-		packer = PackerOStream(self.backup,Container.CODE_DATA)
+		packer = PackerStream.PackerOStream(self.backup, Container.CODE_DATA)
 		for data in FileIO.read_blocks(open(self.path(), "rb"),
 			                    self.backup.container_config.blockSize()):
 			packer.write(data)
@@ -242,7 +245,7 @@ class File(Node):
 		#
 		# No, this file is new. Create it.
 		#
-		packer = PackerIStream(self.backup, self.digest)
+		packer = PackerStream.PackerIStream(self.backup, self.digest)
 		file = open(self.path(), "wb")
 		for data in FileIO.read_blocks(packer, Digest.dataDigestSize()):
 			#print "File", self.path(), "reading digest",
@@ -292,7 +295,7 @@ class Symlink(Node):
 
 		self.link = os.readlink(self.path())
 
-		packer = PackerOStream(self.backup, Container.CODE_DATA)
+		packer = PackerStream.PackerOStream(self.backup, Container.CODE_DATA)
 		packer.write(self.link)
 
 		self.digest = packer.get_digest()
@@ -302,14 +305,14 @@ class Symlink(Node):
 		if self.restore_hlink(ctx):
 			return
 
-		packer = PackerIStream(self.backup, self.digest)
+		packer = PackerStream.PackerIStream(self.backup, self.digest)
 		self.link = packer.read()
 		os.symlink(self.link, self.path())
 		# on Linux, there is no use of the mode of a symlink
 		# and no way to restore the times of the link itself
-		self.restore_stats(restore_chmod=False,restore_utime=False)
+		self.restore_stats(restore_chmod=False, restore_utime=False)
 
-	def list_files(self,ctx):
+	def list_files(self, ctx):
 		print "S", self.path(), self.get_digest()
 
 #--------------------------------------------------------
@@ -336,7 +339,7 @@ class Directory(Node):
 				# Definitely shouldn't read it.
 				break
 
-			dir_stream = PackerIStream(self.backup, prev_digest)
+			dir_stream = PackerStream.PackerIStream(self.backup, prev_digest)
 			for node_type, node_name, node_stat, node_digest in\
 			      self.read_directory_entries(dir_stream,prev_stat):
 				if not prev_name_data.has_key(node_name):
@@ -442,7 +445,7 @@ class Directory(Node):
 		"""
 		Write the info of the current dir to database
 		"""
-		packer = PackerOStream(self.backup,Container.CODE_DIR)
+		packer = PackerStream.PackerOStream(self.backup,Container.CODE_DIR)
 		# sorting is an optimization to make everybody access files in the same order,
 		# TODO: measure if this really makes things faster (probably will with a btree db)
 		for child in self.children:
@@ -458,7 +461,7 @@ class Directory(Node):
 		if self.parent != None:
 			os.mkdir(self.path())
 
-		packer = PackerIStream(self.backup,self.get_digest())
+		packer = PackerStream.PackerIStream(self.backup,self.get_digest())
 		for (node_type,node_name,node_stat,node_digest) in self.read_directory_entries(packer):
 			if node_type == NODE_TYPE_DIR:
 				node = Directory(self.backup,self,node_name)
@@ -478,7 +481,7 @@ class Directory(Node):
 	def list_files(self,ctx):
 			
 		print self.path()
-		packer = PackerIStream(self.backup,self.get_digest())
+		packer = PackerStream.PackerIStream(self.backup,self.get_digest())
 		for (node_type,node_name,node_stat,node_digest) in self.read_directory_entries(packer):
 			if node_type == NODE_TYPE_DIR:
 				node = Directory(self.backup,self,node_name)

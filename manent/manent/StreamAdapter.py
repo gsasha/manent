@@ -1,4 +1,4 @@
-from cStringIO import StringIO
+import cStringIO as StringIO
 
 class IStreamAdapter:
 	def __init__(self):
@@ -15,7 +15,7 @@ class IStreamAdapter:
 	# Functions for the user
 	#
 	def read(self,size=None):
-		resultS = StringIO()
+		resultS = StringIO.StringIO()
 		result_size = 0
 
 		while size is None or result_size < size:
@@ -29,7 +29,7 @@ class IStreamAdapter:
 					resultS.write(block)
 					result_size += len(block)
 					continue
-				self.buf = StringIO(block)
+				self.buf = StringIO.StringIO(block)
 			data = self.buf.read(size-result_size)
 			if len(data) == 0:
 				self.buf = None
@@ -42,10 +42,10 @@ class IStreamAdapter:
 		"""Return data to the stream, so it will be available again
 		on next read"""
 		if self.buf == None:
-			self.buf = StringIO(data)
+			self.buf = StringIO.StringIO(data)
 			return
 		next_data = self.buf.read()
-		self.buf = StringIO(data+next_data)
+		self.buf = StringIO.StringIO(data+next_data)
 
 	def seek(self, offset, whence=1):
 		if whence != 1:
@@ -68,7 +68,7 @@ class IStreamAdapter:
 		#
 		return
 	def readline(self):
-		result = StringIO()
+		result = StringIO.StringIO()
 		while True:
 			ch = self.read(1)
 			if len(ch) == 0:
@@ -92,7 +92,7 @@ class IStreamAdapter:
 class OStreamAdapter:
 	def __init__(self,max_block_size):
 		self.max_block_size = max_block_size
-		self.buf = StringIO()
+		self.buf = StringIO.StringIO()
 		self.buflen = 0
 		self.total = 0
 	#
@@ -127,6 +127,6 @@ class OStreamAdapter:
 		written = buf[0:chunk]
 		self.buflen -= chunk
 		if self.buflen > 0:
-			self.buf = StringIO()
+			self.buf = StringIO.StringIO()
 			self.buf.write(buf[chunk:])
 		self.write_block(written)

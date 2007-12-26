@@ -140,9 +140,9 @@ class Backup:
 			self.__close_all()
 	
 	def __open_all(self):
-		self.shared_db = self.db_config.get_database(".shared",self.txn_handler)
+		self.shared_db = self.db_config.get_database(".shared", self.txn_handler)
 		self.repository = Repository.Repository(self.db_config,
-			storages,active_storage)
+			storages, active_storage)
 		self.blocks_database = BlockDatabase.BlockDatabase(self.db_config,
 			self.repository)
 		self.increments_database = IncrementDatabase.IncrementDatabase(
@@ -168,8 +168,8 @@ class ScanContext:
 
 		self.root_node = root_node
 
-	def add_block(self,digest,data,code):
-		self.backup.blocks_database.add_block(digest,data,code)
+	def add_block(self, digest, code, data):
+		self.backup.blocks_database.add_block(digest, code, data)
 
 #=========================================================
 # RestoreContext

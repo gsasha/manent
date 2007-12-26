@@ -51,7 +51,7 @@ class MockChangeCtx:
 		
 class MockScanCtx(MockBlockCtx,MockHlinkCtx,MockChangeCtx):
 	def __init__(self,backup):
-		MockBlockCtx.__init__(self,backup)
+		MockBlockCtx.__init__(self, backup)
 		MockHlinkCtx.__init__(self)
 		MockChangeCtx.__init__(self)
 	def get_level(self):
@@ -60,7 +60,7 @@ class MockScanCtx(MockBlockCtx,MockHlinkCtx,MockChangeCtx):
 
 class MockRestoreCtx(MockBlockCtx,MockHlinkCtx):
 	def __init__(self,backup):
-		MockBlockCtx.__init__(self,backup)
+		MockBlockCtx.__init__(self, backup)
 		MockHlinkCtx.__init__(self)
 
 class MockRepository:
@@ -69,26 +69,26 @@ class MockRepository:
 		self.blocks_codes_db = {}
 	def load_block(self,digest):
 		return self.blocks_db[digest]
-	def add_block(self,digest,data,code):
+	def add_block(self, digest, code, data):
 		self.blocks_db[digest] = data
 		self.blocks_codes_db[digest] = code
-	def block_code(self,digest):
+	def block_code(self, digest):
 		return self.blocks_codes_db[digest]
 
 class MockBlockDatabase:
 	def __init__(self,repository):
 		self.repository = repository
-	def request_block(self,digest):
+	def request_block(self, digest):
 		pass
-	def add_block(self,digest,data,code):
-		self.repository.add_block(digest,data,code)
-	def load_block(self,digest):
+	def add_block(self, digest, code, data):
+		self.repository.add_block(digest, code, data)
+	def load_block(self, digest):
 		return self.repository.load_block(digest)
-	def get_block_storage(self,digest):
+	def get_block_storage(self, digest):
 		pass
-	def get_storage_index(self,digest):
+	def get_storage_index(self, digest):
 		return 0
-	def get_block_type(self,digest):
+	def get_block_type(self, digest):
 		pass
 	def get_active_storage_index(self):
 		return 0
@@ -104,12 +104,12 @@ class MockBackup:
 	def blockSize(self):
 		return 1024
 	
-	def start_increment(self,comment):
+	def start_increment(self, comment):
 		increment = self.increments.start_increment(comment)
 		ctx = MockScanCtx(self)
 
 		self.ctx = ctx
-		self.root_node = Directory(self,None,self.home)
+		self.root_node = Directory(self, None, self.home)
 		return ctx
 	def finalize_increment(self):
 		self.increments.finalize_increment()
@@ -119,9 +119,9 @@ class MockBackup:
 	def is_increment_finalized(self,idx):
 		return self.increments.is_increment_finalized(idx)
 	
-	def add_block(self,digest,data,code):
-		self.repository.add_block(digest,data,code)
-	def load_block(self,digest):
+	def add_block(self, digest, code, data):
+		self.repository.add_block(digest, code, data)
+	def load_block(self, digest):
 		return self.repository.load_block(digest)
-	def block_code(self,digest):
+	def block_code(self, digest):
 		return self.repository.block_code(digest)

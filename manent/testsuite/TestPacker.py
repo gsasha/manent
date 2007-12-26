@@ -12,14 +12,14 @@ class MockBackup:
 	def blockSize(self):
 		# Use a relatively small block size to test going deep into hierarchy
 		return 256
-	def add_block(self,digest,data,code):
+	def add_block(self, digest, code, data):
 		#print "Adding block digest=", base64.b64encode(digest), "code=",code
 		self.blocks_db[digest] = data
 		self.block_code_db[digest] = code
-	def load_block(self,digest):
+	def load_block(self, digest):
 		#print "Loading block digest=", base64.b64encode(digest)
 		return self.blocks_db[digest]
-	def block_code(self,digest):
+	def block_code(self, digest):
 		return self.block_code_db[digest]
 
 class TestPacker(unittest.TestCase):
