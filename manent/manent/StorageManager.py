@@ -50,21 +50,6 @@ class StorageManager:
 			storage_idx, sequence_idx = IE.binary_decode_int_varlen_list(val)
 			self.seq_to_index[sequence_id] = (storage_idx, sequence_idx)
 			self.index_to_seq[sequence_idx] = (storage_idx, sequence_id)
-		#
-		# All storages except for the specified one are inactive, i.e., base.
-		# Inactive storages can be used to pull data blocks from, and must
-		# be updated on each invocation, since somebody else might be adding
-		# blocks there
-		#
-		self.storages = {}
-		self.active_storage_idx = None
-		for storage_idx in self.get_storage_idxs():
-			storage = Storage.load_storage(self.config_db, storage_idx,
-				self.get_new_container_handler())
-			self.storages[storage_idx] = storage
-			if storage.is_active():
-				seq_id = storage.get_active_sequence_id()
-				self.active_storage_idx, seq_idx = self.seq_to_index[seq_id]
 	def _key(self, suffix):
 		return PREFIX + suffix
 	def register_container(self):
@@ -103,6 +88,22 @@ class StorageManager:
 			storage_idx, storage_params, new_container_handler)
 		self.storages[storage_idx] = storage
 		return storage_idx
+	def load_storages(self, new_container_handler):
+		#
+		# All storages except for the specified one are inactive, i.e., base.
+		# Inactive storages can be used to pull data blocks from, and must
+		# be updated on each invocation, since somebody else might be adding
+		# blocks there
+		#
+		self.storages = {}
+		self.active_storage_idx = None
+		for storage_idx in self.get_storage_idxs():
+			storage = Storage.load_storage(self.config_db, storage_idx,
+				new_container_handler)
+			self.storages[storage_idx] = storage
+			if storage.is_active():
+				seq_id = storage.get_active_sequence_id()
+				self.active_storage_idx, seq_idx = self.seq_to_index[seq_id]
 	def get_storage_idxs(self):
 		KEY = self._key("storage_idxs")
 		if not self.config_db.has_key(KEY):

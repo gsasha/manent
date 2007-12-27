@@ -21,6 +21,7 @@ class TestStorageManager(unittest.TestCase):
 		"""Test that adding a storage creates (and recreates) it correctly"""
 		storage_manager = StorageManager.StorageManager(self.config_db,
 			self.block_db)
+		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage("__mock__",
 			{'password': 'kuku'}, None)
 		storage_manager.make_active_storage(storage_index)
@@ -32,6 +33,7 @@ class TestStorageManager(unittest.TestCase):
 		# Recreate the storage_manager and add another block to it
 		storage_manager = StorageManager.StorageManager(self.config_db,
 			self.block_db)
+		storage_manager.load_storages(None)
 		block = "some other strange text"
 		block_digest = Digest.dataDigest(block)
 		storage_manager.add_block(block_digest, Container.CODE_DATA, block)
@@ -46,6 +48,7 @@ class TestStorageManager(unittest.TestCase):
 		"""Test that if blocks are added, they are available for loading back"""
 		storage_manager = StorageManager.StorageManager(self.config_db,
 			self.block_db)
+		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage("__mock__",
 			{'password': 'kuku'}, None)
 		storage_manager.make_active_storage(storage_index)
@@ -54,8 +57,9 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager.add_block(block_digest, Container.CODE_DATA, block)
 		storage_manager.flush()
 		# Recreate the storage and read the block back
-		storage_manager = StorageManager.StorageManager(self.config_db,
-			self.block_db)
+		storage_manager = StorageManager.StorageManager(
+			self.config_db, self.block_db)
+		storage_manager.load_storages(None)
 		class Handler:
 			def __init__(self):
 				self.blocks = {}
@@ -71,6 +75,7 @@ class TestStorageManager(unittest.TestCase):
 		"""Test that new sequences appearing from outside are discovered"""
 		storage_manager = StorageManager.StorageManager(self.config_db,
 			self.block_db)
+		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage("__mock__",
 			{'password': 'kuku'}, None)
 		storage_manager.make_active_storage(storage_index)
@@ -83,6 +88,7 @@ class TestStorageManager(unittest.TestCase):
 		config_db2 = self.env.get_database_btree("config2", None)
 		block_db2 = self.env.get_database_btree("block_db2", None)
 		storage_manager2 = StorageManager.StorageManager(config_db2, block_db2)
+		storage_manager.load_storages(None)
 		storage_index2 = storage_manager2.add_storage("__mock__",
 		    {'password': 'kuku'}, None)
 		storage_manager2.make_active_storage(storage_index2)
