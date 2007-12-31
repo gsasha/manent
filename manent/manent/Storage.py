@@ -153,7 +153,7 @@ class Storage:
 			   self.config_db[config_k] == str(value):
 				continue
 			self.config_db[config_k] = str(value)
-		# Report the new container found
+		# Report the new containers found
 		for seq_id, index in new_header_files.iterkeys():
 			if new_body_files.has_key((seq_id, index)):
 				new_container_handler.report_new_container(seq_id, index)
@@ -207,11 +207,13 @@ class Storage:
 		return container
 
 	def load_container_header(self, sequence_id, index):
-		pass
+		print "SELF:", self
+		raise Exception("load_container_header is abstract")
 	def load_container_body(self, sequence_id, index):
-		pass
+		print "SELF:", self
+		raise Exception("load_container_body is abstract")
 	def upload_container(self, sequence_id, index, header_file, body_file):
-		pass
+		raise Exception("upload_container is abstract")
 	
 	def rescan(self):
 		# TODO: Return the list of newly appeared containers
@@ -379,9 +381,9 @@ class DirectoryStorage(Storage):
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		header_file_path = os.path.join(self.get_path(), header_file_name)
 		return open(header_file_path, "r")
-	def load_container_data(self,index):
+	def load_container_body(self, sequence_id, index):
 		#print "Loading body for container",\
-		  #base64.urlsafe_b64include(sequence_id), index, "     "
+		  #base64.urlsafe_b64encode(sequence_id), index, "     "
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
 		body_file_path = os.path.join(self.get_path(), body_file_name)
 		return open(body_file_path, "r")

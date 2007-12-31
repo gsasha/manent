@@ -74,8 +74,8 @@ class TestStorage(unittest.TestCase):
 		class NopHandler:
 			def __init__(self):
 				pass
-			def report_new_container(self, seq_id, index):
-				pass
+			def is_requested(self, code, digest):
+				return False
 		# We know that there are new containers appearing.
 		# However, we don't care in this test.
 		storage2.configure(self.CONFIGURATION, NopHandler())
