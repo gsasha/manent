@@ -87,8 +87,8 @@ class StorageManager:
 			self.block_handler = block_handler
 		def report_new_container(self, container):
 			sequence_id = container.get_sequence_id()
-			block_handler = PassThroughBlockHandler(self.storage_manager,
-				sequence_id, self.block_handler)
+			block_handler = StorageManager.PassThroughBlockHandler(
+				self.storage_manager, sequence_id, self.block_handler)
 			container.load_header()
 			container.load_body()
 			container.load_blocks(self.block_handler)
