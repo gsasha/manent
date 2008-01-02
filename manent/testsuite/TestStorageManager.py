@@ -97,7 +97,7 @@ class TestStorageManager(unittest.TestCase):
 		config_db2 = self.env.get_database_btree("config2", None)
 		block_db2 = self.env.get_database_btree("block_db2", None)
 		storage_manager2 = StorageManager.StorageManager(config_db2, block_db2)
-		storage_manager.load_storages(None)
+		storage_manager2.load_storages(None)
 		storage_index2 = storage_manager2.add_storage("__mock__",
 		    {'password': 'kuku'}, handler)
 		storage_manager2.make_active_storage(storage_index2)

@@ -70,7 +70,29 @@ class StorageManager:
 			self.register_sequence(storage_idx, sequence_id)
 		dummy, sequence_idx = self.seq_to_index[sequence_id]
 		return sequence_idx
-	def add_storage(self, storage_type, storage_params, new_container_handler):
+	class PassThroughBlockHandler:
+		def __init__(self, storage_manager, sequence_id,
+					pass_block_handler):
+			self.storage_manager = storage_manager
+			self.sequence_id = sequence_id
+			self.pass_block_handler = pass_block_handler
+		def is_requested(self, digest, code):
+			# TODO: register the block with the storage manager
+			return pass_block_handler.is_requested(digest, code)
+		def load_block(digest, code, data):
+			return pass_block_handler.load_block(digest, code, data)
+	class NewContainerHandler:
+		def __init__(self, storage_manager, block_handler):
+			self.storage_manager = storage_manager
+			self.block_handler = block_handler
+		def report_new_container(self, container):
+			sequence_id = container.get_sequence_id()
+			block_handler = PassThroughBlockHandler(self.storage_manager,
+				sequence_id, self.block_handler)
+			container.load_header()
+			container.load_body()
+			container.load_blocks(self.block_handler)
+	def add_storage(self, storage_type, storage_params, new_block_handler):
 		# When we add a storage, the following algorithm is executed:
 		# 1. If the storage is already in the shared db, it is just added
 		# 2. If the storage is not in the shared db, the storage location
@@ -83,12 +105,12 @@ class StorageManager:
 			storage_idx = max(storage_idxs) + 1
 		self.write_storage_idxs(self.get_storage_idxs() + [storage_idx])
 
-		# TODO: implement new_container_handler
+		handler = StorageManager.NewContainerHandler(self, new_block_handler)
 		storage = Storage.create_storage(self.config_db, storage_type,
-			storage_idx, storage_params, new_container_handler)
+			storage_idx, storage_params, handler)
 		self.storages[storage_idx] = storage
 		return storage_idx
-	def load_storages(self, new_container_handler):
+	def load_storages(self, new_block_handler):
 		#
 		# All storages except for the specified one are inactive, i.e., base.
 		# Inactive storages can be used to pull data blocks from, and must
@@ -97,9 +119,10 @@ class StorageManager:
 		#
 		self.storages = {}
 		self.active_storage_idx = None
+		handler = StorageManager.NewContainerHandler(self, new_block_handler)
 		for storage_idx in self.get_storage_idxs():
 			storage = Storage.load_storage(self.config_db, storage_idx,
-				new_container_handler)
+				handler)
 			self.storages[storage_idx] = storage
 			if storage.is_active():
 				seq_id = storage.get_active_sequence_id()

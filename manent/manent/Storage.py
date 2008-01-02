@@ -55,28 +55,15 @@ class Storage:
 	#
 	# Loading
 	#
-	class ContainerBlockLoadingHandler:
-		def __init__(self, storage, block_handler):
-			self.storage = storage
-			self.block_handler = block_handler
-		def report_new_container(self, sequence_id, index):
-			container = self.storage.get_container(sequence_id, index)
-			container.load_header()
-			container.load_body()
-			container.load_blocks(self.block_handler)
-	def configure(self, config, new_block_handler):
+	def configure(self, config, new_container_handler):
 		for key, val in config.iteritems():
 			self.config_db[self._key('CONFIG.'+key)] = val
 		
 		self.config = config
-		container_handler = Storage.ContainerBlockLoadingHandler(
-			self, new_block_handler)
-		self.load_sequences(container_handler)
-	def load_configuration(self, new_block_handler):
+		self.load_sequences(new_container_handler)
+	def load_configuration(self, new_container_handler):
 		self.config = self.get_config()
-		container_handler = Storage.ContainerBlockLoadingHandler(
-			self, new_block_handler)
-		self.load_sequences(container_handler)
+		self.load_sequences(new_container_handler)
 	def get_config(self):
 		PREFIX = self._key('CONFIG.')
 		PREFIX_len = len(PREFIX)
@@ -156,7 +143,8 @@ class Storage:
 		# Report the new containers found
 		for seq_id, index in new_header_files.iterkeys():
 			if new_body_files.has_key((seq_id, index)):
-				new_container_handler.report_new_container(seq_id, index)
+				container = self.get_container(seq_id, index)
+				new_container_handler.report_new_container(container)
 		# Reload the active sequence
 		if self.config_db.has_key(self._key("active_sequence")):
 			self.active_sequence_id = self.config_db[self._key("active_sequence")]
