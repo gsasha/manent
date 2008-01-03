@@ -79,8 +79,6 @@ class StorageManager:
 			self.container_idx = container_idx
 			self.pass_block_handler = pass_block_handler
 		def is_requested(self, digest, code):
-			print "container has block", base64.b64encode(digest), code
-			# TODO: register the block with the storage manager
 			encoded = self.storage_manager.encode_block_info(self.sequence_idx,
 				self.container_idx)
 			self.storage_manager.block_container_db[digest] = encoded
@@ -89,7 +87,6 @@ class StorageManager:
 				return self.pass_block_handler.is_requested(digest, code)
 			return False
 		def loaded(self, digest, code, data):
-			print "container loads block", base64.b64encode(digest), code
 			if self.pass_block_handler is not None:
 				self.pass_block_handler.loaded(digest, code, data)
 	class NewContainerHandler:
@@ -105,13 +102,11 @@ class StorageManager:
 				storage_idx = container.get_storage().get_index()
 				sequence_idx =\
 					self.storage_manager.get_sequence_idx(storage_idx, sequence_id)
-				print "New container reported", storage_idx,  sequence_idx, sequence_id
 				block_handler = StorageManager.PassThroughBlockHandler(
 					self.storage_manager, sequence_idx, container.get_index(),
 					self.block_handler)
 				container.load_header()
 				container.load_body()
-				print "Loading container blocks"
 				container.load_blocks(block_handler)
 	def add_storage(self, storage_type, storage_params, new_block_handler):
 		# When we add a storage, the following algorithm is executed:
