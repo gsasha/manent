@@ -81,16 +81,17 @@ class StorageManager:
 		def is_requested(self, digest, code):
 			print "container has block", base64.b64encode(digest), code
 			# TODO: register the block with the storage manager
-			encoded = self.encode_block_info(self.sequence_idx, container_idx)
-			self.block_container_db[digest] = encoded
+			encoded = self.storage_manager.encode_block_info(self.sequence_idx,
+				self.container_idx)
+			self.storage_manager.block_container_db[digest] = encoded
 
-			if pass_block_handler is not None:
-				return pass_block_handler.is_requested(digest, code)
+			if self.pass_block_handler is not None:
+				return self.pass_block_handler.is_requested(digest, code)
 			return False
-		def load_block(digest, code, data):
+		def loaded(self, digest, code, data):
 			print "container loads block", base64.b64encode(digest), code
-			if pass_block_handler is not None:
-				pass_block_handler.load_block(digest, code, data)
+			if self.pass_block_handler is not None:
+				self.pass_block_handler.loaded(digest, code, data)
 	class NewContainerHandler:
 		def __init__(self, storage_manager, block_handler):
 			self.storage_manager = storage_manager
