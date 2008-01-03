@@ -71,24 +71,38 @@ class StorageManager:
 		dummy, sequence_idx = self.seq_to_index[sequence_id]
 		return sequence_idx
 	class PassThroughBlockHandler:
-		def __init__(self, storage_manager, sequence_id,
-					pass_block_handler):
+		def __init__(self, storage_manager, sequence_idx,
+					container_idx, pass_block_handler):
 			self.storage_manager = storage_manager
-			self.sequence_id = sequence_id
+			self.sequence_idx = sequence_idx
+			self.container_idx = container_idx
 			self.pass_block_handler = pass_block_handler
 		def is_requested(self, digest, code):
 			# TODO: register the block with the storage manager
-			return pass_block_handler.is_requested(digest, code)
+			encoded = self.encode_block_info(self.sequence_idx, container_idx)
+			self.block_container_db[digest] = encoded
+
+			if pass_block_handler is not None:
+				return pass_block_handler.is_requested(digest, code)
+			return False
 		def load_block(digest, code, data):
-			return pass_block_handler.load_block(digest, code, data)
+			if pass_block_handler is not None:
+				pass_block_handler.load_block(digest, code, data)
 	class NewContainerHandler:
 		def __init__(self, storage_manager, block_handler):
 			self.storage_manager = storage_manager
 			self.block_handler = block_handler
 		def report_new_container(self, container):
 			sequence_id = container.get_sequence_id()
+			# TODO: Storage participates here in the code although it is not used
+			#       and it is actually not available yet as it's being loaded!!!
+			# probable solution: record all the containers in memory and load them later
+			# after the storage is done loading
+			storage_idx, sequence_idx =\
+				self.storage_manager.seq_to_index[sequence_id]
 			block_handler = StorageManager.PassThroughBlockHandler(
-				self.storage_manager, sequence_id, self.block_handler)
+				self.storage_manager, sequence_idx, container.get_index(),
+				self.block_handler)
 			container.load_header()
 			container.load_body()
 			container.load_blocks(self.block_handler)
