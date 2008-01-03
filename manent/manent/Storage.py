@@ -272,25 +272,29 @@ class MemoryStorage(Storage):
 		Storage.configure(self, params, new_container_handler)
 	def load_configuration(self, new_container_handler):
 		Storage.load_configuration(self, new_container_handler)
+	def get_cur_files(self):
+		if not self.files.has_key(self.config['key']):
+			self.files[self.config['key']] = {}
+		return self.files[self.config['key']]
 	def container_size(self):
 		return 1<<10
 	def list_container_files(self):
-		return self.files.keys()
+		return self.get_cur_files().keys()
 	def open_header_file(self, sequence_id, index):
 		return StringIO.StringIO()
 	def open_body_file(self, sequence_id, index):
 		return StringIO.StringIO()
 	def upload_container(self, sequence_id, index, header_file, body_file):
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
-		self.files[header_file_name] = header_file.getvalue()
+		self.get_cur_files()[header_file_name] = header_file.getvalue()
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
-		self.files[body_file_name] = body_file.getvalue()
+		self.get_cur_files()[body_file_name] = body_file.getvalue()
 	def load_container_header(self, sequence_id, index):
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
-		return StringIO.StringIO(self.files[header_file_name])
+		return StringIO.StringIO(self.get_cur_files()[header_file_name])
 	def load_container_body(self, sequence_id, index):
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
-		return StringIO.StringIO(self.files[body_file_name])
+		return StringIO.StringIO(self.get_cur_files()[body_file_name])
 
 class DirectoryStorage(Storage):
 	"""

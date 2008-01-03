@@ -23,7 +23,7 @@ class TestStorageManager(unittest.TestCase):
 			self.block_db)
 		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage("__mock__",
-			{'password': 'kuku'}, None)
+			{'password': 'kuku', 'key': ''}, None)
 		storage_manager.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
@@ -50,7 +50,7 @@ class TestStorageManager(unittest.TestCase):
 			self.block_db)
 		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage("__mock__",
-			{'password': 'kuku'}, None)
+			{'password': 'kuku', 'key': ''}, None)
 		storage_manager.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
@@ -77,7 +77,7 @@ class TestStorageManager(unittest.TestCase):
 			self.block_db)
 		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage("__mock__",
-			{'password': 'kuku'}, None)
+			{'password': 'kuku', 'key': ''}, None)
 		storage_manager.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
@@ -99,7 +99,7 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager2 = StorageManager.StorageManager(config_db2, block_db2)
 		storage_manager2.load_storages(None)
 		storage_index2 = storage_manager2.add_storage("__mock__",
-		    {'password': 'kuku'}, None)
+		    {'password': 'kuku', 'key': ''}, None)
 		storage_manager2.make_active_storage(storage_index2)
 		storage_manager2.load_block(block_digest, handler)
 		self.assertEqual({(block_digest, Container.CODE_DATA): block},
