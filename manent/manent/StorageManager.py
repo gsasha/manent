@@ -1,3 +1,4 @@
+import base64
 import cStringIO as StringIO
 
 import Container
@@ -109,7 +110,8 @@ class StorageManager:
 					self.block_handler)
 				container.load_header()
 				container.load_body()
-				container.load_blocks(self.block_handler)
+				print "Loading container blocks"
+				container.load_blocks(block_handler)
 	def add_storage(self, storage_type, storage_params, new_block_handler):
 		# When we add a storage, the following algorithm is executed:
 		# 1. If the storage is already in the shared db, it is just added

@@ -579,7 +579,6 @@ class Container:
 		return self.body_blocks
 	def load_body(self):
 		self.body_file = self.storage.load_container_body(self.sequence_id, self.index)
-		print "Load Body:", self.body_file
 		self.body_dump_loader = DataDumpLoader(self.body_file, self.body_blocks,
 			password=self.storage.get_password())
 	def info(self):
