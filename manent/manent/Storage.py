@@ -76,6 +76,8 @@ class Storage:
 		if self.config.has_key('password'):
 			return self.config['password']
 		return None
+	def get_index(self):
+		return self.index
 
 	# Data structure stored in a database for a specific storage:
 	# storage.%d.active_sequence - the sequence to which new containers

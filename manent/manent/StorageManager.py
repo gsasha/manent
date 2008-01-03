@@ -78,6 +78,7 @@ class StorageManager:
 			self.container_idx = container_idx
 			self.pass_block_handler = pass_block_handler
 		def is_requested(self, digest, code):
+			print "container has block", base64.b64encode(digest), code
 			# TODO: register the block with the storage manager
 			encoded = self.encode_block_info(self.sequence_idx, container_idx)
 			self.block_container_db[digest] = encoded
@@ -86,26 +87,29 @@ class StorageManager:
 				return pass_block_handler.is_requested(digest, code)
 			return False
 		def load_block(digest, code, data):
+			print "container loads block", base64.b64encode(digest), code
 			if pass_block_handler is not None:
 				pass_block_handler.load_block(digest, code, data)
 	class NewContainerHandler:
 		def __init__(self, storage_manager, block_handler):
 			self.storage_manager = storage_manager
 			self.block_handler = block_handler
+			self.new_containers = []
 		def report_new_container(self, container):
-			sequence_id = container.get_sequence_id()
-			# TODO: Storage participates here in the code although it is not used
-			#       and it is actually not available yet as it's being loaded!!!
-			# probable solution: record all the containers in memory and load them later
-			# after the storage is done loading
-			storage_idx, sequence_idx =\
-				self.storage_manager.seq_to_index[sequence_id]
-			block_handler = StorageManager.PassThroughBlockHandler(
-				self.storage_manager, sequence_idx, container.get_index(),
-				self.block_handler)
-			container.load_header()
-			container.load_body()
-			container.load_blocks(self.block_handler)
+			self.new_containers.append(container)
+		def process_new_containers(self):
+			for container in self.new_containers:
+				sequence_id = container.get_sequence_id()
+				storage_idx = container.get_storage().get_index()
+				sequence_idx =\
+					self.storage_manager.get_sequence_idx(storage_idx, sequence_id)
+				print "New container reported", storage_idx,  sequence_idx, sequence_id
+				block_handler = StorageManager.PassThroughBlockHandler(
+					self.storage_manager, sequence_idx, container.get_index(),
+					self.block_handler)
+				container.load_header()
+				container.load_body()
+				container.load_blocks(self.block_handler)
 	def add_storage(self, storage_type, storage_params, new_block_handler):
 		# When we add a storage, the following algorithm is executed:
 		# 1. If the storage is already in the shared db, it is just added
@@ -123,6 +127,7 @@ class StorageManager:
 		storage = Storage.create_storage(self.config_db, storage_type,
 			storage_idx, storage_params, handler)
 		self.storages[storage_idx] = storage
+		handler.process_new_containers()
 		return storage_idx
 	def load_storages(self, new_block_handler):
 		#

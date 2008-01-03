@@ -418,6 +418,8 @@ class Container:
 		return self.index
 	def get_sequence_id(self):
 		return self.sequence_id
+	def get_storage(self):
+		return self.storage
 	#
 	# Dumping mode implementation
 	#
