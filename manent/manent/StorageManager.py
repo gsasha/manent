@@ -81,7 +81,7 @@ class StorageManager:
 			self.container_idx = container_idx
 			self.pass_block_handler = pass_block_handler
 		def is_requested(self, digest, code):
-			encoded = self.storage_manager.encode_block_info(self.sequence_idx,
+			encoded = self.storage_manager._encode_block_info(self.sequence_idx,
 				self.container_idx)
 			self.storage_manager.block_container_db[digest] = encoded
 
@@ -201,11 +201,12 @@ class StorageManager:
 		#
 		container_idx = container.get_index()
 		storage_idx, seq_idx = self.seq_to_index[container.get_sequence_id()]
-		encoded = self.encode_block_info(seq_idx, container_idx)
+		encoded = self._encode_block_info(seq_idx, container_idx)
 		for digest, code in container.list_blocks():
 			self.block_container_db[digest] = encoded
 	def load_block(self, digest, handler):
-		sequence_idx, container_idx = self.decode_block_info(self.block_container_db[digest])
+		sequence_idx, container_idx = self._decode_block_info(
+			self.block_container_db[digest])
 		storage_idx, sequence_id = self.index_to_seq[sequence_idx]
 		storage = self.storages[storage_idx]
 		container = storage.get_container(sequence_id, container_idx)
@@ -215,12 +216,12 @@ class StorageManager:
 	#--------------------------------------------------------
 	# Utility methods
 	#--------------------------------------------------------
-	def encode_block_info(self, seq_idx, container_idx):
+	def _encode_block_info(self, seq_idx, container_idx):
 		io = StringIO.StringIO()
 		io.write(IE.binary_encode_int_varlen(seq_idx))
 		io.write(IE.binary_encode_int_varlen(container_idx))
 		return io.getvalue()
-	def decode_block_info(self, encoded):
+	def _decode_block_info(self, encoded):
 		io = StringIO.StringIO(encoded)
 		seq_idx = IE.binary_read_int_varlen(io)
 		container_idx = IE.binary_read_int_varlen(io)

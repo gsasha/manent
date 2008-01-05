@@ -4,30 +4,41 @@ import unittest
 import manent.Container as Container
 import manent.Database as Database
 import manent.Storage as Storage
-import manent.StorageManager as StorageManager
+import manent.BlockManager as BlockManager
 import manent.utils.Digest as Digest
 
-class TestStorageManager(unittest.TestCase):
+# For the purposes of this testing, we don't care that storage manager
+# has smart restoring and multi-sequence, multi-storage capabilities.
+# For the BlockManager, it just can store and load blocks grouped by
+# containers
+class MockStorageManager:
+	def __init__(self):
+		self.blocks = []
+		self.container = 0
+		self.num_load_block_requests = 0
+		self.num_blocks_loaded = 0
+	def new_container(self):
+		self.container += 1
+	def add_block(self, digest, code, data):
+		self.blocks.append = (digest, code, data, container)
+	def load_block(self, digest, handler):
+		self.num_load_block_requests += 1
+		for digest, code, data, container in self.blocks:
+			if handler.is_requested(digest, code):
+				handler.loaded(digest, code_data)
+				self.num_blocks_loaded += 1
+
+class TestBlockManager(unittest.TestCase):
 	def setUp(self):
-		self.env = Database.PrivateDatabaseConfig()
-		self.config_db = self.env.get_database_btree("config", None)
-		self.block_db = self.env.get_database_btree("block_db", None)
-	def tearDown(self):
-		# Clean up the state, to make sure tests don't interfere.
-		Storage.MemoryStorage.files = {}
-	def test_add_storage(self):
-		"""Test that adding a storage creates (and recreates) it correctly"""
-		storage_manager = StorageManager.StorageManager(self.config_db,
-			self.block_db)
-		storage_manager.load_storages(None)
-		storage_index = storage_manager.add_storage("__mock__",
-			{'password': 'kuku', 'key': ''}, None)
-		storage_manager.make_active_storage(storage_index)
-		block = "some strange text"
-		block_digest = Digest.dataDigest(block)
-		storage_manager.add_block(block_digest, Container.CODE_DATA, block)
-		storage_manager.flush()
-		seq_id1 = storage_manager.get_active_sequence_id()
-		# Recreate the storage_manager and add another block to it
-		storage_manager = StorageManager.StorageManager(self.config_db,
-			self.block_db)
+		self.storage_manager = MockStorageManager()
+	def test_add_data_block_types(self):
+		"""Test that blocks of different types can be added and restored"""
+		self.fail()
+	def test_data_block_caching(self):
+		"""Test that DATA blocks are uncached by default, and the others
+		are cached"""
+		self.fail()
+	def test_block_requests(self):
+		"""Test that block requests are handled correctly (i.e., the
+		corresponding blocks are cached even if they are DATA ones"""
+		self.fail()
