@@ -219,46 +219,6 @@ class StorageManager:
 		seq_idx, container_idx = self.decode_block_info(self.block_container_db[digest])
 		storage_idx, seq_id = self.index_to_seq[seq_idx]
 		return storage_idx
-	def rescan_storage(self, handler):
-		# TODO: this should proceed in a separate thread
-		# actually, each storage could be processed in its own thread
-		class Handler:
-			def __init__(self, handler, storage_idx, sequence_idx):
-				self.handler = handler
-				self.storage_idx = storage_idx
-				self.sequence_idx = sequence_idx
-			def loaded(self, digest, data, code):
-				self.handler.loaded(self.storage_idx, self.sequence_idx,
-					digest, data, code)
-		for storage in self.storages():
-			# This is not active storage. Somebody else might be updating it,
-			# so rescan
-			new_containers = storage.rescan()
-			for sequence_id, container_idx in new_containers:
-				sequence_idx = self.get_sequence_idx(storage_idx, sequence_id)
-				container = storage.get_container(container_idx)
-				#
-				# Register blocks of the container in the block_container_db
-				#
-				container.load_header()
-				has_nondata_blocks = False
-				has_data_blocks = False
-				encoded = self.encode_block_info(storage_idx, container_idx)
-				for digest, size, code in container.list_blocks():
-					self.block_container_db[digest] = encoded
-					if code != Container.CODE_DATA:
-						has_nondata_blocks = True
-					else:
-						has_data_blocks = True
-				#
-				# Notify the caller of the nondata blocks, which are supposed
-				# to be cached
-				#
-				if has_nondata_blocks:
-					container.load_body()
-					container.load_blocks(handler)
-				if not has_data_blocks:
-					container.remove_files()
 	#--------------------------------------------------------
 	# Utility methods
 	#--------------------------------------------------------
