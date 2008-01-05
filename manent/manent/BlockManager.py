@@ -3,7 +3,7 @@ import sys, os
 
 import Container
 
-class BlockDatabase:
+class BlockManager:
 	def __init__(self, db_config, storage_manager):
 		self.db_config = db_config
 		self.storage_manager = storage_manager
@@ -91,20 +91,20 @@ class BlockDatabase:
 class BlockLoadHandler:
 	"""Callback class used by repository to return loaded blocks
 	   to the database"""
-	def __init__(self, blocks_db):
-		self.blocks_db = blocks_db
+	def __init__(self, block_manager):
+		self.block_manager = blocks_manager
 	def is_block_necessary(self, digest, code):
-		if self.requested_blocks.has_key(digest):
-			# Data blocks must be specifically requested
-			return True
 		if code != Container.CODE_DATA:
 			# Other kinds of blocks are cached always
 			return True
+		if self.block_manager.requested_blocks.has_key(digest):
+			# Data blocks must be specifically requested
+			return True
 		return False
 	def block_loaded(self, digest, data, code):
-		# TODO(gsasha): I don't understand the logic - when does the block
-		# go to cached_blocks?
-		if self.blocks_db.has_key(digest):
-			self.cached_blocks[digest] = data
+		# All non-DATA blocks go to cache. These blocks are identified
+		# by having their code in the block_types database
+		if self.block_manager.block_types.has_key(digest):
+			self.block_manager.cached_blocks[digest] = data
 		else:
-			self.loaded_data_blocks[digest] = data
+			self.block_manager.loaded_blocks[digest] = data
