@@ -4,31 +4,29 @@ import sys, os
 import Container
 
 class BlockDatabase:
-	def __init__(self, db_config, repository):
+	def __init__(self, db_config, storage_manager):
 		self.db_config = db_config
-		self.block_repository = repository
+		self.storage_manager = storage_manager
 
 		# These two databases are scratch-only, so they don't need to reliably
 		# survive through program restarts
-		self.requested_data_blocks = self.db_config.get_scratch_database(
-			".scratch-blocks")
-		self.loaded_data_blocks = self.db_config.get_scratch_database(
-			".scratch-blocks-data")
-		self.cached_blocks = self.db_config.get_database(".blocks-data")
-		self.block_type_db = self.db_config.get_database(".blocks-types")
+		self.requested_blocks = self.db_config.get_scratch_database(
+			".scratch-requested-blocks")
+		self.loaded_blocks = self.db_config.get_scratch_database(
+			".scratch-data-blocks")
+		self.cached_blocks = self.db_config.get_database(".cached-blocks")
+		self.block_types = self.db_config.get_database(".block-types")
 		#
 		# It is possible that the program was terminated before the scratch
 		# cache was removed. In that case, it contains junk data
 		#
-		self.requested_data_blocks.truncate()
-		self.loaded_data_blocks.truncate()
-		
-		self.containers = None
+		self.requested_blocks.truncate()
+		self.loaded_blocks.truncate()
 	def close(self):
-		self.requested_data_blocks.close()
-		self.loaded_data_blocks.close()
+		self.requested_blocks.close()
+		self.loaded_blocks.close()
 		self.cached_blocks.close()
-		self.block_type_db.close()
+		self.block_types.close()
 	#
 	# Methods for the user side of the cache
 	#
@@ -45,7 +43,10 @@ class BlockDatabase:
 	def add_block(self, digest, code, data):
 		self.repository.add_block(digest, code, data)
 		if code != Container.CODE_DATA:
-			self.block_type_db[digest] = code
+			# We store the block code only for blocks that are not DATA.
+			# The DATA blocks are the majority, and so  by not storing them,
+			# we save space in the database.
+			self.block_types[digest] = code
 			self.cached_blocks[digest] = data
 	def load_block(self, digest):
 		"""
@@ -53,40 +54,37 @@ class BlockDatabase:
 		was reported by request_block, and was loaded not more times than
 		it was requested.
 		"""
+		if not self.cached_blocks.has_key(digest) and\
+		   not self.loaded_blocks.has_key(digest):
+			self.storage_manager.load_block(digest, BlockLoadHandler(self))
+
 		if self.cached_blocks.has_key(digest):
 			#
 			# Blocks that sit in self.cached_blocks are never unloaded
 			#
 			return self.cached_blocks[digest]
-		if self.loaded_data_blocks.has_key(digest):
-			data = self.loaded_data_blocks[digest]
+		if self.loaded_blocks.has_key(digest):
+			data = self.loaded_blocks[digest]
 			#
 			# See if we can unload this block
 			#
 			if self.requested_blocks.has_key(digest):
-				refcount = int(self.requested_data_blocks[digest])-1
+				refcount = int(self.requested_blocks[digest])-1
 				if refcount == 0:
 					del self.requested_blocks[digest]
-					del self.loaded_data_blocks[digest]
+					del self.loaded_blocks[digest]
 				else:
-					self.requested_data_blocks[digest] = str(refcount)
+					self.requested_blocks[digest] = str(refcount)
 			return data
 		#
 		# OK, block is not found anywhere. Load it from the container
 		#
 		block_type = self.get_block_type(digest)
 		
-		self.repository.load_block(digest, BlockLoadHandler(self))
-		if self.block_type_db.has_key(digest):
-			data = self.cached_blocks[digest]
-		else:
-			data = self.loaded_data_blocks[digest]
 		return data
-	def get_block_storage(self, digest):
-		return self.repository.get_block_storage(digest)
 	def get_block_type(self, digest):
-		if self.block_type_db.has_key(digest):
-			return int(self.block_type_db[digest])
+		if self.block_types.has_key(digest):
+			return int(self.block_types[digest])
 		else:
 			return Container.CODE_DATA
 		
