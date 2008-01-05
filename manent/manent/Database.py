@@ -89,16 +89,16 @@ class DatabaseConfig:
 	def get_database_btree(self, tablename, txn_handler):
 		fname = self.__db_fname(tablename)
 		return DatabaseWrapper(self, fname, tablename, txn_handler, db_type=db.DB_BTREE)
-	def get_database_hash(self,tablename,txn_handler):
+	def get_database_hash(self, tablename, txn_handler):
 		fname = self.__db_fname(tablename)
 		return DatabaseWrapper(self, fname, tablename, txn_handler, db_type=db.DB_HASH)
-	def get_scratch_database(self,tablename):
+	def get_scratch_database(self, tablename):
 		fname = self.__scratch_db_fname(tablename)
 		return DatabaseWrapper(self, fname, tablename, txn_handler=None,
 			is_scratch = True)
-	def get_queue_database(self,tablename):
+	def get_queue_database(self, tablename):
 		raise Exception("Not implemented")
-	def remove_database(self,tablename=None):
+	def remove_database(self, tablename=None):
 		#
 		# Now actually delete the database file
 		#
@@ -120,9 +120,9 @@ class DatabaseConfig:
 		return home_area
 	
 	def __db_fname(self,tablename):
-		return os.path.join(self.global_config.home_area(),self.filename)
-	def __scratch_db_fname(self,tablename):
-		return os.path.join(self.global_config.staging_area(),self.filename)
+		return os.path.join(self.global_config.home_area(), self.filename)
+	def __scratch_db_fname(self, tablename):
+		return os.path.join(self.global_config.staging_area(), self.filename)
 
 class TransactionHandler:
 	"""
@@ -152,7 +152,7 @@ class DatabaseWrapper:
 	Provides a Python Dictionary-like interface to a single database table.
 	Objects of this class are meant to be created by db_config, not by the user!
 	"""
-	def __init__(self,db_config,filename,dbname,txn_handler = None,
+	def __init__(self, db_config, filename, dbname, txn_handler = None,
 			is_scratch = False, db_type = db.DB_HASH):
 		self.db_config = db_config
 		self.filename = filename
@@ -184,22 +184,22 @@ class DatabaseWrapper:
 		#print "db[%s:%s].get(%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]))
 		txn = self.__get_txn()
 		return self.d.get(str(key), txn=txn)
-	def put(self,key,value):
+	def put(self, key, value):
 		#print "db[%s:%s].put(%s,%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]), base64.b64encode(value[0:10]))
-		self.d.put(str(key),str(value),txn=self.__get_txn())
+		self.d.put(str(key), str(value), txn=self.__get_txn())
 	def __getitem__(self,key):
 		#print "db[%s:%s].get(%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]))
 		return self.get(key)
-	def __setitem__(self,key,value):
+	def __setitem__(self,key, value):
 		#print "db[%s:%s].set(%s,%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]), base64.b64encode(value[0:10]))
-		return self.put(key,value)
-	def __delitem__(self,key):
+		return self.put(key, value)
+	def __delitem__(self, key):
 		#print "db[%s:%s].del(%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]))
 		self.d.delete(key,txn=self.__get_txn())
 	def __len__(self):
 		stat = self.d.stat()
 		return stat['ndata']
-	def has_key(self,key):
+	def has_key(self, key):
 		#print "db[%s:%s].has_key(%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]))
 		return self.get(key) != None
 	#
