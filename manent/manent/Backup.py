@@ -158,8 +158,7 @@ class Backup:
 # ScanContext
 #===============================================================================
 class ScanContext:
-	def __init__(self,backup,root_node):
-		ContextBase.__init__(self,backup)
+	def __init__(self, backup, root_node):
 
 		self.inodes_db = {}
 
