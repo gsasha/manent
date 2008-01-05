@@ -30,10 +30,11 @@ class MockStorageManager:
 
 class TestBlockManager(unittest.TestCase):
 	def setUp(self):
+		self.env = Database.PrivateDatabaseConfig()
 		self.storage_manager = MockStorageManager()
 	def test_add_data_block_types(self):
 		"""Test that blocks of different types can be added and restored"""
-		self.fail()
+		bm = BlockManager.BlockManager(self.env, self.storage_manager)
 	def test_data_block_caching(self):
 		"""Test that DATA blocks are uncached by default, and the others
 		are cached"""

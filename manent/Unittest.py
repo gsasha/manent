@@ -32,6 +32,9 @@ suite_Storage = test_loader.loadTestsFromTestCase(TestStorage)
 from testsuite.TestStorageManager import TestStorageManager
 suite_StorageManager = test_loader.loadTestsFromTestCase(TestStorageManager)
 
+from testsuite.TestBlockManager import TestBlockManager
+suite_BlockManager = test_loader.loadTestsFromTestCase(TestBlockManager)
+
 suite = unittest.TestSuite([
 	suite_Packer,
 	suite_Container,
@@ -42,5 +45,6 @@ suite = unittest.TestSuite([
 	suite_Exclusion,
 	suite_Storage,
 	suite_StorageManager,
+	suite_BlockManager,
 	])
 unittest.TextTestRunner(verbosity=2).run(suite)
