@@ -1,11 +1,11 @@
 import traceback
 
-import BlockDatabase
+import BlockManager
 import Container
 import Database
 import IncrementDatabase
 import Nodes
-import Repository
+import StorageManager
 import ExclusionProcessor
 
 class Backup:
@@ -24,7 +24,7 @@ class Backup:
 		self.private_config_db = self.db_config.get_database(
 			"config.db", "config.%s" % self.label)
 		
-		self.repository = Repository.Repository(self)
+		self.repository = StorageManager.StorageManager(self)
 		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(self)
 	#
 	# Two initialization methods:
@@ -104,7 +104,7 @@ class Backup:
 
 			if fs_digest is None:
 				fs_digest = self.increments_database.find_last_increment()
-			root_node = Nodes.Directory(self,None,target_path)
+			root_node = Nodes.Directory(self, None, target_path)
 			root_node.set_digest(fs_digest)
 
 			ctx = RestoreContext()
@@ -141,17 +141,17 @@ class Backup:
 	
 	def __open_all(self):
 		self.shared_db = self.db_config.get_database(".shared", self.txn_handler)
-		self.repository = Repository.Repository(self.db_config,
+		self.storage_manager = StorageManager.StorageManager(self.db_config,
 			storages, active_storage)
-		self.blocks_database = BlockDatabase.BlockDatabase(self.db_config,
-			self.repository)
+		self.block_manager = BlockManager.BlockManager(self.db_config,
+			self.storage_manager)
 		self.increments_database = IncrementDatabase.IncrementDatabase(
-			self.repository,self.shared_db)
+			self.storage_manager, self.shared_db)
 	
 	def __close_all(self):
 		self.increments_database.close()
-		self.blocks_database.close()
-		self.repository.close()
+		self.block_manager.close()
+		self.storage_manager.close()
 		self.shared_db.close()
 	
 #===============================================================================
@@ -169,7 +169,7 @@ class ScanContext:
 		self.root_node = root_node
 
 	def add_block(self, digest, code, data):
-		self.backup.blocks_database.add_block(digest, code, data)
+		self.backup.block_manager.add_block(digest, code, data)
 
 #=========================================================
 # RestoreContext

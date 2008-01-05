@@ -56,10 +56,7 @@ class StorageManager:
 			self.index_to_seq[sequence_idx] = (storage_idx, sequence_id)
 	def _key(self, suffix):
 		return PREFIX + suffix
-	def register_container(self):
-		# TODO: implement this
-		self.fail()
-	def register_sequence(self, storage_idx, sequence_id):
+	def _register_sequence(self, storage_idx, sequence_id):
 		# Generate new index for this sequence
 		logger_sm.debug("new sequence detected in storage %d: %s" %
 			(storage_idx, base64.urlsafe_b64encode(sequence_id)))
@@ -73,7 +70,7 @@ class StorageManager:
 		self.index_to_seq[sequence_idx] = (storage_idx, sequence_id)
 	def get_sequence_idx(self, storage_idx, sequence_id):
 		if not self.seq_to_index.has_key(sequence_id):
-			self.register_sequence(storage_idx, sequence_id)
+			self._register_sequence(storage_idx, sequence_id)
 		dummy, sequence_idx = self.seq_to_index[sequence_id]
 		return sequence_idx
 	class PassThroughBlockHandler:
@@ -167,7 +164,7 @@ class StorageManager:
 		storage = self.storages[storage_index]
 		storage.make_active()
 		seq_id = storage.get_active_sequence_id()
-		self.register_sequence(storage_index, seq_id)
+		self._register_sequence(storage_index, seq_id)
 		self.active_storage_idx = storage_index
 	def get_active_sequence_id(self):
 		storage = self.storages[self.active_storage_idx]
@@ -185,7 +182,7 @@ class StorageManager:
 		if self.current_open_container is None:
 			self.current_open_container = storage.create_container()
 		elif not self.current_open_container.can_add_block(digest, code, data):
-			self.write_container(self.current_open_container)
+			self._write_container(self.current_open_container)
 			self.current_open_container = storage.create_container()
 		#
 		# add the block to the container
@@ -195,9 +192,9 @@ class StorageManager:
 		storage = self.storages[self.active_storage_idx]
 
 		if self.current_open_container is not None:
-			self.write_container(self.current_open_container)
+			self._write_container(self.current_open_container)
 			self.current_open_container = None
-	def write_container(self, container):
+	def _write_container(self, container):
 		container.finish_dump()
 		#
 		# Now we have container idx, update it in the blocks db
@@ -215,10 +212,6 @@ class StorageManager:
 		container.load_header()
 		container.load_body()
 		container.load_blocks(handler)
-	def get_block_storage(self, digest):
-		seq_idx, container_idx = self.decode_block_info(self.block_container_db[digest])
-		storage_idx, seq_id = self.index_to_seq[seq_idx]
-		return storage_idx
 	#--------------------------------------------------------
 	# Utility methods
 	#--------------------------------------------------------
