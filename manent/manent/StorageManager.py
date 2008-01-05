@@ -1,4 +1,5 @@
 import base64
+import logging
 import cStringIO as StringIO
 
 import Container
@@ -7,6 +8,13 @@ import utils.IntegerEncodings as IE
 
 PREFIX = "STORAGE_MANAGER."
 
+logger_sm = logging.getLogger("manent.storage_manager")
+console = logging.StreamHandler()
+console.setLevel(logging.DEBUG)
+logger_sm.addHandler(console)
+
+logger_sm.debug("debug")
+logger_sm.warning("warning")
 class StorageManager:
 	"""Handles the moving of blocks to and from storages.
 
@@ -58,6 +66,9 @@ class StorageManager:
 		self.fail()
 	def register_sequence(self, storage_idx, sequence_id):
 		# Generate new index for this sequence
+		print "aaaaaa"
+		logger_sm.debug("new sequence detected in storage %d: %s" %
+			(storage_idx, base64.urlsafe_b64encode(sequence_id)))
 		sequence_idx = self.next_seq_idx
 		self.next_seq_idx += 1
 		self.config_db[self._key("next_seq")] = str(self.next_seq_idx)
