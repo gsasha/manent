@@ -1,4 +1,7 @@
+import logging
 import unittest
+
+#logging.basicConfig(level=logging.DEBUG)
 
 test_loader = unittest.TestLoader()
 
