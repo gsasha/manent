@@ -311,39 +311,6 @@ class DirectoryStorage(Storage):
 	def container_size(self):
 		#return 4<<20
 		return 4<<20
-	def reconstruct_containers(self):
-		#print "Scanning containers:", self.get_path()
-		container_files = {}
-		container_data_files = {}
-		for file in os.listdir(self.get_path()):
-			container_index = self.backup.global_config.container_index(
-				file,self.backup.label,"")
-			if container_index != None:
-				container_files[container_index] = file
-			container_index = self.backup.global_config.container_index(
-				file,self.backup.label,".data")
-			if container_index != None:
-				container_data_files[container_index] = file
-		max_container = 0
-		for (index, file) in container_files.iteritems():
-			print "  ", index, "\t", file,
-			if container_data_files.has_key(index):
-				print "\t", container_data_files[index]
-			else:
-				print
-			if max_container<index:
-				max_container = index
-		for index in range(0,max_container+1):
-			self.containers.append(None)
-		self.containers_db["Containers"] = str(len(self.containers))
-		
-		print "Loading %d containers:" % max_container
-		for (index, file) in container_files.iteritems():
-			if not container_data_files.has_key(index):
-				print "Container", index, "has no data file :("
-				continue
-			container = self.load_container(index)
-			self.containers[index] = container
 	def list_container_files(self):
 		return os.listdir(self.get_path())
 	def open_header_file(self, sequence_id, index):
