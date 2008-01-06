@@ -42,7 +42,7 @@ class BlockManager:
 		else:
 			self.requested_blocks[digest] = "1"
 	def add_block(self, digest, code, data):
-		self.repository.add_block(digest, code, data)
+		self.storage_manager.add_block(digest, code, data)
 		if code != Container.CODE_DATA:
 			# We store the block code only for blocks that are not DATA.
 			# The DATA blocks are the majority, and so  by not storing them,
@@ -97,7 +97,7 @@ class BlockLoadHandler:
 			# Data blocks must be specifically requested
 			return True
 		return False
-	def loaded(self, digest, data, code):
+	def loaded(self, digest, code, data):
 		# All non-DATA blocks go to cache. These blocks are identified
 		# by having their code in the block_types database
 		if self.block_manager.block_types.has_key(digest):
