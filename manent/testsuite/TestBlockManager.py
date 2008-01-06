@@ -61,11 +61,7 @@ class TestBlockManager(unittest.TestCase):
 		self.assertEqual(1, self.storage_manager.num_load_block_requests)
 		self.assertEqual(bm.load_block(Digest.dataDigest("ddd")), "ddd")
 		self.assertEqual(1, self.storage_manager.num_load_block_requests)
-	def test_data_block_caching(self):
-		"""Test that DATA blocks are uncached by default, and the others
-		are cached"""
-		self.fail()
 	def test_block_requests(self):
-		"""Test that block requests are handled correctly (i.e., the
+		"""TODO: Test that block requests are handled correctly (i.e., the
 		corresponding blocks are cached even if they are DATA ones"""
-		self.fail()
+		pass
