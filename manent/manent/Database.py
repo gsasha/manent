@@ -117,7 +117,7 @@ class DatabaseManager:
 		fname = self.__scratch_db_fname(tablename)
 		d = db.DB(self.dbenv)
 		print "Removing scratch database", self.filename, tablename
-		d.remove(fname,tablename)
+		d.remove(fname, tablename)
 	
 	def __dbenv_dir(self):
 		home_area = self.global_config.home_area()
@@ -194,12 +194,12 @@ class DatabaseWrapper:
 	def __getitem__(self,key):
 		#print "db[%s:%s].get(%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]))
 		return self.get(key)
-	def __setitem__(self,key, value):
+	def __setitem__(self, key, value):
 		#print "db[%s:%s].set(%s,%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]), base64.b64encode(value[0:10]))
 		return self.put(key, value)
 	def __delitem__(self, key):
 		#print "db[%s:%s].del(%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]))
-		self.d.delete(key,txn=self.__get_txn())
+		self.d.delete(key, txn=self.__get_txn())
 	def __len__(self):
 		stat = self.d.stat()
 		return stat['ndata']
@@ -258,17 +258,17 @@ class DatabaseWrapper:
 			self.rec = cursor.set_range(prefix)
 			self.prefix = prefix
 		def next(self):
-			k,v = DatabaseWrapper.Iter.next(self)
+			k, v = DatabaseWrapper.Iter.next(self)
 			if not k.startswith(self.prefix):
 				raise StopIteration
-			return (k,v)
+			return (k, v)
 	class KeysIter:
 		def __init__(self, it):
 			self.it = it
 		def __iter__(self):
 			return self
 		def next(self):
-			k,v = self.it.next()
+			k, v = self.it.next()
 			return k
 
 	#def __iter__(self):
