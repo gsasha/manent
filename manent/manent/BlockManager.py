@@ -4,19 +4,19 @@ import sys, os
 import Container
 
 class BlockManager:
-	def __init__(self, db_config, txn_handler, storage_manager):
-		self.db_config = db_config
+	def __init__(self, db_manager, txn_handler, storage_manager):
+		self.db_manager = db_manager
 		self.txn_handler = txn_handler
 		self.storage_manager = storage_manager
 
 		# These two databases are scratch-only, so they don't need to reliably
 		# survive through program restarts
-		self.requested_blocks = self.db_config.get_scratch_database(
+		self.requested_blocks = self.db_manager.get_scratch_database(
 			"scratch-requested-blocks")
-		self.loaded_blocks = self.db_config.get_scratch_database(
+		self.loaded_blocks = self.db_manager.get_scratch_database(
 			"scratch-data-blocks")
-		self.cached_blocks = self.db_config.get_database("cached-blocks", self.txn_handler)
-		self.block_types = self.db_config.get_database("block-types", self.txn_handler)
+		self.cached_blocks = self.db_manager.get_database("cached-blocks", self.txn_handler)
+		self.block_types = self.db_manager.get_database("block-types", self.txn_handler)
 		#
 		# It is possible that the program was terminated before the scratch
 		# cache was removed. In that case, it contains junk data

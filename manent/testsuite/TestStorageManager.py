@@ -12,7 +12,7 @@ import manent.utils.Digest as Digest
 
 class TestStorageManager(unittest.TestCase):
 	def setUp(self):
-		self.env = Database.PrivateDatabaseConfig()
+		self.env = Database.PrivateDatabaseManager()
 		self.config_db = self.env.get_database_btree("config", None)
 		self.block_db = self.env.get_database_btree("block_db", None)
 	def tearDown(self):

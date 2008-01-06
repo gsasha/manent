@@ -16,15 +16,15 @@ class Backup:
 		self.global_config = global_config
 		self.label = label
 
-		self.db_config = Database.DatabaseConfig(self.global_config,
+		self.db_manager = Database.DatabaseManager(self.global_config,
 			"manent.%s.db"%self.label)
-		self.txn_handler = Database.TransactionHandler(self.db_config)
-		self.global_config_db = self.db_config.get_database(
+		self.txn_handler = Database.TransactionHandler(self.db_manager)
+		self.global_config_db = self.db_manager.get_database(
 			"config.db", "global_config")
-		self.private_config_db = self.db_config.get_database(
+		self.private_config_db = self.db_manager.get_database(
 			"config.db", "config.%s" % self.label)
 		
-		self.repository = StorageManager.StorageManager(self)
+		self.storage_manager = StorageManager.StorageManager(self)
 		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(self)
 	#
 	# Two initialization methods:
@@ -36,14 +36,14 @@ class Backup:
 		self.private_config_db["data_path"] = data_path
 	def load(self):
 		self.data_path = self.private_config_db["data_path"]
-		self.repository.load()
+		self.storage_manager.load()
 		self.exclusion_processor.load()
 		
 	# Storage configuration
 	def add_base_storage(self, storage_params):
-		self.repository.add_base_storage(storage_params)
+		self.storage_manager.add_base_storage(storage_params)
 	def add_main_storage(self, storage_params):
-		self.repository.add_main_storage(storage_params)
+		self.storage_manager.add_main_storage(storage_params)
 
 	# Exclusion configuration
 	def add_exclusion_rule(self, action, pattern):
@@ -140,10 +140,10 @@ class Backup:
 			self.__close_all()
 	
 	def __open_all(self):
-		self.shared_db = self.db_config.get_database(".shared", self.txn_handler)
-		self.storage_manager = StorageManager.StorageManager(self.db_config,
+		self.shared_db = self.db_manager.get_database(".shared", self.txn_handler)
+		self.storage_manager = StorageManager.StorageManager(self.db_manager,
 			storages, active_storage)
-		self.block_manager = BlockManager.BlockManager(self.db_config,
+		self.block_manager = BlockManager.BlockManager(self.db_manager,
 			self.storage_manager)
 		self.increments_database = IncrementDatabase.IncrementDatabase(
 			self.storage_manager, self.shared_db)

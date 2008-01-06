@@ -22,9 +22,9 @@ class CheckpointThread(threading.Thread):
 			self.dbenv.txn_checkpoint(100, 5, 0)
 			#print "DONE RUNNING DATABASE CHECKPOINT"
 
-# A database config that operates in memory only.
+# A database manager that operates in memory only.
 # Used for unit testing
-class PrivateDatabaseConfig:
+class PrivateDatabaseManager:
 	def __init__(self):
 		self.dbenv = db.DBEnv()
 		self.dbenv.open("/tmp", db.DB_PRIVATE|db.DB_CREATE|db.DB_INIT_TXN|
@@ -40,8 +40,8 @@ class PrivateDatabaseConfig:
 		# except that it has no transactions
 		return DatabaseWrapper(self, None, tablename)
 
-# The normal database config class
-class DatabaseConfig:
+# The normal database manager class
+class DatabaseManager:
 	def __init__(self, global_config, filename):
 		self.global_config = global_config
 		self.filename = filename
@@ -110,7 +110,7 @@ class DatabaseConfig:
 		d = db.DB(self.dbenv)
 		print "Removing database", self.filename, tablename
 		d.remove(fname,tablename)
-	def remove_scratch_database(self,tablename=None):
+	def remove_scratch_database(self, tablename=None):
 		#
 		# Now actually delete the database file
 		#
@@ -135,12 +135,12 @@ class TransactionHandler:
 	can be kept indefinitely, and remains valid even after a transaction
 	is committed or aborted.
 	"""
-	def __init__(self, db_config):
-		self.db_config = db_config
+	def __init__(self, db_manager):
+		self.db_manager = db_manager
 		self.txn = None
 	def get_txn(self):
 		if self.txn is None:
-			self.txn = self.db_config.txn_begin()
+			self.txn = self.db_manager.txn_begin()
 		return self.txn
 	def commit(self):
 		if self.txn is not None:
@@ -154,17 +154,17 @@ class TransactionHandler:
 class DatabaseWrapper:
 	"""
 	Provides a Python Dictionary-like interface to a single database table.
-	Objects of this class are meant to be created by db_config, not by the user!
+	Objects of this class are meant to be created by db_manager, not by the user!
 	"""
-	def __init__(self, db_config, filename, dbname, txn_handler = None,
+	def __init__(self, db_manager, filename, dbname, txn_handler = None,
 			is_scratch = False, db_type = db.DB_HASH):
-		self.db_config = db_config
+		self.db_manager = db_manager
 		self.filename = filename
 		self.dbname = dbname
 		self.txn_handler = txn_handler
 		self.is_scratch = is_scratch
 		
-		self.d = db.DB(self.db_config.dbenv)
+		self.d = db.DB(self.db_manager.dbenv)
 		self.cursor = None
 		
 		#print "Opening database filename=%s, dbname=%s" %(self.__get_filename(),self.__get_dbname())
@@ -223,7 +223,7 @@ class DatabaseWrapper:
 		self.d.close()
 		self.d = None
 		if self.is_scratch:
-			self.db_config.remove_scratch_database(self.dbname)
+			self.db_manager.remove_scratch_database(self.dbname)
 		self.filename=None
 	#
 	# Iteration support

@@ -35,7 +35,7 @@ class MockStorageManager:
 
 class TestBlockManager(unittest.TestCase):
 	def setUp(self):
-		self.env = Database.PrivateDatabaseConfig()
+		self.env = Database.PrivateDatabaseManager()
 		self.storage_manager = MockStorageManager()
 	def add_block(self, bm, code, data):
 		bm.add_block(Digest.dataDigest(data), code, data)
