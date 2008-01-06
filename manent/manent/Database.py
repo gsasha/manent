@@ -28,13 +28,17 @@ class PrivateDatabaseConfig:
 	def __init__(self):
 		self.dbenv = db.DBEnv()
 		self.dbenv.open("/tmp", db.DB_PRIVATE|db.DB_CREATE|db.DB_INIT_TXN|
-						db.DB_INIT_MPOOL| db.DB_INIT_LOCK|db.DB_THREAD)
-	def get_database(self,tablename,txn_handler):
+						db.DB_INIT_MPOOL|db.DB_INIT_LOCK|db.DB_THREAD)
+	def get_database(self, tablename, txn_handler):
 		return DatabaseWrapper(self, None, tablename, txn_handler)
 	def get_database_btree(self, tablename, txn_handler):
 		return DatabaseWrapper(self, None, tablename, txn_handler, db_type=db.DB_BTREE)
-	def get_database_hash(self,tablename,txn_handler):
+	def get_database_hash(self, tablename, txn_handler):
 		return DatabaseWrapper(self, None, tablename, txn_handler, db_type=db.DB_HASH)
+	def get_scratch_database(self, tablename):
+		# Under Private database, the scratch database is no different from any other,
+		# except that it has no transactions
+		return DatabaseWrapper(self, None, tablename)
 
 # The normal database config class
 class DatabaseConfig:
@@ -83,7 +87,7 @@ class DatabaseConfig:
 		dbenv = db.DBEnv()
 		dbenv.remove(self.__dbenv_dir())
 
-	def get_database(self,tablename,txn_handler):
+	def get_database(self, tablename, txn_handler):
 		fname = self.__db_fname(tablename)
 		return DatabaseWrapper(self, fname, tablename, txn_handler)
 	def get_database_btree(self, tablename, txn_handler):
@@ -131,7 +135,7 @@ class TransactionHandler:
 	can be kept indefinitely, and remains valid even after a transaction
 	is committed or aborted.
 	"""
-	def __init__(self,db_config):
+	def __init__(self, db_config):
 		self.db_config = db_config
 		self.txn = None
 	def get_txn(self):

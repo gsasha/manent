@@ -4,18 +4,19 @@ import sys, os
 import Container
 
 class BlockManager:
-	def __init__(self, db_config, storage_manager):
+	def __init__(self, db_config, txn_handler, storage_manager):
 		self.db_config = db_config
+		self.txn_handler = txn_handler
 		self.storage_manager = storage_manager
 
 		# These two databases are scratch-only, so they don't need to reliably
 		# survive through program restarts
 		self.requested_blocks = self.db_config.get_scratch_database(
-			".scratch-requested-blocks")
+			"scratch-requested-blocks")
 		self.loaded_blocks = self.db_config.get_scratch_database(
-			".scratch-data-blocks")
-		self.cached_blocks = self.db_config.get_database(".cached-blocks")
-		self.block_types = self.db_config.get_database(".block-types")
+			"scratch-data-blocks")
+		self.cached_blocks = self.db_config.get_database("cached-blocks", self.txn_handler)
+		self.block_types = self.db_config.get_database("block-types", self.txn_handler)
 		#
 		# It is possible that the program was terminated before the scratch
 		# cache was removed. In that case, it contains junk data
@@ -76,12 +77,7 @@ class BlockManager:
 				else:
 					self.requested_blocks[digest] = str(refcount)
 			return data
-		#
-		# OK, block is not found anywhere. Load it from the container
-		#
-		block_type = self.get_block_type(digest)
-		
-		return data
+		raise Exception("Block neither cached nor loaded!!!")
 	def get_block_type(self, digest):
 		if self.block_types.has_key(digest):
 			return int(self.block_types[digest])
@@ -92,8 +88,8 @@ class BlockLoadHandler:
 	"""Callback class used by repository to return loaded blocks
 	   to the database"""
 	def __init__(self, block_manager):
-		self.block_manager = blocks_manager
-	def is_block_necessary(self, digest, code):
+		self.block_manager = block_manager
+	def is_requested(self, digest, code):
 		if code != Container.CODE_DATA:
 			# Other kinds of blocks are cached always
 			return True
@@ -101,7 +97,7 @@ class BlockLoadHandler:
 			# Data blocks must be specifically requested
 			return True
 		return False
-	def block_loaded(self, digest, data, code):
+	def loaded(self, digest, data, code):
 		# All non-DATA blocks go to cache. These blocks are identified
 		# by having their code in the block_types database
 		if self.block_manager.block_types.has_key(digest):
