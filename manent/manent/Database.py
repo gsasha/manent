@@ -42,9 +42,8 @@ class PrivateDatabaseManager:
 
 # The normal database manager class
 class DatabaseManager:
-	def __init__(self, global_config, filename):
+	def __init__(self, global_config):
 		self.global_config = global_config
-		self.filename = filename
 		
 		self.open_dbs = {}
 		self.scratch_dbs = {}
@@ -125,10 +124,10 @@ class DatabaseManager:
 		home_area = self.global_config.home_area()
 		return home_area
 	
-	def __db_fname(self, tablename):
-		return os.path.join(self.global_config.home_area(), self.filename)
-	def __scratch_db_fname(self, tablename):
-		return os.path.join(self.global_config.staging_area(), self.filename)
+	def __db_fname(self, filename):
+		return os.path.join(self.global_config.home_area(), filename)
+	def __scratch_db_fname(self, filename):
+		return os.path.join(self.global_config.staging_area(), filename)
 
 class TransactionHandler:
 	"""
@@ -169,11 +168,11 @@ class DatabaseWrapper:
 		self.d = db.DB(self.db_manager.dbenv)
 		self.cursor = None
 		
-		#print "Opening database filename=%s, dbname=%s" %(self.__get_filename(),self.__get_dbname())
+		print "Opening database filename=%s, dbname=%s" %(self.__get_filename(),self.__get_dbname())
 		start = time.time()
 		self.d.open(self.__get_filename(), self.__get_dbname(), db_type, db.DB_CREATE, txn=self.__get_txn())
 		end = time.time()
-		#print "opening database %s:%s takes %f seconds" % (self.__get_filename(),self.__get_dbname(),end-start)
+		print "opening database %s:%s takes %f seconds" % (self.__get_filename(),self.__get_dbname(),end-start)
 
 	def __get_filename(self):
 		return self.filename

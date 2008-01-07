@@ -17,8 +17,12 @@ class Backup:
 		self.global_config = global_config
 		self.label = label
 
-		self.db_manager = Database.DatabaseManager(self.global_config,
-			"manent.%s"%self.label)
+		try:
+			os.mkdir(os.path.join(global_config.home_area(), self.label))
+		except:
+			# It's OK to fail, if the directory already exists
+			pass
+		self.db_manager = Database.DatabaseManager(self.global_config)
 		self.txn_handler = Database.TransactionHandler(self.db_manager)
 		self.global_config_db = self.db_manager.get_database(
 			os.path.join(self.label, "config.db"), "global_config", self.txn_handler)
@@ -27,8 +31,8 @@ class Backup:
 		self.storage_blocks_db = self.db_manager.get_database_btree(
 			os.path.join(self.label, "storage.db"), "blocks", self.txn_handler)
 		
-		self.storage_manager = StorageManager.StorageManager(self,
-			self.config_db, self.storage_blocks_db)
+		self.storage_manager = StorageManager.StorageManager(self.config_db,
+			self.storage_blocks_db)
 		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(self)
 	#
 	# Two initialization methods:
