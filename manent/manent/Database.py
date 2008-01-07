@@ -87,29 +87,31 @@ class DatabaseManager:
 		dbenv = db.DBEnv()
 		dbenv.remove(self.__dbenv_dir())
 
-	def get_database(self, tablename, txn_handler):
-		fname = self.__db_fname(tablename)
-		return DatabaseWrapper(self, fname, tablename, txn_handler)
-	def get_database_btree(self, tablename, txn_handler):
-		fname = self.__db_fname(tablename)
-		return DatabaseWrapper(self, fname, tablename, txn_handler, db_type=db.DB_BTREE)
-	def get_database_hash(self, tablename, txn_handler):
-		fname = self.__db_fname(tablename)
-		return DatabaseWrapper(self, fname, tablename, txn_handler, db_type=db.DB_HASH)
-	def get_scratch_database(self, tablename):
-		fname = self.__scratch_db_fname(tablename)
-		return DatabaseWrapper(self, fname, tablename, txn_handler=None,
+	def get_database(self, filename, tablename, txn_handler):
+		full_fname = self.__db_fname(filename)
+		return DatabaseWrapper(self, full_fname, tablename, txn_handler)
+	def get_database_btree(self, filename, tablename, txn_handler):
+		full_fname = self.__db_fname(filename)
+		return DatabaseWrapper(self, full_fname, tablename, txn_handler,
+			db_type=db.DB_BTREE)
+	def get_database_hash(self, filename, tablename, txn_handler):
+		full_fname = self.__db_fname(tablename)
+		return DatabaseWrapper(self, full_fname, tablename, txn_handler,
+			db_type=db.DB_HASH)
+	def get_scratch_database(self, filename, tablename):
+		full_fname = self.__scratch_db_fname(filename)
+		return DatabaseWrapper(self, full_fname, tablename, txn_handler=None,
 			is_scratch = True)
-	def get_queue_database(self, tablename):
+	def get_queue_database(self, filename, tablename):
 		raise Exception("Not implemented")
-	def remove_database(self, tablename=None):
+	def remove_database(self, filename, tablename=None):
 		#
 		# Now actually delete the database file
 		#
-		fname = self.__db_fname(tablename)
+		full_fname = self.__db_fname(filename)
 		d = db.DB(self.dbenv)
-		print "Removing database", self.filename, tablename
-		d.remove(fname,tablename)
+		print "Removing database", filename, tablename
+		d.remove(full_fname, tablename)
 	def remove_scratch_database(self, tablename=None):
 		#
 		# Now actually delete the database file
@@ -123,7 +125,7 @@ class DatabaseManager:
 		home_area = self.global_config.home_area()
 		return home_area
 	
-	def __db_fname(self,tablename):
+	def __db_fname(self, tablename):
 		return os.path.join(self.global_config.home_area(), self.filename)
 	def __scratch_db_fname(self, tablename):
 		return os.path.join(self.global_config.staging_area(), self.filename)

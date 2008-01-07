@@ -1,3 +1,4 @@
+import os, os.path
 import traceback
 
 import BlockManager
@@ -12,19 +13,22 @@ class Backup:
 	"""
 	Database of a complete backup set
 	"""
-	def __init__(self, label):
+	def __init__(self, global_config, label):
 		self.global_config = global_config
 		self.label = label
 
 		self.db_manager = Database.DatabaseManager(self.global_config,
-			"manent.%s.db"%self.label)
+			"manent.%s"%self.label)
 		self.txn_handler = Database.TransactionHandler(self.db_manager)
 		self.global_config_db = self.db_manager.get_database(
-			"config.db", "global_config")
-		self.private_config_db = self.db_manager.get_database(
-			"config.db", "config.%s" % self.label)
+			os.path.join(self.label, "config.db"), "global_config", self.txn_handler)
+		self.config_db = self.db_manager.get_database(
+			os.path.join(self.label, "config.db"), "data", self.txn_handler)
+		self.storage_blocks_db = self.db_manager.get_database_btree(
+			os.path.join(self.label, "storage.db"), "blocks", self.txn_handler)
 		
-		self.storage_manager = StorageManager.StorageManager(self)
+		self.storage_manager = StorageManager.StorageManager(self,
+			self.config_db, self.storage_blocks_db)
 		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(self)
 	#
 	# Two initialization methods:
@@ -41,9 +45,10 @@ class Backup:
 		
 	# Storage configuration
 	def add_base_storage(self, storage_params):
-		self.storage_manager.add_base_storage(storage_params)
+		self.storage_manager.add_storage(storage_params)
 	def add_main_storage(self, storage_params):
-		self.storage_manager.add_main_storage(storage_params)
+		storage_idx = self.storage_manager.add_storage(storage_params)
+		self.storage_manager.make_active_storage(storage_idx)
 
 	# Exclusion configuration
 	def add_exclusion_rule(self, action, pattern):
@@ -70,17 +75,17 @@ class Backup:
 	#
 	# Scanning (adding a new increment)
 	#
-	def scan(self,comment):
+	def scan(self, comment):
 		try:
 			self.__open_all()
 
 			base_fs_digests = self.increments_database.start_increment(comment)
-			prev_nums = [(None,None,digest) for digest in base_fs_digests]
-			root = Nodes.Directory(self,None,self.data_path)
+			prev_nums = [(None, None, digest) for digest in base_fs_digests]
+			root = Nodes.Directory(self, None, self.data_path)
 			root.set_num(ctx.next_number())
-			ctx = ScanContext(self,root)
+			ctx = ScanContext(self, root)
 			
-			root.scan(ctx,prev_nums)
+			root.scan(ctx, prev_nums)
 
 			print "Diff from previous increments:", ctx.changed_nodes, "out of", ctx.total_nodes
 			

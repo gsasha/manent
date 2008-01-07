@@ -26,25 +26,25 @@ class TestDatabase(unittest.TestCase):
 		try:
 			dbc = DB.DatabaseManager(self.config,"test1")
 			txn = DB.TransactionHandler(dbc)
-			db = dbc.get_database("table1",txn)
+			db = dbc.get_database("table1", None, txn)
 			db["kuku"] = "bebe"
 			txn.commit()
-			self.assertEqual(db["kuku"],"bebe")
+			self.assertEqual(db["kuku"], "bebe")
 		finally:
 			txn.commit()
 			db.close()
 			dbc.close()
 	def testAbort(self):
 		try:
-			dbc = DB.DatabaseManager(self.config,"test1")
+			dbc = DB.DatabaseManager(self.config, "test1")
 			txn = DB.TransactionHandler(dbc)
-			db = dbc.get_database("table2",txn)
+			db = dbc.get_database("table2", None, txn)
 			db["kuku"] = "bebe"
 			txn.abort()
-			self.assertRaises(exceptions.Exception,db.get,"kuku")
+			self.assertRaises(exceptions.Exception, db.get, "kuku")
 			#db.close()
-			db = dbc.get_database("table2",txn)
-			self.assertEqual(db["kuku"],None)
+			db = dbc.get_database("table2", None, txn)
+			self.assertEqual(db["kuku"], None)
 		finally:
 			txn.commit()
 			db.close()
@@ -53,7 +53,7 @@ class TestDatabase(unittest.TestCase):
 		try:
 			dbc = DB.DatabaseManager(self.config,"test1")
 			txn = DB.TransactionHandler(dbc)
-			db = dbc.get_database_btree("table3",txn)
+			db = dbc.get_database_btree("table3", None, txn)
 			vals = [("aaa1", "bbb1"), ("aaa2", "bbb2"), ("aaa3", "bbb3")]
 			for key, val in vals:
 				db[key] = val
@@ -70,7 +70,7 @@ class TestDatabase(unittest.TestCase):
 		try:
 			dbc = DB.DatabaseManager(self.config,"test1")
 			txn = DB.TransactionHandler(dbc)
-			db = dbc.get_database_btree("table3",txn)
+			db = dbc.get_database_btree("table3", None, txn)
 			vals = [("aaa1", "bbb1"), ("aab1", "bbb2"), ("aab2", "bbb3"), ("aac1", "bbb4")]
 			for key, val in vals:
 				db[key] = val

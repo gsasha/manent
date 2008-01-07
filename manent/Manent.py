@@ -13,17 +13,17 @@ import sys, os, os.path, stat
 import pickle
 
 # we need everything because we still use pickle
-from manent.Backup import Backup
-from manent.Config import *
+import manent.Backup as Backup
+import manent.Config as Config
 
-config = GlobalConfig()
+config = Config.GlobalConfig()
 config.load()
 
 #
 #  Print help message
 #
 if (len(sys.argv)==1) or (sys.argv[1]=="help"):
-	print "Possible commands: create, backup, info, restore"
+	print "Possible commands: create, configure, backup, info, restore"
 	print "Available accounts:"
 	for label in config.list_backups():
 		print "  ", label
@@ -33,34 +33,26 @@ if (len(sys.argv)==1) or (sys.argv[1]=="help"):
 #
 elif sys.argv[1] == "create":
 	label = sys.argv[2]
-	dataPath = sys.argv[3]
-	containerType = sys.argv[4]
-	containerParams = sys.argv[5:]
 
 	if config.has_backup(label):
 		print "Backup config", label, "already exists"
 		sys.exit(0)
-	backup = config.create_backup(label,dataPath,containerType,containerParams)
-	
+	backup = config.create_backup(label)
+
 	config.save()
 	config.close()
 #
 # Reconstruct the backup set from medias
 #
-elif sys.argv[1] == "reconstruct":
-	label = sys.argv[2]
-	dataPath = sys.argv[3]
-	containerType = sys.argv[4]
-	containerParams = sys.argv[5:]
-
-	if config.has_backup(label):
-		print "Backup config", label, "already exists"
+elif sys.argv[1] == "configure":
+	if not config.has_backup(label):
+		print "Backup config", label, "does not exist"
 		sys.exit(0)
-	backup = config.reconstruct_backup(label,dataPath,containerType,containerParams)
+	backup = config.load_backup(label)
+	backup.configure(argv[2:])
 
 	config.save()
 	config.close()
-
 #
 #  Do the backup
 #

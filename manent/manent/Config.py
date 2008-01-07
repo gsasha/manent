@@ -39,35 +39,16 @@ import manent.utils.IntegerEncodings as IntegerEncodings
 # The information will be stored in the following databases:
 # ~/.manent/config.db:global: the global configuration
 #   backups=<list of backups>
-#   exclusions=<list of exclusion rule names> (names are auto-generated)
-#   exclusion.$name.pattern=<pattern of the rule>
-#   exclusion.$name.acion=include|exclude
 #
-# ~/.manent/config.db:backup.$backupName: config data for backup $backupName
 # The lists of names are stored as arrays of strings.
 class GlobalConfig:
 	def __init__(self):
-		self.config = ConfigParser.ConfigParser()
+		self.config_parser = ConfigParser.ConfigParser()
 		self.open_backups = []
 
 		self.staging_area_exists = False
 		self.home_area_exists = False
 
-		self.excludes_list = None
-
-	#
-	# Filesystem config
-	#
-	def container_file_name(self,label,index):
-		return "manent.%s.%s" % (label,IntegerEncodings.ascii_encode_int_varlen(index))
-	def container_index(self,name,label,suffix):
-		file_regexp = "^manent\\.%s\\.(\w\w+)%s$"%(label,suffix)
-		match = re.match(file_regexp, name)
-		if not match:
-			return None
-		index = IntegerEncodings.ascii_decode_int_varlen(match.group(1))
-		return index
-	
 	def home_area(self):
 		if os.name == "nt":
 			path = os.path.join(os.environ["APPDATA"], "manent")
@@ -77,53 +58,6 @@ class GlobalConfig:
 			os.mkdir(path)
 			self.home_area_exists = True
 		return path
-
-	def excludes(self):
-		"""
-		Hardcode several paths that we really don't want to backup.
-		Must do more extensive work later, using an explicit filter
-		"""
-		if self.excludes_list != None:
-			return self.excludes_list
-
-		def prefix_check_maker(prefix):
-			"""
-			Generator function that builds a single prefix checker
-			"""
-			def prefix_checker(s):
-				return s.startswith(prefix)
-			return prefix_checker
-		
-		def regexp_check_maker(pattern):
-			"""
-			Generator function that builds a single path checker
-			"""
-			regexp = re.compile(pattern)
-			def match_checker(s):
-				return regexp.match(s)
-			return match_checker
-		
-		if os.name == "nt":
-			base = os.environ["APPDATA"]
-		else:
-			base = os.environ["HOME"]
-
-		cp = ConfigParser.ConfigParser()
-		cp.read([os.path.join(self.home_area(),"excludes")])
-
-		def is_relative(pat):
-			if os.name == "nt":
-				return re.match("\w:",pat)
-			else:
-				return pat.startswith("/")
-
-		#
-		# Home are is always excluded from backups!
-		# TODO: replace prefixes and regexps by fnmatch
-		#
-		self.excludes_list = [prefix_check_maker(self.home_area())]
-
-		return self.excludes_list
 
 	def staging_area(self):
 		if os.name == "nt":
@@ -139,9 +73,12 @@ class GlobalConfig:
 	# Configuration persistence
 	#
 	def load(self):
-		self.backups_config.read(self.home_area()+"/backups.ini"))
+		self.config_parser.read(self.home_area()+"/config.ini")
+		if not self.config_parser.has_section("backups"):
+			self.config_parser.add_section("backups")
+			self.config_parser.set("backups", "labels", "")
 	def save(self):
-		self.config_parser.write(open(self.home_area()+"/backups.ini","w"))
+		self.config_parser.write(open(self.home_area()+"/config.ini", "w"))
 		for backup in self.open_backups:
 			# Save the data for the backup
 			pass
@@ -150,61 +87,39 @@ class GlobalConfig:
 		#	backup.close()
 		pass
 	
-	def create_backup(self,label,root):
-		if self.backups_config.has_section("backups/"+label):
+	def create_backup(self, label):
+		if self.config_parser.has_section("backups/" + label):
 			raise "Backup %s already exists"%label
 
-		print "Creating backup label[%s] path[%s]"%(label, root)
-		backup = Backup.Backup(self,label)
-		backup.configure(root)
+		print "Creating backup label[%s]"%(label)
+		backup = Backup.Backup(self, label)
 		self.open_backups.append(backup)
 		
 		return backup
-	def load_backup(self,label):
-		backup_prefix = "backups/"+label
+	def load_backup(self, label):
+		backup_prefix = "backups/" + label
 		if not self.config.has_section(backup_prefix):
 			raise "Backup %s does not exist"%label
 		
-		backup = Backup.Backup(self,label)
+		backup = Backup.Backup(self, label)
 		self.open_backups.append(backup)
 		
-		data_root = self.config.get(backup_prefix,"data_root")
-		for section in self.config.sections():
-			if section.startswith(backup_prefix+"/excludes"):
-				self.load_backup_excludes(backup,section)
-			if section.startswith(backup_prefix+"/storages/"):
-				self.load_backup_storages(backup,section)
 		return backup
-	def save_backup(self,backup):
+	def save_backup(self, backup):
 		# Remove and re-create the section to make sure it's empty
-		for section in self.config.sections():
-			if section.startswith("backups/"+backup.get_label):
-				section.remove
 		self.config.remove_section(backup.get_label())
 		self.config.add_section(backup.get_label())
-	def load_backup_excludes(self,backup,section):
-		for key,value in sorted(self.config.items(section)):
-			if key.endswith("exclude_regexp"):
-				backup.add_exclude_regexp(value)
-			elif key.endswith("include_regexp"):
-				backup.add_include_regexp(value)
-			elif key.endswith("exclude"):
-				backup.add_exclude(value)
-			elif key.endswith("include"):
-				backup.add_include(value)
-	def save_backup
 	def remove_backup(self,label):
-		if not self.backups.has_key(label):
+		if not self.backups.has_section("backups/" + backup.get_label()):
 			raise "Backup %s does not exist"%label
-		backup = Backup.Backup(self,label)
+		backup = Backup.Backup(self, label)
 		backup.remove()
-		del self.backups[label]
 		
 	def has_backup(self,label):
-		return self.backups.has_key("backups/"+label)
+		return self.config_parser.has_section("backups/"+label)
 	def list_backups(self):
 		for key in self.backups_config.sections():
-			match = re.match("backups/([^/]+)",key)
+			match = re.match("backups/([^/]+)", key)
 			if match:
 				print "Backup", match.group(1)
 		return self.backups.keys()
