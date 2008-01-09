@@ -1,7 +1,7 @@
 import unittest
 
 import manent.Increment as Increment
-import manent.IncrementDatabase as IncrementDatabase
+import manent.IncrementManager as IncrementManager
 import manent.utils.Digest as Digest
 
 import Mock
@@ -56,7 +56,7 @@ class TestIncrement(unittest.TestCase):
 		#
 		# Create one increment and see that it produces correct basis
 		#
-		idb = IncrementDatabase.IncrementDatabase(blockDB,db)
+		idb = IncrementManager.IncrementManager(blockDB,db)
 		bases1 = idb.start_increment("test increment 1")
 		self.assertEqual(bases1,[])
 		
@@ -75,13 +75,13 @@ class TestIncrement(unittest.TestCase):
 		# Emulate restart of the program: IncrementDB is recreated from
 		# the databases
 		#
-		idb = IncrementDatabase.IncrementDatabase(blockDB,db)
+		idb = IncrementManager.IncrementManager(blockDB,db)
 		bases3 = idb.start_increment("test increment 3")
 		self.assertEqual(bases3,[fs1_digest,fs3_digest])
 
 		fs4_digest = Digest.dataDigest("data4")
 		idb.dump_intermediate(fs4_digest)
 		
-		idb = IncrementDatabase.IncrementDatabase(blockDB,db)
+		idb = IncrementManager.IncrementManager(blockDB,db)
 		bases4 = idb.start_increment("test increment 4")
 		self.assertEqual(bases4,[fs1_digest,fs3_digest,fs4_digest])

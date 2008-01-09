@@ -30,19 +30,6 @@ class Backup:
 		self.db_manager = Database.DatabaseManager(self.global_config,
 			self.label)
 		self.txn_handler = Database.TransactionHandler(self.db_manager)
-		self.config_db = self.db_manager.get_database_btree( "config.db",
-			"data", self.txn_handler)
-		
-		self.storage_manager = StorageManager.StorageManager(self.db_manager,
-			self.txn_handler)
-		self.block_manager = BlockManager.BlockManager(self.db_manager,
-			self.txn_handler, self.storage_manager)
-		self.increment_manager = IncrementManager.IncrementManager(
-			self.db_manager, self.txn_handler, self.block_manager)
-		# TODO: should not load storages on initialization, only on meaningful
-		# operations
-		self.storage_manager.load_storages(None)
-		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(self)
 	#
 	# Two initialization methods:
 	# Creation of new backup, loading from live DB
@@ -95,8 +82,10 @@ class Backup:
 	#
 	def scan(self, comment):
 		try:
+			print "Opening all"
 			self.__open_all()
 
+			print "Opening all done"
 			base_fs_digests = self.increment_manager.start_increment(comment)
 			prev_nums = [(None, None, digest) for digest in base_fs_digests]
 			root = Nodes.Directory(self, None, self.data_path)
@@ -163,13 +152,18 @@ class Backup:
 			self.__close_all()
 	
 	def __open_all(self):
-		self.shared_db = self.db_manager.get_database(".shared", self.txn_handler)
+		self.config_db = self.db_manager.get_database_btree( "config.db",
+			"data", self.txn_handler)
 		self.storage_manager = StorageManager.StorageManager(self.db_manager,
-			storages, active_storage)
+			self.txn_handler)
 		self.block_manager = BlockManager.BlockManager(self.db_manager,
-			self.storage_manager)
+			self.txn_handler, self.storage_manager)
 		self.increment_manager = IncrementManager.IncrementManager(
-			self.storage_manager, self.shared_db)
+			self.db_manager, self.txn_handler, self.block_manager)
+		# TODO: should not load storages on initialization, only on meaningful
+		# operations
+		self.storage_manager.load_storages(None)
+		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(self)
 	
 	def __close_all(self):
 		self.increment_manager.close()
