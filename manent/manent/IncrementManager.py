@@ -1,3 +1,4 @@
+import base64
 import re
 
 import Increment
@@ -77,9 +78,10 @@ class IncrementManager:
 
 		return selected_increment_fs_digests
 	
-	def finalize_increment(self,digest):
+	def finalize_increment(self, digest):
 		assert self.active_increment is not None
 
+		print "Finalizing increment", self.active_increment.index, "to", base64.b64encode(digest)
 		inc_digest = self.active_increment.finalize(digest)
 		self.active_increment = None
 		return inc_digest

@@ -98,6 +98,7 @@ class Backup:
 			
 			# Upload the special data to the containers
 			self.increment_manager.finalize_increment(root.get_digest())
+			self.storage_manager.flush()
 			
 			self.txn_handler.commit()
 		except:

@@ -8,10 +8,10 @@ import traceback
 import Container
 import utils.IntegerEncodings as IE
 
-HEADER_EXT = "mnnh"
-HEADER_EXT_TMP = "mnnhtmp"
-BODY_EXT = "mnnb"
-BODY_EXT_TMP = "mnnbtmp"
+HEADER_EXT = "mhdr"
+HEADER_EXT_TMP = "mah-tmp"
+BODY_EXT = "mbdy"
+BODY_EXT_TMP = "mab-tmp"
 
 def _instantiate(config_db, storage_type, index):
 	if storage_type == "directory":
