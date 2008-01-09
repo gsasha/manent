@@ -88,8 +88,7 @@ class Backup:
 			print "Opening all done"
 			base_fs_digests = self.increment_manager.start_increment(comment)
 			prev_nums = [(None, None, digest) for digest in base_fs_digests]
-			root = Nodes.Directory(self, None, self.data_path)
-			root.set_num(ctx.next_number())
+			root = Nodes.Directory(self, None, self.config_db['data_path'])
 			ctx = ScanContext(self, root)
 			
 			root.scan(ctx, prev_nums)
@@ -159,7 +158,8 @@ class Backup:
 		self.block_manager = BlockManager.BlockManager(self.db_manager,
 			self.txn_handler, self.storage_manager)
 		self.increment_manager = IncrementManager.IncrementManager(
-			self.db_manager, self.txn_handler, self.block_manager)
+			self.db_manager, self.txn_handler, self.block_manager,
+			self.storage_manager)
 		# TODO: should not load storages on initialization, only on meaningful
 		# operations
 		self.storage_manager.load_storages(None)

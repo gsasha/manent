@@ -207,7 +207,7 @@ class File(Node):
 	#
 	# Scanning and restoring
 	#
-	def scan(self,ctx,prev_nums):
+	def scan(self, ctx, prev_nums):
 		#
 		# Check if we have encountered this file during this scan already
 		#
@@ -282,11 +282,11 @@ class File(Node):
 # CLASS:Symlink
 #--------------------------------------------------------
 class Symlink(Node):
-	def __init__(self,backup,parent,name):
-		Node.__init__(self,backup,parent,name)
+	def __init__(self, backup, parent, name):
+		Node.__init__(self, backup, parent, name)
 	def get_type(self):
 		return NODE_TYPE_SYMLINK
-	def scan(self,ctx,prev_nums):
+	def scan(self, ctx, prev_nums):
 		if self.scan_hlink(ctx):
 			return
 
@@ -372,12 +372,12 @@ class Directory(Node):
 
 			try:
 				if stat.S_ISLNK(file_mode):
-					node = Symlink(self.backup,self,name)
+					node = Symlink(self.backup, self, name)
 					node.compute_stats()
-					node.scan(ctx,cur_prev)
+					node.scan(ctx, cur_prev)
 					self.children.append(node)
 				elif stat.S_ISREG(file_mode):
-					node = File(self.backup,self,name)
+					node = File(self.backup, self, name)
 					node.compute_stats()
 					node.scan(ctx,cur_prev)
 					self.children.append(node)
@@ -387,7 +387,7 @@ class Directory(Node):
 				print "OSError accessing", path
 				traceback.print_exc()
 			except IOError, (errno, strerror):
-				print "IOError %s accessing '%s'" % (errno,strerror), path
+				print "IOError %s accessing '%s'" % (errno, strerror), path
 				traceback.print_exc()
 
 		for name in exclusion_processor.get_included_dirs():
@@ -425,7 +425,7 @@ class Directory(Node):
 		if self.digest != last_digest:
 			#print "changed node", self.path()
 			ctx.changed_nodes += 1
-	def flush(self,ctx):
+	def flush(self, ctx):
 		"""
 		Flush the contents of the current node.
 		Called when a container is completed.
@@ -441,11 +441,11 @@ class Directory(Node):
 		if dirty:
 			self.write(ctx)
 
-	def write(self,ctx):
+	def write(self, ctx):
 		"""
 		Write the info of the current dir to database
 		"""
-		packer = PackerStream.PackerOStream(self.backup,Container.CODE_DIR)
+		packer = PackerStream.PackerOStream(self.backup, Container.CODE_DIR)
 		# sorting is an optimization to make everybody access files in the same order,
 		# TODO: measure if this really makes things faster (probably will with a btree db)
 		for child in self.children:
@@ -457,18 +457,18 @@ class Directory(Node):
 		
 		self.digest = packer.get_digest()
 		
-	def restore(self,ctx):
+	def restore(self, ctx):
 		if self.parent != None:
 			os.mkdir(self.path())
 
-		packer = PackerStream.PackerIStream(self.backup,self.get_digest())
-		for (node_type,node_name,node_stat,node_digest) in self.read_directory_entries(packer):
+		packer = PackerStream.PackerIStream(self.backup, self.get_digest())
+		for (node_type, node_name, node_stat, node_digest) in self.read_directory_entries(packer):
 			if node_type == NODE_TYPE_DIR:
-				node = Directory(self.backup,self,node_name)
+				node = Directory(self.backup, self, node_name)
 			elif node_type == NODE_TYPE_FILE:
-				node = File(self.backup,self,node_name)
+				node = File(self.backup, self, node_name)
 			elif node_type == NODE_TYPE_SYMLINK:
-				node = Symlink(self.backup,self,node_name)
+				node = Symlink(self.backup, self, node_name)
 			else:
 				raise Exception("Unknown node type [%s]"%node_type)
 			node.set_stats(node_stat)

@@ -6,8 +6,9 @@ import utils.IntegerEncodings as IE
 # TODO: reconstruction of IncrementManager
 
 class IncrementManager:
-	def __init__(self, db_manager, txn_handler, block_manager):
+	def __init__(self, db_manager, txn_handler, block_manager, storage_manager):
 		self.block_manager = block_manager
+		self.storage_manager = storage_manager
 		self.config_db = db_manager.get_database_btree("config.db", "increments",
 			txn_handler)
 		
@@ -46,9 +47,9 @@ class IncrementManager:
 		#
 		selected_increment_fs_digests = []
 		
-		for storage_index,increments in found_increments.iteritems():
+		for storage_index, increments in found_increments.iteritems():
 			selected_increments = []
-			for index,finalized in sorted(increments):
+			for index, finalized in sorted(increments):
 				if finalized:
 					selected_increments = [index]
 				else:
@@ -61,9 +62,9 @@ class IncrementManager:
 		#
 		# Create the new active increment
 		#
-		storage_index = self.block_manager.get_active_storage_index()
+		storage_index = self.storage_manager.get_active_storage_index()
 		if found_increments.has_key(storage_index):
-			last_index,last_finalized = sorted(found_increments[storage_index])[-1]
+			last_index, last_finalized = sorted(found_increments[storage_index])[-1]
 			next_index = last_index+1
 		else:
 			next_index = 0
@@ -94,12 +95,13 @@ class IncrementManager:
 	def reconstruct(self):
 		class Handler:
 			"""Handler reports all increment-related data"""
-			def __init__(self,idb):
-				self.idb = idb
-			def block_loaded(self,digest,data,code):
+			def __init__(self, increment_manager):
+				self.increment_manager = increment_manager
+			def block_loaded(self, digest, data, code):
 				if code != CODE_INCREMENT_DESCRIPTOR:
 					return
-				increment = Increment.Increment(self.idb, self.idb.block_manager, self.idb.db)
+				increment = Increment.Increment(self.increment_manager,
+					self.increment_manager.block_manager, self.increment_manager.db)
 				increment.reconstruct(digest)
 		
 		handler = Handler(self)
