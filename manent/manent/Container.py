@@ -454,7 +454,7 @@ class Container:
 		if self.compression_active:
 			self.body_dumper.stop_compression()
 			self.compression_active = False
-	def can_add(self,data):
+	def can_add(self, data):
 		# MAX_COMPRESSED_DATA is a safeguard for compressed data which was not yet
 		# put into the output
 		# 64 is for the header of the header

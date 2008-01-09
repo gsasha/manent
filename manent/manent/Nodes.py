@@ -208,6 +208,7 @@ class File(Node):
 	# Scanning and restoring
 	#
 	def scan(self, ctx, prev_nums):
+		print "Scanning file     :", self.path()
 		#
 		# Check if we have encountered this file during this scan already
 		#
@@ -326,6 +327,7 @@ class Directory(Node):
 	def scan(self, ctx, prev_nums, exclusion_processor):
 		"""Scan the node, considering data in all the previous increments
 		"""
+		print "Scanning directory", self.path()
 		#
 		# Process data from previous increments.
 		#
@@ -362,7 +364,7 @@ class Directory(Node):
 		#print "starting scan for", self.path()
 		exclusion_processor.filter_files()
 		for name in exclusion_processor.get_included_files():
-			path = os.path.join(self.path(),name)
+			path = os.path.join(self.path(), name)
 			file_mode = os.lstat(path)[stat.ST_MODE]
 
 			if prev_name_data.has_key(name):

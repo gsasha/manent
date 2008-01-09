@@ -190,7 +190,7 @@ class StorageManager:
 		#
 		if self.current_open_container is None:
 			self.current_open_container = storage.create_container()
-		elif not self.current_open_container.can_add_block(digest, code, data):
+		elif not self.current_open_container.can_add(data):
 			self._write_container(self.current_open_container)
 			self.current_open_container = storage.create_container()
 		#
