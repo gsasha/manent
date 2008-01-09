@@ -174,6 +174,8 @@ class Backup:
 		self.block_manager.add_block(digest, code, data)
 	def load_block(self, digest):
 		return self.block_manager.load_block(digest)
+	def get_block_code(self, digest):
+		return self.block_manager.get_block_code(digest)
 
 	def __close_all(self):
 		self.increment_manager.close()

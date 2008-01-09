@@ -61,7 +61,7 @@ class PackerDigestLister:
 			if first_digest == '':
 				break
 			cur_reader.unread(first_digest)
-			if Container.is_packer_code(self.backup.block_code(first_digest)):
+			if Container.is_packer_code(self.backup.get_block_code(first_digest)):
 				# Need one more level of reading
 				cur_reader = BlockReaderIStream(self.backup, cur_reader)
 			else:
