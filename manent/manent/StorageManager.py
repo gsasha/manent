@@ -184,6 +184,9 @@ class StorageManager:
 	def close(self):
 		self.block_container_db.close()
 	def add_block(self, digest, code, data):
+		if self.block_container_db.has_key(digest):
+			return
+
 		storage = self.storages[self.active_storage_idx]
 		#
 		# Make sure we have a container that can take this block
