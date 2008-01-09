@@ -42,8 +42,9 @@ class PrivateDatabaseManager:
 
 # The normal database manager class
 class DatabaseManager:
-	def __init__(self, global_config):
+	def __init__(self, global_config, db_file_prefix):
 		self.global_config = global_config
+		self.db_file_prefix = db_file_prefix
 		
 		self.open_dbs = {}
 		self.scratch_dbs = {}
@@ -125,9 +126,11 @@ class DatabaseManager:
 		return home_area
 	
 	def __db_fname(self, filename):
-		return os.path.join(self.global_config.home_area(), filename)
+		return os.path.join(self.global_config.home_area(),
+			os.path.join(self.db_file_prefix, filename))
 	def __scratch_db_fname(self, filename):
-		return os.path.join(self.global_config.staging_area(), filename)
+		return os.path.join(self.global_config.staging_area(),
+			os.path.join(self.db_file_prefix, filename))
 
 class TransactionHandler:
 	"""

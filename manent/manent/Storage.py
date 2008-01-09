@@ -27,8 +27,8 @@ def _instantiate(config_db, storage_type, index):
 	else:
 		raise Exception("Unknown storage_type type" + storage_type)
 	
-def create_storage(config_db, storage_type, index, params,
-		new_container_handler):
+def create_storage(config_db, index, params, new_container_handler):
+	storage_type = params['type']
 	config_db["STORAGE.TYPE.%d" % index] = storage_type
 	storage = _instantiate(config_db, storage_type, index)
 	storage.configure(params, new_container_handler)
@@ -58,6 +58,7 @@ class Storage:
 	def configure(self, config, new_container_handler):
 		for key, val in config.iteritems():
 			self.config_db[self._key('CONFIG.'+key)] = val
+			print "setting config_db[%s]=%s" % (self._key('CONFIG.'+key), val)
 		
 		self.config = config
 		self.load_sequences(new_container_handler)
@@ -66,6 +67,7 @@ class Storage:
 		self.load_sequences(new_container_handler)
 	def get_config(self):
 		PREFIX = self._key('CONFIG.')
+		print "Getting config, prefix=", PREFIX
 		PREFIX_len = len(PREFIX)
 		config = {}
 		for key, val in self.config_db.iteritems_prefix(PREFIX):
@@ -128,6 +130,8 @@ class Storage:
 					new_body_files[(seq_id, index)] = 1
 		for file in container_files:
 			seq_id, index, extension = self.decode_container_name(file)
+			if seq_id is None:
+				continue
 			if seq_id == self.active_sequence_id and index >= self.active_sequence_next_index:
 				raise Exception("Unexpected container: nobody else should be adding " +
 			                    "containers to this sequence")
@@ -303,9 +307,11 @@ class DirectoryStorage(Storage):
 	def __init__(self, index, config_db):
 		Storage.__init__(self, index, config_db)
 	def configure(self, params, new_container_handler):
+		print "Configuring directory storage with parameters", params
 		Storage.configure(self, params, new_container_handler)
 	def load_configuration(self, new_container_handler):
 		Storage.load_configuration(self, new_container_handler)
+		print "Loaded directory storage configuration", self.config
 	def get_path(self):
 		return self.config["path"]
 	def container_size(self):

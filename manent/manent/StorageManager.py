@@ -28,9 +28,13 @@ class StorageManager:
 	
 	storage idxs are stored in the config_db["storage_idxs"]
 	"""
-	def __init__(self, config_db, block_container_db):
-		self.config_db = config_db
-		self.block_container_db = block_container_db
+	def __init__(self, db_manager, txn_manager):
+		self.db_manager = db_manager
+		self.txn_manager = txn_manager
+		self.config_db = db_manager.get_database_btree("config.db", "storage",
+			txn_manager)
+		self.block_container_db = db_manager.get_database_hash("storage.db",
+			"blocks", txn_manager)
 		self.current_open_container = None
 		
 		# Mapping of storage sequences to indices and vice versa
@@ -110,7 +114,7 @@ class StorageManager:
 				container.load_header()
 				container.load_body()
 				container.load_blocks(block_handler)
-	def add_storage(self, storage_type, storage_params, new_block_handler):
+	def add_storage(self, storage_params, new_block_handler):
 		# When we add a storage, the following algorithm is executed:
 		# 1. If the storage is already in the shared db, it is just added
 		# 2. If the storage is not in the shared db, the storage location
@@ -124,8 +128,8 @@ class StorageManager:
 		self.write_storage_idxs(self.get_storage_idxs() + [storage_idx])
 
 		handler = StorageManager.NewContainerHandler(self, new_block_handler)
-		storage = Storage.create_storage(self.config_db, storage_type,
-			storage_idx, storage_params, handler)
+		storage = Storage.create_storage(self.config_db, storage_idx,
+			storage_params, handler)
 		self.storages[storage_idx] = storage
 		handler.process_new_containers()
 		return storage_idx

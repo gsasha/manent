@@ -12,11 +12,13 @@ class BlockManager:
 		# These two databases are scratch-only, so they don't need to reliably
 		# survive through program restarts
 		self.requested_blocks = self.db_manager.get_scratch_database(
-			"scratch-requested-blocks")
+			"scratch-requested-blocks", None)
 		self.loaded_blocks = self.db_manager.get_scratch_database(
-			"scratch-data-blocks")
-		self.cached_blocks = self.db_manager.get_database("cached-blocks", self.txn_handler)
-		self.block_types = self.db_manager.get_database("block-types", self.txn_handler)
+			"scratch-data-blocks", None)
+		self.cached_blocks = self.db_manager.get_database("cached-blocks",
+			None, self.txn_handler)
+		self.block_types = self.db_manager.get_database("block-types",
+			None, self.txn_handler)
 		#
 		# It is possible that the program was terminated before the scratch
 		# cache was removed. In that case, it contains junk data

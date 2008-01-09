@@ -18,45 +18,59 @@ class Backup:
 		self.label = label
 
 		try:
-			os.mkdir(os.path.join(global_config.home_area(), self.label))
+			os.makedirs(os.path.join(global_config.home_area(), self.label))
 		except:
 			# It's OK to fail, if the directory already exists
 			pass
-		self.db_manager = Database.DatabaseManager(self.global_config)
+		try:
+			os.makedirs(os.path.join(global_config.staging_area(), self.label))
+		except:
+			# It's OK to fail, if the directory already exists
+			pass
+		self.db_manager = Database.DatabaseManager(self.global_config,
+			self.label)
 		self.txn_handler = Database.TransactionHandler(self.db_manager)
-		self.global_config_db = self.db_manager.get_database(
-			os.path.join(self.label, "config.db"), "global_config", self.txn_handler)
-		self.config_db = self.db_manager.get_database(
-			os.path.join(self.label, "config.db"), "data", self.txn_handler)
-		self.storage_blocks_db = self.db_manager.get_database_btree(
-			os.path.join(self.label, "storage.db"), "blocks", self.txn_handler)
+		self.config_db = self.db_manager.get_database_btree( "config.db",
+			"data", self.txn_handler)
 		
-		self.storage_manager = StorageManager.StorageManager(self.config_db,
-			self.storage_blocks_db)
+		self.storage_manager = StorageManager.StorageManager(self.db_manager,
+			self.txn_handler)
+		self.block_manager = BlockManager.BlockManager(self.db_manager,
+			self.txn_handler, self.storage_manager)
+		self.increment_database = IncrementDatabase.IncrementDatabase(
+			self.db_manager, self.txn_handler, self.block_manager)
+		# TODO: should not load storages on initialization, only on meaningful
+		# operations
+		self.storage_manager.load_storages(None)
 		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(self)
 	#
 	# Two initialization methods:
 	# Creation of new backup, loading from live DB
 	#
-	def create(self, data_path):
-		assert not self.private_config_db.has_key("data_path")
-		self.data_path = data_path
-		self.private_config_db["data_path"] = data_path
+	def configure(self, args):
+		params = {}
+		for kv in args[1:]:
+			key, value = kv.split("=")
+			params[key] = value
+		if args[0] == 'show':
+			for k, v in self.config_db.iteritems():
+				print k, '=', v
+		elif args[0] == 'set':
+			if params.has_key('data_path'):
+				self.config_db['data_path'] = params['data_path']
+		elif args[0] == 'exclusions':
+			pass
+		elif args[0] == 'add_storage':
+			storage_idx = self.storage_manager.add_storage(params, None)
+			self.storage_manager.make_active_storage(storage_idx)
+		elif args[0] == 'add_base_storage':
+			self.storage_manager.add_storage(params)
+		self.txn_handler.commit()
+
 	def load(self):
-		self.data_path = self.private_config_db["data_path"]
+		self.data_path = self.config_db["data_path"]
 		self.storage_manager.load()
 		self.exclusion_processor.load()
-		
-	# Storage configuration
-	def add_base_storage(self, storage_params):
-		self.storage_manager.add_storage(storage_params)
-	def add_main_storage(self, storage_params):
-		storage_idx = self.storage_manager.add_storage(storage_params)
-		self.storage_manager.make_active_storage(storage_idx)
-
-	# Exclusion configuration
-	def add_exclusion_rule(self, action, pattern):
-		self.exclusion_processor.add_rule(action, pattern)
 	
 	def remove(self):
 		print "Removing backup", self.label

@@ -74,9 +74,6 @@ class GlobalConfig:
 	#
 	def load(self):
 		self.config_parser.read(self.home_area()+"/config.ini")
-		if not self.config_parser.has_section("backups"):
-			self.config_parser.add_section("backups")
-			self.config_parser.set("backups", "labels", "")
 	def save(self):
 		self.config_parser.write(open(self.home_area()+"/config.ini", "w"))
 		for backup in self.open_backups:
@@ -88,29 +85,25 @@ class GlobalConfig:
 		pass
 	
 	def create_backup(self, label):
-		if self.config_parser.has_section("backups/" + label):
+		if self.has_backup(label):
 			raise "Backup %s already exists"%label
 
 		print "Creating backup label[%s]"%(label)
 		backup = Backup.Backup(self, label)
 		self.open_backups.append(backup)
+		self.config_parser.add_section("backups/" + label)
 		
 		return backup
 	def load_backup(self, label):
-		backup_prefix = "backups/" + label
-		if not self.config.has_section(backup_prefix):
+		if not self.has_backup(label):
 			raise "Backup %s does not exist"%label
 		
 		backup = Backup.Backup(self, label)
 		self.open_backups.append(backup)
 		
 		return backup
-	def save_backup(self, backup):
-		# Remove and re-create the section to make sure it's empty
-		self.config.remove_section(backup.get_label())
-		self.config.add_section(backup.get_label())
-	def remove_backup(self,label):
-		if not self.backups.has_section("backups/" + backup.get_label()):
+	def remove_backup(self, label):
+		if not self.has_backup(label):
 			raise "Backup %s does not exist"%label
 		backup = Backup.Backup(self, label)
 		backup.remove()

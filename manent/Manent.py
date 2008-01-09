@@ -45,11 +45,12 @@ elif sys.argv[1] == "create":
 # Reconstruct the backup set from medias
 #
 elif sys.argv[1] == "configure":
+	label = sys.argv[2]
 	if not config.has_backup(label):
 		print "Backup config", label, "does not exist"
 		sys.exit(0)
 	backup = config.load_backup(label)
-	backup.configure(argv[2:])
+	backup.configure(sys.argv[3:])
 
 	config.save()
 	config.close()
@@ -60,7 +61,7 @@ elif sys.argv[1] == "backup":
 	label = sys.argv[2]
 
 	backup = config.load_backup(label)
-	backup.scan()
+	backup.scan("stam")
 	
 	config.save()
 	config.close()

@@ -6,9 +6,10 @@ import utils.IntegerEncodings as IE
 # TODO: reconstruction of IncrementDatabase
 
 class IncrementDatabase:
-	def __init__(self,block_database,db):
-		self.block_database = block_database
-		self.db = db
+	def __init__(self, db_manager, txn_handler, block_manager):
+		self.block_manager = block_manager
+		self.config_db = db_manager.get_database_btree("config.db", "increments",
+			txn_handler)
 		
 		self.active_increment = None
 		self.previous_increment = None
@@ -29,7 +30,7 @@ class IncrementDatabase:
 		# data to memory
 		#
 		increment_rexp = re.compile('Increment.([^\.]+).([^\.]+).finalized')
-		for key,value in self.db.iteritems():
+		for key, value in self.config_db.iteritems():
 			if key.startswith('Increment') and key.endswith('finalized'):
 				match = increment_rexp.match(key)
 				storage_index = IE.ascii_decode_int_varlen(match.group(1))
@@ -53,21 +54,21 @@ class IncrementDatabase:
 				else:
 					selected_increments.append(index)
 			for index in selected_increments:
-				increment = Increment.Increment(self.block_database,self.db)
-				increment.load(storage_index,index)
+				increment = Increment.Increment(self.block_manager, self.config_db)
+				increment.load(storage_index, index)
 				selected_increment_fs_digests.append(increment.get_fs_digest())
 
 		#
 		# Create the new active increment
 		#
-		storage_index = self.block_database.get_active_storage_index()
+		storage_index = self.block_manager.get_active_storage_index()
 		if found_increments.has_key(storage_index):
 			last_index,last_finalized = sorted(found_increments[storage_index])[-1]
 			next_index = last_index+1
 		else:
 			next_index = 0
 			
-		self.active_increment = Increment.Increment(self.block_database,self.db)
+		self.active_increment = Increment.Increment(self.block_manager, self.config_db)
 		self.active_increment.start(storage_index,next_index,comment)
 
 		return selected_increment_fs_digests
@@ -79,7 +80,7 @@ class IncrementDatabase:
 		self.active_increment = None
 		return inc_digest
 		
-	def dump_intermediate(self,digest):
+	def dump_intermediate(self, digest):
 		"""
 		Replace the data of this increment with a new digest.
 		The current increment remains, with the same index.
@@ -98,8 +99,8 @@ class IncrementDatabase:
 			def block_loaded(self,digest,data,code):
 				if code != CODE_INCREMENT_DESCRIPTOR:
 					return
-				increment = Increment.Increment(self.idb,self.idb.block_database,self.idb.db)
+				increment = Increment.Increment(self.idb, self.idb.block_manager, self.idb.db)
 				increment.reconstruct(digest)
 		
 		handler = Handler(self)
-		self.block_database.reconstruct(handler)
+		self.block_manager.reconstruct(handler)
