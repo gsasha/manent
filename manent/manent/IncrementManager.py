@@ -3,9 +3,9 @@ import re
 import Increment
 import utils.IntegerEncodings as IE
 
-# TODO: reconstruction of IncrementDatabase
+# TODO: reconstruction of IncrementManager
 
-class IncrementDatabase:
+class IncrementManager:
 	def __init__(self, db_manager, txn_handler, block_manager):
 		self.block_manager = block_manager
 		self.config_db = db_manager.get_database_btree("config.db", "increments",

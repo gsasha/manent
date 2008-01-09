@@ -4,7 +4,7 @@ import traceback
 import BlockManager
 import Container
 import Database
-import IncrementDatabase
+import IncrementManager
 import Nodes
 import StorageManager
 import ExclusionProcessor
@@ -37,7 +37,7 @@ class Backup:
 			self.txn_handler)
 		self.block_manager = BlockManager.BlockManager(self.db_manager,
 			self.txn_handler, self.storage_manager)
-		self.increment_database = IncrementDatabase.IncrementDatabase(
+		self.increment_manager = IncrementManager.IncrementManager(
 			self.db_manager, self.txn_handler, self.block_manager)
 		# TODO: should not load storages on initialization, only on meaningful
 		# operations
@@ -97,7 +97,7 @@ class Backup:
 		try:
 			self.__open_all()
 
-			base_fs_digests = self.increment_database.start_increment(comment)
+			base_fs_digests = self.increment_manager.start_increment(comment)
 			prev_nums = [(None, None, digest) for digest in base_fs_digests]
 			root = Nodes.Directory(self, None, self.data_path)
 			root.set_num(ctx.next_number())
@@ -108,7 +108,7 @@ class Backup:
 			print "Diff from previous increments:", ctx.changed_nodes, "out of", ctx.total_nodes
 			
 			# Upload the special data to the containers
-			self.increment_database.finalize_increment(root.get_digest())
+			self.increment_manager.finalize_increment(root.get_digest())
 			
 			self.txn_handler.commit()
 		except:
@@ -126,7 +126,7 @@ class Backup:
 			self.__open_all()
 
 			if fs_digest is None:
-				fs_digest = self.increment_database.find_last_increment()
+				fs_digest = self.increment_manager.find_last_increment()
 			root_node = Nodes.Directory(self, None, target_path)
 			root_node.set_digest(fs_digest)
 
@@ -168,14 +168,14 @@ class Backup:
 			storages, active_storage)
 		self.block_manager = BlockManager.BlockManager(self.db_manager,
 			self.storage_manager)
-		self.increment_database = IncrementDatabase.IncrementDatabase(
+		self.increment_manager = IncrementManager.IncrementManager(
 			self.storage_manager, self.shared_db)
 	
 	def __close_all(self):
-		self.increment_database.close()
+		self.increment_manager.close()
 		self.block_manager.close()
 		self.storage_manager.close()
-		self.shared_db.close()
+		self.config_db.close()
 	
 #===============================================================================
 # ScanContext
