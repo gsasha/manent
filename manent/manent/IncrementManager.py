@@ -15,6 +15,9 @@ class IncrementManager:
 		self.active_increment = None
 		self.previous_increment = None
 
+	def close(self):
+		self.config_db.close()
+
 	def start_increment(self, comment):
 		assert self.active_increment is None
 

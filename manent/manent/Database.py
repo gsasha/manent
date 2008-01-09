@@ -112,13 +112,13 @@ class DatabaseManager:
 		d = db.DB(self.dbenv)
 		print "Removing database", filename, tablename
 		d.remove(full_fname, tablename)
-	def remove_scratch_database(self, tablename=None):
+	def remove_scratch_database(self, filename, tablename=None):
 		#
 		# Now actually delete the database file
 		#
-		fname = self.__scratch_db_fname(tablename)
+		print "Removing scratch database", filename, tablename
+		fname = self.__scratch_db_fname(filename)
 		d = db.DB(self.dbenv)
-		print "Removing scratch database", self.filename, tablename
 		d.remove(fname, tablename)
 	
 	def __dbenv_dir(self):
@@ -227,8 +227,8 @@ class DatabaseWrapper:
 		self.d.close()
 		self.d = None
 		if self.is_scratch:
-			self.db_manager.remove_scratch_database(self.dbname)
-		self.filename=None
+			self.db_manager.remove_scratch_database(self.filename)
+		self.filename = None
 	#
 	# Iteration support
 	#
