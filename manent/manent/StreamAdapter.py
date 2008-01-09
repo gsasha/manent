@@ -23,7 +23,7 @@ class IStreamAdapter:
 				block = self.read_block()
 				if len(block) == 0:
 					break
-				if size == None or len(block) <= (size-result_size):
+				if size == None or len(block) <= (size - result_size):
 					# Optimization: don't copy the data over to the stream
 					# if all of it is going to be used immediately
 					resultS.write(block)

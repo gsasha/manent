@@ -35,6 +35,7 @@ class Backup:
 	# Creation of new backup, loading from live DB
 	#
 	def configure(self, args):
+		self.__open_all()
 		params = {}
 		for kv in args[1:]:
 			key, value = kv.split("=")
@@ -91,7 +92,7 @@ class Backup:
 			root = Nodes.Directory(self, None, self.config_db['data_path'])
 			ctx = ScanContext(self, root)
 			
-			root.scan(ctx, prev_nums)
+			root.scan(ctx, prev_nums, self.exclusion_processor)
 
 			print "Diff from previous increments:", ctx.changed_nodes, "out of", ctx.total_nodes
 			
@@ -151,20 +152,27 @@ class Backup:
 			self.__close_all()
 	
 	def __open_all(self):
-		self.config_db = self.db_manager.get_database_btree( "config.db",
+		self.config_db = self.db_manager.get_database_btree("config.db",
 			"data", self.txn_handler)
 		self.storage_manager = StorageManager.StorageManager(self.db_manager,
 			self.txn_handler)
+		# TODO: should not load storages on initialization, only on meaningful
+		# operations
+		self.storage_manager.load_storages(None)
 		self.block_manager = BlockManager.BlockManager(self.db_manager,
 			self.txn_handler, self.storage_manager)
 		self.increment_manager = IncrementManager.IncrementManager(
 			self.db_manager, self.txn_handler, self.block_manager,
 			self.storage_manager)
-		# TODO: should not load storages on initialization, only on meaningful
-		# operations
-		self.storage_manager.load_storages(None)
-		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(self)
-	
+		print "DATA PATH", self.config_db['data_path']
+		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(
+			self.config_db['data_path'])
+
+	def get_block_size(self):
+		return self.storage_manager.get_block_size()
+	def add_block(self, digest, code, data):
+		self.block_manager.add_block(digest, code, data)
+
 	def __close_all(self):
 		self.increment_manager.close()
 		self.block_manager.close()

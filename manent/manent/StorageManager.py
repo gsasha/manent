@@ -175,6 +175,9 @@ class StorageManager:
 		return storage.get_active_sequence_id()
 	def get_active_storage_index(self):
 		return self.active_storage_idx
+	def get_block_size(self):
+		storage = self.storages[self.active_storage_idx]
+		return storage.get_block_size()
 	def load(self):
 		for storage_index in range(int(self.config_db[self._key("next_storage")])):
 			storage_type = self.config_db[self._key("storage.%d.type"%storage_index)]

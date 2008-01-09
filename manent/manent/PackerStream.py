@@ -9,7 +9,7 @@ class PackerOStream(StreamAdapter.OStreamAdapter):
 	This ostream writes its data to a stream of containers
 	"""
 	def __init__(self, backup, code):
-		StreamAdapter.OStreamAdapter.__init__(self, backup.blockSize())
+		StreamAdapter.OStreamAdapter.__init__(self, backup.get_block_size())
 		self.backup = backup
 		self.code = code
 		# The packer of a packer is a packer itself :)
@@ -23,7 +23,7 @@ class PackerOStream(StreamAdapter.OStreamAdapter):
 			self.rec_ostream.write(digest)
 		else:
 			self.digests.append(digest)
-			if Digest.dataDigestSize()*len(self.digests) > self.backup.blockSize():
+			if Digest.dataDigestSize()*len(self.digests) > self.backup.get_block_size():
 				self.rec_ostream = PackerOStream(self.backup, self.code_packer)
 				for digest in self.digests:
 					self.rec_ostream.write(digest)

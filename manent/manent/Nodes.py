@@ -145,7 +145,7 @@ class Node:
 	#
 	# Support for scanning in previous increments
 	#
-	def scan_prev(self,ctx,prev_nums):
+	def scan_prev(self, ctx, prev_nums):
 		"""
 		"""
 		ctx.total_nodes += 1
@@ -223,7 +223,7 @@ class File(Node):
 		# --- File not yet in database, process it
 		packer = PackerStream.PackerOStream(self.backup, Container.CODE_DATA)
 		for data in FileIO.read_blocks(open(self.path(), "rb"),
-			                    self.backup.container_config.blockSize()):
+			                    self.backup.get_block_size()):
 			packer.write(data)
 			
 		self.digest = packer.get_digest()

@@ -215,10 +215,10 @@ class Storage:
 	#
 	# Block parameters
 	#
-	def blockSize(self):
+	def get_block_size(self):
 		return 256*1024
 	
-	def compression_block_size(self):
+	def get_compression_block_size(self):
 		return 2*1024*1024
 
 
