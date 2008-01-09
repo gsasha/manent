@@ -51,7 +51,7 @@ class BlockReaderIStream(StreamAdapter.IStreamAdapter):
 		return self.backup.load_block(digest)
 
 class PackerDigestLister:
-	def __init__(self,backup,digest):
+	def __init__(self, backup, digest):
 		self.backup = backup
 
 		digest_stream = StringIO.StringIO(digest)

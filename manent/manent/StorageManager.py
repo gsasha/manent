@@ -204,6 +204,7 @@ class StorageManager:
 			self._write_container(self.current_open_container)
 			self.current_open_container = None
 	def _write_container(self, container):
+		print "Finalizing container", container.get_index()
 		container.finish_dump()
 		#
 		# Now we have container idx, update it in the blocks db
@@ -213,6 +214,7 @@ class StorageManager:
 		encoded = self._encode_block_info(seq_idx, container_idx)
 		for digest, code in container.list_blocks():
 			self.block_container_db[digest] = encoded
+		self.txn_manager.commit()
 	def load_block(self, digest, handler):
 		sequence_idx, container_idx = self._decode_block_info(
 			self.block_container_db[digest])

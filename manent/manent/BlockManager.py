@@ -17,7 +17,7 @@ class BlockManager:
 			"scratch-data-blocks", None)
 		self.cached_blocks = self.db_manager.get_database("cached-blocks",
 			None, self.txn_handler)
-		self.block_types = self.db_manager.get_database("block-types",
+		self.block_codes = self.db_manager.get_database("block-types",
 			None, self.txn_handler)
 		#
 		# It is possible that the program was terminated before the scratch
@@ -29,7 +29,7 @@ class BlockManager:
 		self.requested_blocks.close()
 		self.loaded_blocks.close()
 		self.cached_blocks.close()
-		self.block_types.close()
+		self.block_codes.close()
 	#
 	# Methods for the user side of the cache
 	#
@@ -49,7 +49,7 @@ class BlockManager:
 			# We store the block code only for blocks that are not DATA.
 			# The DATA blocks are the majority, and so  by not storing them,
 			# we save space in the database.
-			self.block_types[digest] = code
+			self.block_codes[digest] = code
 			self.cached_blocks[digest] = data
 	def load_block(self, digest):
 		"""
@@ -80,9 +80,9 @@ class BlockManager:
 					self.requested_blocks[digest] = str(refcount)
 			return data
 		raise Exception("Block neither cached nor loaded!!!")
-	def get_block_type(self, digest):
-		if self.block_types.has_key(digest):
-			return int(self.block_types[digest])
+	def get_block_code(self, digest):
+		if self.block_codes.has_key(digest):
+			return int(self.block_codes[digest])
 		else:
 			return Container.CODE_DATA
 		
@@ -101,8 +101,8 @@ class BlockLoadHandler:
 		return False
 	def loaded(self, digest, code, data):
 		# All non-DATA blocks go to cache. These blocks are identified
-		# by having their code in the block_types database
-		if self.block_manager.block_types.has_key(digest):
+		# by having their code in the block_codes database
+		if self.block_manager.block_codes.has_key(digest):
 			self.block_manager.cached_blocks[digest] = data
 		else:
 			self.block_manager.loaded_blocks[digest] = data
