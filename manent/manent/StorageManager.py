@@ -209,6 +209,7 @@ class StorageManager:
 	def _write_container(self, container):
 		print "Finalizing container", container.get_index()
 		container.finish_dump()
+		container.upload()
 		#
 		# Now we have container idx, update it in the blocks db
 		#

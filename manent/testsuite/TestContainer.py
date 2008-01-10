@@ -87,8 +87,9 @@ class MockStorage:
 		self.cur_index += 1
 		return container
 
-	def finalize_container(self,container):
+	def finalize_container(self, container):
 		container.finish_dump()
+		container.upload()
 
 	def upload_container(self, sequence_id, index, header_file, body_file):
 		# We know (in this test) that header file and body file are the same,

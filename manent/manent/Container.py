@@ -416,6 +416,9 @@ class Container:
 		self.body_blocks = []
 	def get_index(self):
 		return self.index
+	# Used for containers that were temporarily created
+	def override_index(self, index):
+		self.index = index
 	def get_sequence_id(self):
 		return self.sequence_id
 	def get_storage(self):
@@ -519,6 +522,7 @@ class Container:
 		header_dump_str = self.header_dump_os.getvalue()
 		self.header_file.write(header_dump_str)
 
+	def upload(self):
 		self.storage.upload_container(self.sequence_id, self.index,
 			self.header_file, self.body_file)
 		self.header_file = None

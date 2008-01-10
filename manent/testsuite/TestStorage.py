@@ -65,9 +65,11 @@ class TestStorage(unittest.TestCase):
 		seq_id1 = storage1.create_sequence()
 		container = storage1.create_container()
 		container.finish_dump()
+		container.upload()
 		seq_id2 = storage1.create_sequence()
 		container = storage1.create_container()
 		container.finish_dump()
+		container.upload()
 		# Create a new db to simulate a different machine
 		config_db2 = self.env.get_database_btree("b", None)
 		storage2 = Storage.DirectoryStorage(0, config_db2)
@@ -95,6 +97,7 @@ class TestStorage(unittest.TestCase):
 		block_digest = Digest.dataDigest(block)
 		container.add_block(block_digest, Container.CODE_DATA, block)
 		container.finish_dump()
+		container.upload()
 		self.assertEqual(0, container.get_index())
 		self.assertEqual(seq_id, container.get_sequence_id())
 
@@ -122,8 +125,10 @@ class TestStorage(unittest.TestCase):
 		# Create a container in each storage, make sure the containers are mutually visible
 		c1 = storage1.create_container()
 		c1.finish_dump()
+		c1.upload()
 		c2 = storage2.create_container()
 		c2.finish_dump()
+		c2.upload()
 		# Reload the storages
 		class Handler:
 			def __init__(self):
@@ -151,7 +156,9 @@ class TestStorage(unittest.TestCase):
 		storage2.configure(self.CONFIGURATION, None)
 		storage2.make_active()
 		storage2.active_sequence_id = seq_id1
-		storage2.create_container().finish_dump()
+		c = storage2.create_container()
+		c.finish_dump()
+		c.upload()
 		try:
 			storage1.load_sequences(None)
 		except:
