@@ -5,7 +5,6 @@ import ConfigParser
 
 import Backup
 import Container
-import manent.utils.Format as Format
 import manent.utils.IntegerEncodings as IntegerEncodings
 
 # Need to decide how do I store all the configuration:
