@@ -6,10 +6,11 @@
 # - optimize the scanning: read each file information just once and do queries
 #   on the results of stat rather than asking several questions on the same filename
 # - remember to destroy the database environment if the program exits normally.
-# - Implement compression and encryption
 #
 
-import sys, os, os.path, stat
+import logging
+import os, os.path
+import sys
 
 import manent.Backup as Backup
 import manent.Config as Config
