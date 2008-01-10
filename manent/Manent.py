@@ -10,9 +10,7 @@
 #
 
 import sys, os, os.path, stat
-import pickle
 
-# we need everything because we still use pickle
 import manent.Backup as Backup
 import manent.Config as Config
 
@@ -24,7 +22,7 @@ config.load()
 #
 if (len(sys.argv)==1) or (sys.argv[1]=="help"):
 	print "Possible commands: create, configure, backup, info, restore"
-	print "Available accounts:"
+	print "Available backups:"
 	for label in config.list_backups():
 		print "  ", label
 	sys.exit(0)

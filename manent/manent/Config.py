@@ -111,11 +111,12 @@ class GlobalConfig:
 	def has_backup(self,label):
 		return self.config_parser.has_section("backups/"+label)
 	def list_backups(self):
-		for key in self.backups_config.sections():
+		result = []
+		for key in self.config_parser.sections():
 			match = re.match("backups/([^/]+)", key)
 			if match:
-				print "Backup", match.group(1)
-		return self.backups.keys()
+				result.append(match.group(1))
+		return result
 	def get_backup(self, label):
 		return self.backups[label]
 

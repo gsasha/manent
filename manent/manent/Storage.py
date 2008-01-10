@@ -1,4 +1,5 @@
 import base64
+import logging
 import os
 import re
 import shutil
@@ -320,14 +321,17 @@ class DirectoryStorage(Storage):
 	def list_container_files(self):
 		return os.listdir(self.get_path())
 	def open_header_file(self, sequence_id, index):
+		print "Starting container header", base64.urlsafe_b64encode(sequence_id), index
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
 		header_file_path = os.path.join(self.get_path(), header_file_name)
 		return open(header_file_path, "w+")
 	def open_body_file(self, sequence_id, index):
+		print "Starting container body", base64.urlsafe_b64encode(sequence_id), index
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT_TMP)
 		body_file_path = os.path.join(self.get_path(), body_file_name)
 		return open(body_file_path, "w+")
 	def upload_container(self, sequence_id, index, header_file, body_file):
+		print "Uploading container", base64.urlsafe_b64encode(sequence_id), index
 		header_file_name_tmp = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		body_file_name_tmp = self.encode_container_name(sequence_id, index, BODY_EXT_TMP)
@@ -343,14 +347,12 @@ class DirectoryStorage(Storage):
 		os.chmod(header_file_path, 0444)
 		os.chmod(body_file_path, 0444)
 	def load_container_header(self, sequence_id, index):
-		#print "Loading header for container",\
-		  #base64.urlsafe_b64encode(sequence_id), index, "     "
+		print "Loading container header", base64.urlsafe_b64encode(sequence_id), index
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		header_file_path = os.path.join(self.get_path(), header_file_name)
 		return open(header_file_path, "r")
 	def load_container_body(self, sequence_id, index):
-		#print "Loading body for container",\
-		  #base64.urlsafe_b64encode(sequence_id), index, "     "
+		print "Loading container body", base64.urlsafe_b64encode(sequence_id), index
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
 		body_file_path = os.path.join(self.get_path(), body_file_name)
 		return open(body_file_path, "r")
