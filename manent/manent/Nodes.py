@@ -27,7 +27,7 @@ STAT_PRESERVED_MODES = [
 	stat.ST_GID,
 	stat.ST_MTIME,
 	stat.ST_CTIME,
-	stat.ST_ATIME,
+	#stat.ST_ATIME,
 	stat.ST_NLINK,
 	stat.ST_INO]
 
