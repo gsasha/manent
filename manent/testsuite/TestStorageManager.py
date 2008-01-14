@@ -44,7 +44,7 @@ class TestStorageManager(unittest.TestCase):
 			#print k, " : ", v
 	def test_add_block(self):
 		"""Test that if blocks are added, they are available for loading back"""
-		storage_manager = StorageManager.StorageManager(self.env, None)
+		storage_manager = StorageManager.StorageManager(self.env, self.txn)
 		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage(
 			{'type': '__mock__', 'password': 'kuku', 'key': ''}, None)
@@ -54,7 +54,7 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager.add_block(block_digest, Container.CODE_DATA, block)
 		storage_manager.flush()
 		# Recreate the storage and read the block back
-		storage_manager = StorageManager.StorageManager(self.env, None)
+		storage_manager = StorageManager.StorageManager(self.env, self.txn)
 		storage_manager.load_storages(None)
 		class Handler:
 			def __init__(self):
@@ -69,7 +69,7 @@ class TestStorageManager(unittest.TestCase):
 			handler.blocks)
 	def test_rescan_storage(self):
 		"""Test that new sequences appearing from outside are discovered"""
-		storage_manager = StorageManager.StorageManager(self.env, None)
+		storage_manager = StorageManager.StorageManager(self.env, self.txn)
 		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage(
 			{'type': '__mock__', 'password': 'kuku', 'key': ''}, None)
