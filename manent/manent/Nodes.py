@@ -193,7 +193,10 @@ class Node:
 			os.lchown(self.path(),self.stats[stat.ST_UID],
 				      self.stats[stat.ST_GID])
 		if restore_utime:
-			os.utime(self.path(),(self.stats[stat.ST_ATIME],
+			# Was: first parameter = stat.ST_ATIME, but we canceled it
+			# because atime changes all the time and we don't want to
+			# back it up.
+			os.utime(self.path(),(self.stats[stat.ST_MTIME],
 				                  self.stats[stat.ST_MTIME]))
 
 #--------------------------------------------------------
