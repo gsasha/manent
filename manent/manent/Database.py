@@ -42,6 +42,11 @@ class PrivateDatabaseManager:
 		# Under Private database, the scratch database is no different from any other,
 		# except that it has no transactions
 		return DatabaseWrapper(self, None, filename + "." + str(tablename))
+	def txn_begin(self):
+		class MockTransaction:
+			def commit(self):
+				pass
+		return None
 
 # The normal database manager class
 class DatabaseManager:
@@ -174,7 +179,7 @@ class DatabaseWrapper:
 		self.d = db.DB(self.db_manager.dbenv)
 		self.cursor = None
 		
-		#print "Opening database filename=%s, dbname=%s" %(self.__get_filename(),self.__get_dbname())
+		#print "Opening database filename=%s, dbname=%s" %(self.__get_filename(), self.__get_dbname())
 		start = time.time()
 		self.d.open(self.__get_filename(), self.__get_dbname(), db_type, db.DB_CREATE, txn=self.__get_txn())
 		end = time.time()

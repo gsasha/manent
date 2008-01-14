@@ -24,7 +24,7 @@ class TestDatabase(unittest.TestCase):
 		shutil.rmtree(TEST_DIR)
 	def testCommit(self):
 		try:
-			dbc = DB.DatabaseManager(self.config,"test1")
+			dbc = DB.DatabaseManager(self.config, "")
 			txn = DB.TransactionHandler(dbc)
 			db = dbc.get_database("table1", None, txn)
 			db["kuku"] = "bebe"
@@ -36,7 +36,7 @@ class TestDatabase(unittest.TestCase):
 			dbc.close()
 	def testAbort(self):
 		try:
-			dbc = DB.DatabaseManager(self.config, "test1")
+			dbc = DB.DatabaseManager(self.config, "")
 			txn = DB.TransactionHandler(dbc)
 			db = dbc.get_database("table2", None, txn)
 			db["kuku"] = "bebe"
@@ -45,13 +45,16 @@ class TestDatabase(unittest.TestCase):
 			#db.close()
 			db = dbc.get_database("table2", None, txn)
 			self.assertEqual(db["kuku"], None)
+		except:
+			traceback.print_exc()
+			txn.abort()
 		finally:
 			txn.commit()
 			db.close()
 			dbc.close()
 	def testIterate(self):
 		try:
-			dbc = DB.DatabaseManager(self.config,"test1")
+			dbc = DB.DatabaseManager(self.config, "")
 			txn = DB.TransactionHandler(dbc)
 			db = dbc.get_database_btree("table3", None, txn)
 			vals = [("aaa1", "bbb1"), ("aaa2", "bbb2"), ("aaa3", "bbb3")]
@@ -68,7 +71,7 @@ class TestDatabase(unittest.TestCase):
 			dbc.close()
 	def testIteratePrefix(self):
 		try:
-			dbc = DB.DatabaseManager(self.config,"test1")
+			dbc = DB.DatabaseManager(self.config, "")
 			txn = DB.TransactionHandler(dbc)
 			db = dbc.get_database_btree("table3", None, txn)
 			vals = [("aaa1", "bbb1"), ("aab1", "bbb2"), ("aab2", "bbb3"), ("aac1", "bbb4")]
