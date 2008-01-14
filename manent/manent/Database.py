@@ -35,10 +35,10 @@ class PrivateDatabaseManager:
 		return DatabaseWrapper(self, None, tablename, txn_handler, db_type=db.DB_BTREE)
 	def get_database_hash(self, tablename, txn_handler):
 		return DatabaseWrapper(self, None, tablename, txn_handler, db_type=db.DB_HASH)
-	def get_scratch_database(self, tablename):
+	def get_scratch_database(self, filename, tablename):
 		# Under Private database, the scratch database is no different from any other,
 		# except that it has no transactions
-		return DatabaseWrapper(self, None, tablename)
+		return DatabaseWrapper(self, None, filename + "." + tablename)
 
 # The normal database manager class
 class DatabaseManager:

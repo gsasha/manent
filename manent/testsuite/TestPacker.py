@@ -19,7 +19,7 @@ class MockBackup:
 	def load_block(self, digest):
 		#print "Loading block digest=", base64.b64encode(digest)
 		return self.blocks_db[digest]
-	def block_code(self, digest):
+	def get_block_code(self, digest):
 		return self.block_code_db[digest]
 
 class TestPacker(unittest.TestCase):
