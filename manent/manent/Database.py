@@ -43,9 +43,6 @@ class PrivateDatabaseManager:
 		# except that it has no transactions
 		return DatabaseWrapper(self, None, filename + "." + str(tablename))
 	def txn_begin(self):
-		class MockTransaction:
-			def commit(self):
-				pass
 		return None
 
 # The normal database manager class

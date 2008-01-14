@@ -1,5 +1,6 @@
 import unittest
 
+import manent.Database as Database
 import manent.Increment as Increment
 import manent.IncrementManager as IncrementManager
 import manent.utils.Digest as Digest
@@ -38,7 +39,7 @@ class TestIncrement(unittest.TestCase):
 		digest1 = increment1.finalize(Digest.dataDigest("aaaaa"))
 		
 		# Reconstruct the increment from the digest
-		increment2 = Increment.Increment(blockDB ,db)
+		increment2 = Increment.Increment(blockDB, db)
 		increment2.reconstruct(digest1)
 		self.assertEqual(increment1.comment, increment2.comment)
 		self.assertEqual(increment1.fs_digest, increment2.fs_digest)
@@ -49,14 +50,24 @@ class TestIncrement(unittest.TestCase):
 
 	def test_start(self):
 		"""Test that increment database starts increments correctly"""
-		repository = Mock.MockRepository()
-		blockDB = Mock.MockBlockDatabase(repository)
-		db = {}
-
+		env = Database.PrivateDatabaseManager()
+		txn = Database.TransactionHandler(env)
 		#
 		# Create one increment and see that it produces correct basis
 		#
-		idb = IncrementManager.IncrementManager(blockDB, db)
+		class MockBlockManager:
+			def __init__(self):
+				self.blocks = {}
+			def add_block(self, digest, code, data):
+				self.blocks[digest] = (code, data)
+		class MockStorageManager:
+			def __init__(self):
+				pass
+			def get_active_storage_index(self):
+				return 0
+		mbm = MockBlockManager()
+		msm = MockStorageManager()
+		idb = IncrementManager.IncrementManager(env, txn, mbm, msm)
 		bases1 = idb.start_increment("test increment 1")
 		self.assertEqual(bases1, [])
 		
@@ -75,13 +86,13 @@ class TestIncrement(unittest.TestCase):
 		# Emulate restart of the program: IncrementDB is recreated from
 		# the databases
 		#
-		idb = IncrementManager.IncrementManager(blockDB, db)
+		idb = IncrementManager.IncrementManager(env, txn, mbm, msm)
 		bases3 = idb.start_increment("test increment 3")
 		self.assertEqual(bases3, [fs1_digest, fs3_digest])
 
 		fs4_digest = Digest.dataDigest("data4")
 		idb.dump_intermediate(fs4_digest)
 		
-		idb = IncrementManager.IncrementManager(blockDB, db)
+		idb = IncrementManager.IncrementManager(env, txn, mbm, msm)
 		bases4 = idb.start_increment("test increment 4")
 		self.assertEqual(bases4, [fs1_digest, fs3_digest, fs4_digest])

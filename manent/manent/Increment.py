@@ -10,7 +10,7 @@ import Container
 # CLASS: Increment
 # --------------------------------------------------------------------
 class Increment:
-	def __init__(self,block_database,db):
+	def __init__(self, block_database, db):
 		self.block_database = block_database
 		self.db = db
 
@@ -40,7 +40,7 @@ class Increment:
 		items = {}
 		stream = StringIO.StringIO(message)
 		for line in stream:
-			key,value = line.strip().split("=",1)
+			key,value = line.strip().split("=", 1)
 			items[key]=value
 
 		index = int(items['index'])
@@ -49,11 +49,11 @@ class Increment:
 		fs_digest = base64.b64decode(items['fs_digest'])
 		finalized = items['finalized'] == '1'
 
-		return (index,ctime,comment,fs_digest,finalized)
+		return (index, ctime, comment, fs_digest, finalized)
 	#
 	# Methods for manipulating a newly created increment
 	#
-	def start(self,storage_index,index,comment):
+	def start(self, storage_index, index, comment):
 		if self.readonly is not None:
 			raise Exception("Attempt to start an existing increment")
 		self.readonly = False
@@ -85,7 +85,7 @@ class Increment:
 		self.block_database.add_block(digest, Container.CODE_INCREMENT_DESCRIPTOR, message)
 		return digest
 
-	def dump_intermediate(self,fs_digest):
+	def dump_intermediate(self, fs_digest):
 		if self.readonly != False:
 			raise Exception("Increment already finalized")
 
@@ -107,7 +107,7 @@ class Increment:
 	#
 	# Loading an existing increment from db
 	#
-	def load(self,storage_index,index):
+	def load(self, storage_index, index):
 		if self.readonly != None:
 			raise "Attempt to load an existing increment"
 
