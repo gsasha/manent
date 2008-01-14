@@ -220,24 +220,25 @@ class StorageManager:
 		if self.current_aside_container is not None:
 			print "Exporting aside container to output stream"
 			class Handler:
-				def __init__(self, storage_manager):
-					self.storage_manager = storage_manager
+				def __init__(self, storage_manager, storage):
+					self.sm = storage_manager
+					self.storage = storage
 				def is_requested(self, digest, code):
 					return True
 				def loaded(self, digest, code, data):
 					# Make sure current container can accept the block
-					if self.current_open_container is None:
-						self.current_open_container = storage.create_container()
-					elif not self.current_open_container.can_add(data):
-						self._write_container(self.current_open_container)
-						self.current_open_container = storage.create_container()
+					if self.sm.current_open_container is None:
+						self.sm.current_open_container = storage.create_container()
+					elif not self.sm.current_open_container.can_add(data):
+						self.sm._write_container(self.current_open_container)
+						self.sm.current_open_container = self.storage.create_container()
 					# add the block to the container
-					self.current_open_container.add_block(digest, code, data)
+					self.sm.current_open_container.add_block(digest, code, data)
 			self.current_aside_container.finish_dump()
 			aside_load_container = storage.get_aside_container()
 			aside_load_container.load_header()
 			aside_load_container.load_body()
-			aside_load_container.load_blocks(Handler(self))
+			aside_load_container.load_blocks(Handler(self, storage))
 		if self.current_open_container is not None:
 			# TODO: what if the container is empty???
 			self._write_container(self.current_open_container)

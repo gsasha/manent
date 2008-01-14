@@ -556,6 +556,9 @@ class Container:
 		if version != 2:
 			raise Exception("Container %d has unsupported version" % self.index)
 		index = Format.read_int(self.header_file)
+		if index == -1:
+			# This container was an aside one
+			index = None
 		if index != self.index:
 			raise Exception(
 				"Manent: wrong container file index. Expected %s, found %s"
