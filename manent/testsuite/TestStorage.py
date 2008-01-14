@@ -11,7 +11,7 @@ import manent.utils.Digest as Digest
 class TestStorage(unittest.TestCase):
 	def setUp(self):
 		self.env = Database.PrivateDatabaseManager()
-		self.config_db = self.env.get_database_btree("a", None)
+		self.config_db = self.env.get_database_btree("a", None, None)
 		self.scratch_path = tempfile.mkdtemp(".storage", "manent.", "/tmp")
 		self.CONFIGURATION = {"path": self.scratch_path, "password": "kuku"}
 		#print "tmp path=", self.scratch_path

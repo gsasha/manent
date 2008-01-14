@@ -101,7 +101,7 @@ class MockBackup:
 		self.repository = MockRepository()
 		self.config_db = {}
 		self.home = home
-	def blockSize(self):
+	def get_block_size(self):
 		return 1024
 	
 	def start_increment(self, comment):
@@ -123,5 +123,5 @@ class MockBackup:
 		self.repository.add_block(digest, code, data)
 	def load_block(self, digest):
 		return self.repository.load_block(digest)
-	def block_code(self, digest):
+	def get_block_code(self, digest):
 		return self.repository.block_code(digest)

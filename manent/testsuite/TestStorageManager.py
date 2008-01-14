@@ -13,15 +13,16 @@ import manent.utils.Digest as Digest
 class TestStorageManager(unittest.TestCase):
 	def setUp(self):
 		self.env = Database.PrivateDatabaseManager()
+		self.txn = Database.TransactionHandler(self.env)
 	def tearDown(self):
 		# Clean up the state, to make sure tests don't interfere.
 		Storage.MemoryStorage.files = {}
 	def test_add_storage(self):
 		"""Test that adding a storage creates (and recreates) it correctly"""
-		storage_manager = StorageManager.StorageManager(self.env, None)
+		storage_manager = StorageManager.StorageManager(self.env, self.txn)
 		storage_manager.load_storages(None)
-		storage_index = storage_manager.add_storage("__mock__",
-			{'password': 'kuku', 'key': ''}, None)
+		storage_index = storage_manager.add_storage(
+			{'type': '__mock__', 'password': 'kuku', 'key': ''}, None)
 		storage_manager.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
@@ -29,7 +30,7 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager.flush()
 		seq_id1 = storage_manager.get_active_sequence_id()
 		# Recreate the storage_manager and add another block to it
-		storage_manager = StorageManager.StorageManager(self.env, None)
+		storage_manager = StorageManager.StorageManager(self.env, self.txn)
 		storage_manager.load_storages(None)
 		block = "some other strange text"
 		block_digest = Digest.dataDigest(block)
@@ -45,8 +46,8 @@ class TestStorageManager(unittest.TestCase):
 		"""Test that if blocks are added, they are available for loading back"""
 		storage_manager = StorageManager.StorageManager(self.env, None)
 		storage_manager.load_storages(None)
-		storage_index = storage_manager.add_storage("__mock__",
-			{'password': 'kuku', 'key': ''}, None)
+		storage_index = storage_manager.add_storage(
+			{'type': '__mock__', 'password': 'kuku', 'key': ''}, None)
 		storage_manager.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
@@ -70,8 +71,8 @@ class TestStorageManager(unittest.TestCase):
 		"""Test that new sequences appearing from outside are discovered"""
 		storage_manager = StorageManager.StorageManager(self.env, None)
 		storage_manager.load_storages(None)
-		storage_index = storage_manager.add_storage("__mock__",
-			{'password': 'kuku', 'key': ''}, None)
+		storage_index = storage_manager.add_storage(
+			{'type': '__mock__', 'password': 'kuku', 'key': ''}, None)
 		storage_manager.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
@@ -89,10 +90,11 @@ class TestStorageManager(unittest.TestCase):
 		handler = Handler()
 		
 		env2 = Database.PrivateDatabaseManager()
-		storage_manager2 = StorageManager.StorageManager(env2, None)
+		txn2 = Database.TransactionHandler(env2)
+		storage_manager2 = StorageManager.StorageManager(env2, txn2)
 		storage_manager2.load_storages(None)
-		storage_index2 = storage_manager2.add_storage("__mock__",
-		    {'password': 'kuku', 'key': ''}, None)
+		storage_index2 = storage_manager2.add_storage(
+		    {'type': '__mock__', 'password': 'kuku', 'key': ''}, None)
 		storage_manager2.make_active_storage(storage_index2)
 		storage_manager2.load_block(block_digest, handler)
 		self.assertEqual({(block_digest, Container.CODE_DATA): block},
@@ -101,10 +103,10 @@ class TestStorageManager(unittest.TestCase):
 		"""Test that base storage works"""
 		# First storage manager. This will be the base.
 		logging.debug("creating first storage manager")
-		storage_manager = StorageManager.StorageManager(self.env, None)
+		storage_manager = StorageManager.StorageManager(self.env, self.txn)
 		storage_manager.load_storages(None)
-		storage_index = storage_manager.add_storage("__mock__",
-			{'password': 'kuku', 'key': 'a'}, None)
+		storage_index = storage_manager.add_storage(
+			{'type': '__mock__', 'password': 'kuku', 'key': 'a'}, None)
 		storage_manager.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
@@ -123,10 +125,11 @@ class TestStorageManager(unittest.TestCase):
 		handler = Handler()
 		
 		env2 = Database.PrivateDatabaseManager()
-		storage_manager2 = StorageManager.StorageManager(env2, None)
+		txn2 = Database.TransactionHandler(env2)
+		storage_manager2 = StorageManager.StorageManager(env2, txn2)
 		storage_manager2.load_storages(None)
-		storage_index2 = storage_manager2.add_storage("__mock__",
-		    {'password': 'kuku', 'key': 'a'}, None)
+		storage_index2 = storage_manager2.add_storage(
+		    {'type': '__mock__', 'password': 'kuku', 'key': 'a'}, None)
 		storage_manager2.make_active_storage(storage_index2)
 		storage_manager2.load_block(block_digest, handler)
 		self.assertEqual({(block_digest, Container.CODE_DATA): block},

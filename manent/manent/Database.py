@@ -29,16 +29,19 @@ class PrivateDatabaseManager:
 		self.dbenv = db.DBEnv()
 		self.dbenv.open("/tmp", db.DB_PRIVATE|db.DB_CREATE|db.DB_INIT_TXN|
 						db.DB_INIT_MPOOL|db.DB_INIT_LOCK|db.DB_THREAD)
-	def get_database(self, tablename, txn_handler):
-		return DatabaseWrapper(self, None, tablename, txn_handler)
-	def get_database_btree(self, tablename, txn_handler):
-		return DatabaseWrapper(self, None, tablename, txn_handler, db_type=db.DB_BTREE)
-	def get_database_hash(self, tablename, txn_handler):
-		return DatabaseWrapper(self, None, tablename, txn_handler, db_type=db.DB_HASH)
+	def get_database(self, filename, tablename, txn_handler):
+		return DatabaseWrapper(self, None, filename + "." + str(tablename),
+			txn_handler)
+	def get_database_btree(self, filename, tablename, txn_handler):
+		return DatabaseWrapper(self, None, filename + "." + str(tablename),
+			txn_handler, db_type=db.DB_BTREE)
+	def get_database_hash(self, filename, tablename, txn_handler):
+		return DatabaseWrapper(self, None, filename + "." + str(tablename),
+			txn_handler, db_type=db.DB_HASH)
 	def get_scratch_database(self, filename, tablename):
 		# Under Private database, the scratch database is no different from any other,
 		# except that it has no transactions
-		return DatabaseWrapper(self, None, filename + "." + tablename)
+		return DatabaseWrapper(self, None, filename + "." + str(tablename))
 
 # The normal database manager class
 class DatabaseManager:
