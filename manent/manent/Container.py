@@ -431,8 +431,12 @@ class Container:
 		self.mode = "DUMP"
 		self.sequence_id = sequence_id
 		self.index = index
-		self.header_file = self.storage.open_header_file(self.sequence_id, self.index)
-		self.body_file = self.storage.open_body_file(self.sequence_id, self.index)
+		if self.index is None:
+			self.header_file = self.storage.open_aside_container_header()
+			self.body_file = self.storage.open_aside_container_body()
+		else:
+			self.header_file = self.storage.open_header_file(self.sequence_id, self.index)
+			self.body_file = self.storage.open_body_file(self.sequence_id, self.index)
 
 		self.body_dumper = DataDumper(self.body_file)
 		self.header_dump_os = StringIO.StringIO()
@@ -480,6 +484,10 @@ class Container:
 			self.compression_active = False
 		if self.encryption_active:
 			self.body_dumper.stop_encryption()
+
+		# index can be none for an aside container
+		if self.index is None:
+			self.index = -1
 		#
 		# Serialize the body block table
 		#
@@ -536,7 +544,10 @@ class Container:
 		self.sequence_id = sequence_id
 		self.index = index
 	def load_header(self):
-		self.header_file = self.storage.load_container_header(self.sequence_id, self.index)
+		if self.index is None:
+			self.header_file = self.storage.load_aside_container_header()
+		else:
+			self.header_file = self.storage.load_container_header(self.sequence_id, self.index)
 		
 		MAGIC = self.header_file.read(4)
 		if MAGIC != "MNNT":
@@ -582,7 +593,10 @@ class Container:
 	def list_blocks(self):
 		return self.body_blocks
 	def load_body(self):
-		self.body_file = self.storage.load_container_body(self.sequence_id, self.index)
+		if self.index is None:
+			self.body_file = self.storage.load_aside_container_body()
+		else:
+			self.body_file = self.storage.load_container_body(self.sequence_id, self.index)
 		self.body_dump_loader = DataDumpLoader(self.body_file, self.body_blocks,
 			password=self.storage.get_password())
 	def info(self):

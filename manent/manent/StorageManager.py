@@ -36,7 +36,10 @@ class StorageManager:
 		self.block_container_db = db_manager.get_database_hash("storage.db",
 			"blocks", txn_manager)
 		self.current_open_container = None
-		
+		# Aside container holds the metadata that we strive to upload
+		# in large chunks to minimize downloads of complete containers.
+		self.current_aside_container = None
+
 		# Mapping of storage sequences to indices and vice versa
 		# The storage sequence data consists of storage index and sequence
 		# ID string
@@ -191,19 +194,52 @@ class StorageManager:
 		#
 		# Make sure we have a container that can take this block
 		#
-		if self.current_open_container is None:
-			self.current_open_container = storage.create_container()
-		elif not self.current_open_container.can_add(data):
-			self._write_container(self.current_open_container)
-			self.current_open_container = storage.create_container()
-		#
-		# add the block to the container
-		#
-		self.current_open_container.add_block(digest, code, data)
+		if code == Container.CODE_DATA:
+			print "Block", base64.b64encode(digest), code, "sent to normal container"
+			# Put the data to a normal container
+			if self.current_open_container is None:
+				self.current_open_container = storage.create_container()
+			elif not self.current_open_container.can_add(data):
+				self._write_container(self.current_open_container)
+				self.current_open_container = storage.create_container()
+			# add the block to the container
+			self.current_open_container.add_block(digest, code, data)
+		else:
+			print "Block", base64.b64encode(digest), code, "sent to aside container"
+			# Put the data into an aside container
+			if self.current_aside_container is None:
+				self.current_aside_container = storage.create_aside_container()
+			elif not self.current_aside_container.can_add(data):
+				storage.import_aside_container(self.current_aside_container)
+				self._write_container(self.current_aside_container)
+				self.current_aside_container = storage.create_container()
+			self.current_aside_container.add_block(digest, code, data)
 	def flush(self):
 		storage = self.storages[self.active_storage_idx]
 
+		if self.current_aside_container is not None:
+			print "Exporting aside container to output stream"
+			class Handler:
+				def __init__(self, storage_manager):
+					self.storage_manager = storage_manager
+				def is_requested(self, digest, code):
+					return True
+				def loaded(self, digest, code, data):
+					# Make sure current container can accept the block
+					if self.current_open_container is None:
+						self.current_open_container = storage.create_container()
+					elif not self.current_open_container.can_add(data):
+						self._write_container(self.current_open_container)
+						self.current_open_container = storage.create_container()
+					# add the block to the container
+					self.current_open_container.add_block(digest, code, data)
+			self.current_aside_container.finish_dump()
+			aside_load_container = storage.get_aside_container()
+			aside_load_container.load_header()
+			aside_load_container.load_body()
+			aside_load_container.load_blocks(Handler(self))
 		if self.current_open_container is not None:
+			# TODO: what if the container is empty???
 			self._write_container(self.current_open_container)
 			self.current_open_container = None
 	def _write_container(self, container):

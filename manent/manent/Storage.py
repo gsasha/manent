@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 import cStringIO as StringIO
+import tempfile
 import traceback
 
 import Container
@@ -43,10 +44,12 @@ def load_storage(config_db, index, new_container_handler):
 
 class Storage:
 	def __init__(self, index, config_db):
-		self.index = index
 		self.config_db = config_db
+		self.index = index
 		self.sequences = {}
 		self.active_sequence_id = None
+		self.aside_header_file = None
+		self.aside_body_file = None
 	
 	# How do we know for a given storage if it is just created or rescanned?
 	# Ah well, each storage stores its data in the shared db!
@@ -196,11 +199,47 @@ class Storage:
 		self.sequences[self.active_sequence_id] = index
 		self.config_db[self._key(".sequences." + self.active_sequence_id)] = str(index)
 		return container
+	# Creates a container that is used for aside purposes, i.e., a temporary
+	# holder of non-data blocks
+	def create_aside_container(self):
+		if self.active_sequence_id is None:
+			raise Exception("Can't create a container for an inactive storage")
+		container = Container.Container(self)
+		index = None
+		container.start_dump(self.active_sequence_id, index)
+		return container
+	def import_aside_container(self, container):
+		# TODO: implement this
+		pass
 	def get_container(self, sequence_id, index):
 		container = Container.Container(self)
 		container.start_load(sequence_id, index)
 		return container
+	# Get the aside container, opened for reading
+	def get_aside_container(self):
+		container = Container.Container(self)
+		index = None
+		container.start_load(self.active_sequence_id, index)
+		return container
 
+	def open_aside_container_header(self):
+		assert self.aside_header_file is None
+		self.aside_header_file = tempfile.TemporaryFile()
+		return self.aside_header_file
+	def open_aside_container_body(self):
+		assert self.aside_body_file is None
+		self.aside_body_file = tempfile.TemporaryFile()
+		return self.aside_body_file
+	def load_aside_container_header(self):
+		assert self.aside_header_file is not None
+		file = self.aside_header_file
+		self.aside_header_file = None
+		return file
+	def load_aside_container_body(self):
+		assert self.aside_body_file is not None
+		file = self.aside_body_file
+		self.aside_body_file = None
+		return file
 	def load_container_header(self, sequence_id, index):
 		print "SELF:", self
 		raise Exception("load_container_header is abstract")
@@ -210,9 +249,6 @@ class Storage:
 	def upload_container(self, sequence_id, index, header_file, body_file):
 		raise Exception("upload_container is abstract")
 	
-	def rescan(self):
-		# TODO: Return the list of newly appeared containers
-		self.fail()
 	#
 	# Block parameters
 	#
