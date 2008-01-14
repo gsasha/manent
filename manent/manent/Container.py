@@ -107,6 +107,22 @@ CODE_COMPRESSION_GZIP      = 50
 CODE_ENCRYPTION_END        = 64
 CODE_ENCRYPTION_ARC4       = 65
 
+CODE_NAME_TABLE = {
+	CODE_DATA:					"DATA          ",
+	CODE_DATA_PACKER:			"DATA_PACKER   ",
+	CODE_DIR:					"DIR           ",
+	CODE_DIR_PACKER:			"DIR_PACKER    ",
+	CODE_CONTAINER_DESCRIPTOR:	"CONTAINER_DESC",
+	CODE_INCREMENT_DESCRIPTOR:	"INCREMENT_DESC",
+	CODE_BLOCK_TABLE:			"BLOCK_TABLE   ",
+	CODE_CONTROL_START:			"CONTROL_START ",
+	CODE_COMPRESSION_END:		"COMPRESS_END  ",
+	CODE_COMPRESSION_BZ2:		"COMPRESS_BZ2  ",
+	CODE_COMPRESSION_GZIP:		"COMPRESS_GZIP ",
+	CODE_ENCRYPTION_END:		"ENCRYPT_END   ",
+	CODE_ENCRYPTION_ARC4:		"ENCRYPT_ARC4  "
+}
+
 def compute_packer_code(code):
 	assert code < CODE_COMPRESSION_END
 	if code % 2 == 0:
@@ -578,10 +594,10 @@ class Container:
 		class Handler:
 			def __init__(self):
 				self.body_table_str = None
-			def is_requested(self,digest,code):
+			def is_requested(self, digest, code):
 				if code == CODE_BLOCK_TABLE:
 					return True
-			def loaded(self,digest, code, data):
+			def loaded(self, digest, code, data):
 				assert code == CODE_BLOCK_TABLE
 				self.body_table_str = data
 
@@ -605,6 +621,13 @@ class Container:
 	def info(self):
 		print "Manent container #%d of storage %s" % (
 			self.index, self.storage.get_label())
+	def print_blocks(self):
+		class PrintHandler:
+			def is_requested(self, digest, code):
+				return True
+			def loaded(self, digest, code, data):
+				print base64.b64encode(digest), CODE_NAME_TABLE[code], len(data)
+		self.load_blocks(PrintHandler())
 	def test_blocks(self,filename=None):
 		class TestingBlockCache:
 			def __init__(self):
