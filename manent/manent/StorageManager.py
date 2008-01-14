@@ -131,8 +131,8 @@ class StorageManager:
 		self.write_storage_idxs(self.get_storage_idxs() + [storage_idx])
 
 		handler = StorageManager.NewContainerHandler(self, new_block_handler)
-		storage = Storage.create_storage(self.config_db, storage_idx,
-			storage_params, handler)
+		storage = Storage.create_storage(self.db_manager, self.txn_manager,
+			storage_idx, storage_params, handler)
 		self.storages[storage_idx] = storage
 		handler.process_new_containers()
 		return storage_idx
@@ -147,8 +147,8 @@ class StorageManager:
 		self.active_storage_idx = None
 		handler = StorageManager.NewContainerHandler(self, new_block_handler)
 		for storage_idx in self.get_storage_idxs():
-			storage = Storage.load_storage(self.config_db, storage_idx,
-				handler)
+			storage = Storage.load_storage(self.db_manager, self.txn_manager,
+				storage_idx, handler)
 			self.storages[storage_idx] = storage
 			if storage.is_active():
 				seq_id = storage.get_active_sequence_id()

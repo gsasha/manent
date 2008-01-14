@@ -11,6 +11,7 @@ import manent.utils.Digest as Digest
 class TestStorage(unittest.TestCase):
 	def setUp(self):
 		self.env = Database.PrivateDatabaseManager()
+		self.txn = Database.TransactionHandler(self.env)
 		self.config_db = self.env.get_database_btree("a", None, None)
 		self.scratch_path = tempfile.mkdtemp(".storage", "manent.", "/tmp")
 		self.CONFIGURATION = {"path": self.scratch_path, "password": "kuku"}
@@ -71,7 +72,7 @@ class TestStorage(unittest.TestCase):
 		container.finish_dump()
 		container.upload()
 		# Create a new db to simulate a different machine
-		config_db2 = self.env.get_database_btree("b", None)
+		config_db2 = self.env.get_database_btree("b", None, None)
 		storage2 = Storage.DirectoryStorage(0, config_db2)
 		class NopHandler:
 			def __init__(self):
@@ -116,7 +117,7 @@ class TestStorage(unittest.TestCase):
 		storage1.configure(self.CONFIGURATION, None)
 		storage1.make_active()
 		seq_id1 = storage1.get_active_sequence_id()
-		config_db2 = self.env.get_database_btree("b", None)
+		config_db2 = self.env.get_database_btree("b", None, None)
 		storage2 = Storage.DirectoryStorage(0, config_db2)
 		storage2.configure(self.CONFIGURATION, None)
 		storage2.make_active()
@@ -151,7 +152,7 @@ class TestStorage(unittest.TestCase):
 		storage1.configure(self.CONFIGURATION, None)
 		storage1.make_active()
 		seq_id1 = storage1.get_active_sequence_id()
-		config_db2 = self.env.get_database_btree("b", None)
+		config_db2 = self.env.get_database_btree("b", None, None)
 		storage2 = Storage.DirectoryStorage(0, config_db2)
 		storage2.configure(self.CONFIGURATION, None)
 		storage2.make_active()
