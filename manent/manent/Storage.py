@@ -30,7 +30,8 @@ def _instantiate(config_db, storage_type, index):
 		raise Exception("Unknown storage_type type" + storage_type)
 	
 def create_storage(db_manager, txn_manager, index, params, new_container_handler):
-	config_db = db_manager.get_database_btree("config.db", "storage.%d" % index)
+	config_db = db_manager.get_database_btree("config.db",
+		"storage.%d" % index, txn_manager)
 	storage_type = params['type']
 	config_db["TYPE"] = storage_type
 	storage = _instantiate(config_db, storage_type, index)
@@ -38,7 +39,8 @@ def create_storage(db_manager, txn_manager, index, params, new_container_handler
 	return storage
 
 def load_storage(db_manager, txn_manager, index, new_container_handler):
-	config_db = db_manager.get_database_btree("config.db", "storage.%d" % index)
+	config_db = db_manager.get_database_btree("config.db",
+		"storage.%d" % index, txn_manager)
 	storage_type = config_db["TYPE"]
 	storage = _instantiate(config_db, storage_type, index)
 	storage.load_configuration(new_container_handler)
