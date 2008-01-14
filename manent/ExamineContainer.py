@@ -19,7 +19,7 @@ sequence_id = base64.urlsafe_b64decode(args[0])
 idx = IE.ascii_decode_int_varlen(args[1])
 print "Loading container", base64.urlsafe_b64encode(sequence_id), idx
 env = Database.PrivateDatabaseManager()
-config_db = env.get_database_btree("", None)
+config_db = env.get_database_btree("", None, None)
 
 class Handler:
 	def __init__(self):
