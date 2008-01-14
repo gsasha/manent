@@ -233,11 +233,13 @@ class Storage:
 	def load_aside_container_header(self):
 		assert self.aside_header_file is not None
 		file = self.aside_header_file
+		file.seek(0)
 		self.aside_header_file = None
 		return file
 	def load_aside_container_body(self):
 		assert self.aside_body_file is not None
 		file = self.aside_body_file
+		file.seek(0)
 		self.aside_body_file = None
 		return file
 	def load_container_header(self, sequence_id, index):
