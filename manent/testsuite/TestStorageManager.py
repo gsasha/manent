@@ -13,15 +13,12 @@ import manent.utils.Digest as Digest
 class TestStorageManager(unittest.TestCase):
 	def setUp(self):
 		self.env = Database.PrivateDatabaseManager()
-		self.config_db = self.env.get_database_btree("config", None)
-		self.block_db = self.env.get_database_btree("block_db", None)
 	def tearDown(self):
 		# Clean up the state, to make sure tests don't interfere.
 		Storage.MemoryStorage.files = {}
 	def test_add_storage(self):
 		"""Test that adding a storage creates (and recreates) it correctly"""
-		storage_manager = StorageManager.StorageManager(self.config_db,
-			self.block_db)
+		storage_manager = StorageManager.StorageManager(self.env, None)
 		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage("__mock__",
 			{'password': 'kuku', 'key': ''}, None)
@@ -32,8 +29,7 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager.flush()
 		seq_id1 = storage_manager.get_active_sequence_id()
 		# Recreate the storage_manager and add another block to it
-		storage_manager = StorageManager.StorageManager(self.config_db,
-			self.block_db)
+		storage_manager = StorageManager.StorageManager(self.env, None)
 		storage_manager.load_storages(None)
 		block = "some other strange text"
 		block_digest = Digest.dataDigest(block)
@@ -47,8 +43,7 @@ class TestStorageManager(unittest.TestCase):
 			#print k, " : ", v
 	def test_add_block(self):
 		"""Test that if blocks are added, they are available for loading back"""
-		storage_manager = StorageManager.StorageManager(self.config_db,
-			self.block_db)
+		storage_manager = StorageManager.StorageManager(self.env, None)
 		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage("__mock__",
 			{'password': 'kuku', 'key': ''}, None)
@@ -58,8 +53,7 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager.add_block(block_digest, Container.CODE_DATA, block)
 		storage_manager.flush()
 		# Recreate the storage and read the block back
-		storage_manager = StorageManager.StorageManager(
-			self.config_db, self.block_db)
+		storage_manager = StorageManager.StorageManager(self.env, None)
 		storage_manager.load_storages(None)
 		class Handler:
 			def __init__(self):
@@ -74,8 +68,7 @@ class TestStorageManager(unittest.TestCase):
 			handler.blocks)
 	def test_rescan_storage(self):
 		"""Test that new sequences appearing from outside are discovered"""
-		storage_manager = StorageManager.StorageManager(self.config_db,
-			self.block_db)
+		storage_manager = StorageManager.StorageManager(self.env, None)
 		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage("__mock__",
 			{'password': 'kuku', 'key': ''}, None)
@@ -95,9 +88,8 @@ class TestStorageManager(unittest.TestCase):
 				self.blocks[(digest, code)] = data
 		handler = Handler()
 		
-		config_db2 = self.env.get_database_btree("config2", None)
-		block_db2 = self.env.get_database_btree("block_db2", None)
-		storage_manager2 = StorageManager.StorageManager(config_db2, block_db2)
+		env2 = Database.PrivateDatabaseManager()
+		storage_manager2 = StorageManager.StorageManager(env2, None)
 		storage_manager2.load_storages(None)
 		storage_index2 = storage_manager2.add_storage("__mock__",
 		    {'password': 'kuku', 'key': ''}, None)
@@ -109,8 +101,7 @@ class TestStorageManager(unittest.TestCase):
 		"""Test that base storage works"""
 		# First storage manager. This will be the base.
 		logging.debug("creating first storage manager")
-		storage_manager = StorageManager.StorageManager(self.config_db,
-			self.block_db)
+		storage_manager = StorageManager.StorageManager(self.env, None)
 		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage("__mock__",
 			{'password': 'kuku', 'key': 'a'}, None)
@@ -131,9 +122,8 @@ class TestStorageManager(unittest.TestCase):
 				self.blocks[(digest, code)] = data
 		handler = Handler()
 		
-		config_db2 = self.env.get_database_btree("config2", None)
-		block_db2 = self.env.get_database_btree("block_db2", None)
-		storage_manager2 = StorageManager.StorageManager(config_db2, block_db2)
+		env2 = Database.PrivateDatabaseManager()
+		storage_manager2 = StorageManager.StorageManager(env2, None)
 		storage_manager2.load_storages(None)
 		storage_index2 = storage_manager2.add_storage("__mock__",
 		    {'password': 'kuku', 'key': 'a'}, None)
