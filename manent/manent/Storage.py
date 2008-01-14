@@ -62,7 +62,7 @@ class Storage:
 	def configure(self, config, new_container_handler):
 		for key, val in config.iteritems():
 			self.config_db[self._key('CONFIG.'+key)] = val
-			print "setting config_db[%s]=%s" % (self._key('CONFIG.'+key), val)
+			#print "setting config_db[%s]=%s" % (self._key('CONFIG.'+key), val)
 		
 		self.config = config
 		self.load_sequences(new_container_handler)

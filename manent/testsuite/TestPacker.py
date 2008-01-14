@@ -9,7 +9,7 @@ class MockBackup:
 	def __init__(self):
 		self.blocks_db = {}
 		self.block_code_db = {}
-	def blockSize(self):
+	def get_block_size(self):
 		# Use a relatively small block size to test going deep into hierarchy
 		return 256
 	def add_block(self, digest, code, data):
