@@ -430,21 +430,6 @@ class Directory(Node):
 		if self.digest != last_digest:
 			#print "changed node", self.path()
 			ctx.changed_nodes += 1
-	def flush(self, ctx):
-		"""
-		Flush the contents of the current node.
-		Called when a container is completed.
-		"""
-		dirty = False
-		for child in self.children:
-			if child.get_type() == NODE_TYPE_DIR:
-				prev_digest = child.get_digest()
-				child.flush()
-				curr_digest = child.get_digest()
-				if prev_digest != curr_digest:
-					dirty = True
-		if dirty:
-			self.write(ctx)
 
 	def write(self, ctx):
 		"""

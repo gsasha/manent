@@ -85,12 +85,11 @@ class Backup:
 		try:
 			self.__open_all()
 
-			base_fs_digests = self.increment_manager.start_increment(comment)
-			prev_nums = [(None, None, digest) for digest in base_fs_digests]
+			self.increment_manager.start_increment(comment)
 			root = Nodes.Directory(self, None, self.config_db['data_path'])
 			ctx = ScanContext(self, root)
 			
-			root.scan(ctx, prev_nums, self.exclusion_processor)
+			root.scan(ctx, self.exclusion_processor)
 
 			print "Diff from previous increments:", ctx.changed_nodes, "out of", ctx.total_nodes
 			

@@ -4,8 +4,6 @@
 
 - Remove the base_fs_digests
 
-- Remove flush method from Node
-
 - Remove dump_intermediate from IncrementManager
 
 - Make sure that all aside blocks are saved in the end
@@ -25,3 +23,6 @@
 - Check why recreating storage reloads data files, and not only the header files.
   DONE
   - Check that in all the places where load_body is called, which can be abandoned.
+
+- Remove flush method from Node
+
