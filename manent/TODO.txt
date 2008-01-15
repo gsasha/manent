@@ -1,3 +1,5 @@
+- Check why recreating storage reloads data files, and not only the header files.
+
 - Make sure that all aside blocks are saved in the end
 
 - Make sure that aside blocks registered in BlockManager are always sent out to a container. Possible solution: have a database of blocks that were put aside. For that, move BlockManager to within StorageManager (which makes sense anyway).

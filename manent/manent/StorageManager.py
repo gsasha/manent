@@ -195,7 +195,8 @@ class StorageManager:
 		# Make sure we have a container that can take this block
 		#
 		if code == Container.CODE_DATA:
-			print "Block", base64.b64encode(digest), code, "sent to normal container"
+			print "Block", base64.b64encode(digest),\
+				Container.code_name(code), "sent to normal container"
 			# Put the data to a normal container
 			if self.current_open_container is None:
 				self.current_open_container = storage.create_container()
@@ -205,7 +206,8 @@ class StorageManager:
 			# add the block to the container
 			self.current_open_container.add_block(digest, code, data)
 		else:
-			print "Block", base64.b64encode(digest), code, "sent to aside container"
+			print "Block", base64.b64encode(digest),\
+				Container.code_name(code), "sent to aside container"
 			# Put the data into an aside container
 			if self.current_aside_container is None:
 				self.current_aside_container = storage.create_aside_container()
@@ -227,6 +229,8 @@ class StorageManager:
 					return True
 				def loaded(self, digest, code, data):
 					# Make sure current container can accept the block
+					print "Exporting block", base64.b64encode(digest),\
+						Container.code_name(code)
 					if self.sm.current_open_container is None:
 						self.sm.current_open_container = storage.create_container()
 					elif not self.sm.current_open_container.can_add(data):

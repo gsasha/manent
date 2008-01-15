@@ -134,6 +134,9 @@ def is_packer_code(code):
 	assert code < CODE_COMPRESSION_END
 	return code%2==1
 
+def code_name(code):
+	return CODE_NAME_TABLE[code]
+
 #-------------------------------------------------------------------
 # Block serialization
 #-------------------------------------------------------------------
