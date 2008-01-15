@@ -240,7 +240,6 @@ class StorageManager:
 			self.current_aside_container.finish_dump()
 			aside_load_container = storage.get_aside_container()
 			aside_load_container.load_header()
-			aside_load_container.load_body()
 			aside_load_container.load_blocks(Handler(self, storage))
 		if self.current_open_container is not None:
 			# TODO: what if the container is empty???
@@ -266,7 +265,6 @@ class StorageManager:
 		storage = self.storages[storage_idx]
 		container = storage.get_container(sequence_id, container_idx)
 		container.load_header()
-		container.load_body()
 		container.load_blocks(handler)
 	#--------------------------------------------------------
 	# Utility methods
