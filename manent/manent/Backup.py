@@ -83,10 +83,8 @@ class Backup:
 	#
 	def scan(self, comment):
 		try:
-			print "Opening all"
 			self.__open_all()
 
-			print "Opening all done"
 			base_fs_digests = self.increment_manager.start_increment(comment)
 			prev_nums = [(None, None, digest) for digest in base_fs_digests]
 			root = Nodes.Directory(self, None, self.config_db['data_path'])
@@ -141,6 +139,8 @@ class Backup:
 		try:
 			self.__open_all()
 
+			root = Nodes.Directory(self, None, self.config_db['data_path'])
+			root.list_files()
 			# TODO:Print info on all the storages
 			# TODO:Print info on all the increments
 			

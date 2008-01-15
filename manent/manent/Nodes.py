@@ -279,7 +279,7 @@ class File(Node):
 		valueS = StringIO.StringIO(db[key])
 		for digest in read_blocks(valueS,Digest.dataDigestSize()):
 			ctx.request_block(digest)
-	def list_files(self,ctx):
+	def list_files(self):
 		print "F", self.path(), self.get_digest()
 
 #--------------------------------------------------------
@@ -316,7 +316,7 @@ class Symlink(Node):
 		# and no way to restore the times of the link itself
 		self.restore_stats(restore_chmod=False, restore_utime=False)
 
-	def list_files(self, ctx):
+	def list_files(self):
 		print "S", self.path(), self.get_digest()
 
 #--------------------------------------------------------
@@ -483,22 +483,21 @@ class Directory(Node):
 			# Root node has no stats
 			self.restore_stats()
 
-	def list_files(self,ctx):
-			
+	def list_files(self):
 		print self.path()
-		packer = PackerStream.PackerIStream(self.backup,self.get_digest())
-		for (node_type,node_name,node_stat,node_digest) in self.read_directory_entries(packer):
+		packer = PackerStream.PackerIStream(self.backup, self.get_digest())
+		for (node_type, node_name, node_stat, node_digest) in self.read_directory_entries(packer):
 			if node_type == NODE_TYPE_DIR:
-				node = Directory(self.backup,self,node_name)
+				node = Directory(self.backup, self, node_name)
 			elif node_type == NODE_TYPE_FILE:
-				node = File(self.backup,self,node_name)
+				node = File(self.backup, self, node_name)
 			elif node_type == NODE_TYPE_SYMLINK:
-				node = Symlink(self.backup,self,node_name)
+				node = Symlink(self.backup, self, node_name)
 			node.set_stats(node_stat)
 			node.set_digest(node_digest)
-			node.list_files(ctx)
+			node.list_files()
 	
-	def read_directory_entries(self,file,base_stats=None):
+	def read_directory_entries(self, file, base_stats=None):
 		if base_stats is None:
 			base_stats = self.stats
 		while True:
@@ -507,5 +506,5 @@ class Directory(Node):
 				raise StopIteration
 			node_name = Format.read_string(file)
 			node_digest = file.read(Digest.dataDigestSize())
-			node_stat = self.unserialize_stats(file,base_stats)
-			yield (node_type,node_name,node_stat,node_digest)
+			node_stat = self.unserialize_stats(file, base_stats)
+			yield (node_type, node_name, node_stat, node_digest)

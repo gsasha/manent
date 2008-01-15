@@ -74,7 +74,7 @@ class IncrementManager:
 			next_index = 0
 			
 		self.active_increment = Increment.Increment(self.block_manager, self.config_db)
-		self.active_increment.start(storage_index,next_index,comment)
+		self.active_increment.start(storage_index, next_index, comment)
 
 		return selected_increment_fs_digests
 	
@@ -85,7 +85,10 @@ class IncrementManager:
 		inc_digest = self.active_increment.finalize(digest)
 		self.active_increment = None
 		return inc_digest
-		
+
+	def finalized_increments(self):
+		pass
+
 	def dump_intermediate(self, digest):
 		"""
 		Replace the data of this increment with a new digest.

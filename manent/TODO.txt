@@ -1,6 +1,12 @@
-- Check why recreating storage reloads data files, and not only the header files.
-  DONE
-  - Check that in all the places where load_body is called, which can be abandoned.
+- Add "info" command
+
+- Reconstruct the list of increments
+
+- Remove the base_fs_digests
+
+- Remove flush method from Node
+
+- Remove dump_intermediate from IncrementManager
 
 - Make sure that all aside blocks are saved in the end
 
@@ -13,3 +19,9 @@
 - Write parsing plugins for MP3, JPG, ZIP, .o, .a, .so
 
 - Consider adding curses-based interface
+
+------------------------------------
+
+- Check why recreating storage reloads data files, and not only the header files.
+  DONE
+  - Check that in all the places where load_body is called, which can be abandoned.
