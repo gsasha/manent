@@ -154,6 +154,8 @@ class Backup:
 	def __open_all(self):
 		self.config_db = self.db_manager.get_database_btree("config.db",
 			"data", self.txn_handler)
+		self.completed_nodes_db = self.db_manager.get_database("completed_nodes.db",
+			"nodes", self.txn_handler)
 		self.storage_manager = StorageManager.StorageManager(self.db_manager,
 			self.txn_handler)
 		# TODO: consider not loading storages on initialization, only on meaningful
@@ -181,6 +183,7 @@ class Backup:
 		self.increment_manager.close()
 		self.block_manager.close()
 		self.storage_manager.close()
+		self.completed_nodes_db.close()
 		self.config_db.close()
 	
 #===============================================================================
@@ -195,9 +198,6 @@ class ScanContext:
 		self.changed_nodes = 0
 
 		self.root_node = root_node
-
-	def add_block(self, digest, code, data):
-		self.backup.block_manager.add_block(digest, code, data)
 
 #=========================================================
 # RestoreContext
