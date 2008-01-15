@@ -44,7 +44,7 @@ class Node:
 	"""
 	Base class of all the filesystem nodes
 	"""
-	def __init__(self,backup,parent,name):
+	def __init__(self, backup, parent, name):
 		self.backup = backup
 		self.parent = parent
 		self.name = name
@@ -92,13 +92,13 @@ class Node:
 		file = StringIO.StringIO()
 		if base_stats is not None:
 			for mode in STAT_PRESERVED_MODES:
-				Format.write_int(file,stats[mode]-base_stats[mode])
+				Format.write_int(file, stats[mode] - base_stats[mode])
 		else:
 			for mode in STAT_PRESERVED_MODES:
-				Format.write_int(file,stats[mode])
+				Format.write_int(file, stats[mode])
 		return file.getvalue()
 		
-	def unserialize_stats(self,file,base_stats):
+	def unserialize_stats(self, file, base_stats):
 		stats = {}
 		if base_stats is not None:
 			for mode in STAT_PRESERVED_MODES:
@@ -116,7 +116,7 @@ class Node:
 	# see if the current file is a hard link to another file
 	# that has already been scanned. If so, reuse it.
 	#
-	def scan_hlink(self,ctx):
+	def scan_hlink(self, ctx):
 		if self.stats[stat.ST_NLINK] == 1:
 			return False
 		inode_num = self.stats[stat.ST_INO]
@@ -124,14 +124,14 @@ class Node:
 			self.digest = ctx.inodes_db[inode_num]
 			return True
 		return False
-	def update_hlink(self,ctx):
+	def update_hlink(self, ctx):
 		if self.stats[stat.ST_NLINK] == 1:
 			return
 		inode_num = self.stats[stat.ST_INO]
 		if ctx.inodes_db.has_key(inode_num):
 			return
 		ctx.inodes_db[inode_num] = self.digest
-	def restore_hlink(self,ctx,dryrun=False):
+	def restore_hlink(self, ctx, dryrun=False):
 		if self.stats[stat.ST_NLINK] == 1:
 			return False
 		if not ctx.inodes_db.has_key(self.digest):
@@ -150,7 +150,7 @@ class Node:
 		"""
 		ctx.total_nodes += 1
 		
-		for (prev_type,prev_stat,prev_digest) in reversed(prev_nums):
+		for (prev_type, prev_stat, prev_digest) in reversed(prev_nums):
 			if prev_type != self.get_type():
 				print "  node type differs in the db"
 				break
@@ -161,15 +161,17 @@ class Node:
 				print "  Base stat not defined"
 				break
 			if self.stats[stat.ST_INO] != prev_stat[stat.ST_INO]:
-				print "  Inode number differs: was %d, now %d" % (file_stat[stat.ST_INO],old_stat[stat.ST_INO]), file_stat
+				print "  Inode number differs: was %d, now %d" %\
+					(file_stat[stat.ST_INO], old_stat[stat.ST_INO]), file_stat
 				break
 			if self.stats[stat.ST_MTIME] != prev_stat[stat.ST_MTIME]:
-				print "  Mtime differs: %d != %d" % (self.stats[stat.ST_MTIME], prev_stat[stat.ST_MTIME])
+				print "  Mtime differs: %d != %d" %\
+					(self.stats[stat.ST_MTIME], prev_stat[stat.ST_MTIME])
 				break
 			if time.time() - self.stats[stat.ST_MTIME] <= 1.0:
 				# The time from the last change is less than the resolution
 				# of time() functions
-				print "  File too recent",prev_stat[stat.ST_MTIME],time.time()
+				print "  File too recent", prev_stat[stat.ST_MTIME], time.time()
 				break
 			
 			#
@@ -196,15 +198,15 @@ class Node:
 			# Was: first parameter = stat.ST_ATIME, but we canceled it
 			# because atime changes all the time and we don't want to
 			# back it up.
-			os.utime(self.path(),(self.stats[stat.ST_MTIME],
-				                  self.stats[stat.ST_MTIME]))
+			os.utime(self.path(), (self.stats[stat.ST_MTIME],
+				                   self.stats[stat.ST_MTIME]))
 
 #--------------------------------------------------------
 # CLASS:File
 #--------------------------------------------------------
 class File(Node):
-	def __init__(self,backup,parent,name):
-		Node.__init__(self,backup,parent,name)
+	def __init__(self, backup, parent, name):
+		Node.__init__(self, backup, parent, name)
 	def get_type(self):
 		return NODE_TYPE_FILE
 	#
@@ -294,7 +296,7 @@ class Symlink(Node):
 		if self.scan_hlink(ctx):
 			return
 
-		if self.scan_prev(ctx,prev_nums):
+		if self.scan_prev(ctx, prev_nums):
 			return
 
 		self.link = os.readlink(self.path())
@@ -305,7 +307,7 @@ class Symlink(Node):
 		self.digest = packer.get_digest()
 		self.update_hlink(ctx)
 		
-	def restore(self,ctx):
+	def restore(self, ctx):
 		if self.restore_hlink(ctx):
 			return
 

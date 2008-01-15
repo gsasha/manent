@@ -156,7 +156,7 @@ class Backup:
 			"data", self.txn_handler)
 		self.storage_manager = StorageManager.StorageManager(self.db_manager,
 			self.txn_handler)
-		# TODO: should not load storages on initialization, only on meaningful
+		# TODO: consider not loading storages on initialization, only on meaningful
 		# operations
 		self.storage_manager.load_storages(None)
 		self.block_manager = BlockManager.BlockManager(self.db_manager,
