@@ -1,4 +1,6 @@
 - Check why recreating storage reloads data files, and not only the header files.
+  DONE
+  - Check that in all the places where load_body is called, which can be abandoned.
 
 - Make sure that all aside blocks are saved in the end
 
