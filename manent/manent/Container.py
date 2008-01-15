@@ -256,7 +256,7 @@ class DataDumpLoader:
 	The handler can determine, given a digest and a code, whether a given block
 	should be loaded. If the block is loaded, the handler returns it back to the
 	handler through callback."""
-	def __init__(self,file,blocks,password):
+	def __init__(self, file, blocks, password):
 		self.file = file
 		self.blocks = blocks
 		self.password = password
@@ -268,7 +268,7 @@ class DataDumpLoader:
 		uncompressed_offset = 0
 		skip_until = None
 		for i in range(len(self.blocks)):
-			(digest,size,code) = self.blocks[i]
+			(digest, size, code) = self.blocks[i]
 			if code == CODE_ENCRYPTION_ARC4:
 				# Since encryption blocks are not nested in anything,
 				# we can't see start of encryption when skipping
@@ -644,4 +644,8 @@ class Container:
 		bc = TestingBlockCache()
 		self.read_blocks(bc, filename)
 	def load_blocks(self, handler):
-		self.body_dump_loader.load_blocks(handler)
+		for (digest, size, code) in self.body_blocks:
+			if handler.is_requested(digest, code):
+				self.load_body()
+				self.body_dump_loader.load_blocks(handler)
+				break

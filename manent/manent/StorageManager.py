@@ -115,7 +115,6 @@ class StorageManager:
 					self.storage_manager, sequence_idx, container.get_index(),
 					self.block_handler)
 				container.load_header()
-				container.load_body()
 				container.load_blocks(block_handler)
 	def add_storage(self, storage_params, new_block_handler):
 		# When we add a storage, the following algorithm is executed:

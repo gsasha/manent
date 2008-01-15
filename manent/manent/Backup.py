@@ -52,7 +52,7 @@ class Backup:
 			storage_idx = self.storage_manager.add_storage(params, None)
 			self.storage_manager.make_active_storage(storage_idx)
 		elif args[0] == 'add_base_storage':
-			self.storage_manager.add_storage(params)
+			self.storage_manager.add_storage(params, None)
 		self.txn_handler.commit()
 
 	def load(self):
