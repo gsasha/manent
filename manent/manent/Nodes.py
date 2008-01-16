@@ -145,35 +145,37 @@ class Node:
 	#
 	# Support for scanning in previous increments
 	#
-	def scan_prev(self, ctx, prev_nums):
+	def scan_prev(self, ctx, prev_num):
 		"""
 		"""
 		ctx.total_nodes += 1
+
+		changed = False
 		
-		for (prev_type, prev_stat, prev_digest) in reversed(prev_nums):
-			if prev_type != self.get_type():
-				print "  node type differs in the db"
-				break
-			#if stat.S_IFMT(self.stats[stat.ST_MODE]) != stat.S_IFMT(prev_stat[stat.ST_MODE]):
-				#print "  Node type differs in the fs"
-				#break
-			if prev_stat is None:
-				print "  Base stat not defined"
-				break
-			if self.stats[stat.ST_INO] != prev_stat[stat.ST_INO]:
-				print "  Inode number differs: was %d, now %d" %\
-					(file_stat[stat.ST_INO], old_stat[stat.ST_INO]), file_stat
-				break
-			if self.stats[stat.ST_MTIME] != prev_stat[stat.ST_MTIME]:
-				print "  Mtime differs: %d != %d" %\
-					(self.stats[stat.ST_MTIME], prev_stat[stat.ST_MTIME])
-				break
-			if time.time() - self.stats[stat.ST_MTIME] <= 1.0:
-				# The time from the last change is less than the resolution
-				# of time() functions
-				print "  File too recent", prev_stat[stat.ST_MTIME], time.time()
-				break
-			
+		prev_type, prev_stat, prev_digest = prev_num
+		if prev_type != self.get_type():
+			print "  node type differs in the db"
+			changed = True
+		#elif stat.S_IFMT(self.stats[stat.ST_MODE]) != stat.S_IFMT(prev_stat[stat.ST_MODE]):
+			#print "  Node type differs in the fs"
+			#changed = True
+		elif prev_stat is None:
+			print "  Base stat not defined"
+			changed = True
+		elif self.stats[stat.ST_INO] != prev_stat[stat.ST_INO]:
+			print "  Inode number differs: was %d, now %d" %\
+				(file_stat[stat.ST_INO], old_stat[stat.ST_INO]), file_stat
+			changed = True
+		elif self.stats[stat.ST_MTIME] != prev_stat[stat.ST_MTIME]:
+			print "  Mtime differs: %d != %d" %\
+				(self.stats[stat.ST_MTIME], prev_stat[stat.ST_MTIME])
+			changed = True
+		elif time.time() - self.stats[stat.ST_MTIME] <= 1.0:
+			# The time from the last change is less than the resolution
+			# of time() functions
+			print "  File too recent", prev_stat[stat.ST_MTIME], time.time()
+			changed = True
+		else:
 			#
 			# OK, the prev node seems to be the same as this one.
 			# Reuse it.
@@ -212,7 +214,7 @@ class File(Node):
 	#
 	# Scanning and restoring
 	#
-	def scan(self, ctx, prev_nums):
+	def scan(self, ctx, prev_num):
 		print "Scanning file     :", self.path()
 		#
 		# Check if we have encountered this file during this scan already
@@ -223,7 +225,7 @@ class File(Node):
 		#
 		# Check if the file is the same as in one of the upper levels
 		#
-		if self.scan_prev(ctx,prev_nums):
+		if self.scan_prev(ctx, prev_num):
 			return
 		
 		# --- File not yet in database, process it
@@ -292,11 +294,11 @@ class Symlink(Node):
 		Node.__init__(self, backup, parent, name)
 	def get_type(self):
 		return NODE_TYPE_SYMLINK
-	def scan(self, ctx, prev_nums):
+	def scan(self, ctx, prev_num):
 		if self.scan_hlink(ctx):
 			return
 
-		if self.scan_prev(ctx, prev_nums):
+		if self.scan_prev(ctx, prev_num):
 			return
 
 		self.link = os.readlink(self.path())
@@ -329,7 +331,7 @@ class Directory(Node):
 		Node.__init__(self, backup, parent, name)
 	def get_type(self):
 		return NODE_TYPE_DIR
-	def scan(self, ctx, prev_nums, exclusion_processor):
+	def scan(self, ctx, prev_num, exclusion_processor):
 		"""Scan the node, considering data in all the previous increments
 		"""
 		print "Scanning directory", self.path()
@@ -339,24 +341,31 @@ class Directory(Node):
 		ctx.total_nodes += 1
 		# prev data indexed by file, for directory scan
 		prev_name_data = {}
+		subdirs = []
 
-		for (prev_type, prev_stat, prev_digest) in prev_nums:
-			if prev_type is not None and prev_type != self.get_type():
-				# This previous entry is not a directory.
-				# Definitely shouldn't read it.
-				break
-
+		#
+		# Fetch prev information of this node
+		#
+		# Find the digest of prev node if it exists
+		prev_digest = None
+		if prev_num is not None:
+			prev_type, prev_stat, prev_digest = prev_num
+			if prev_type != NODE_TYPE_DIR:
+				prev_digest = None
+		else:
+			# Only dirs stored here, so no need to check node type
+			path_digest = Digest.DataDigest(self.path())
+			if self.backup.get_completed_nodes_db.has_key(path_digest):
+				prev_digest = self.backup.get_completed_nodes_db[path_digest]
+		# Load the data of the prev node
+		if prev_digest is not None:
 			dir_stream = PackerStream.PackerIStream(self.backup, prev_digest)
 			for node_type, node_name, node_stat, node_digest in\
 			      self.read_directory_entries(dir_stream,prev_stat):
-				if not prev_name_data.has_key(node_name):
-					prev_name_data[node_name] = []
-				prev_name_data[node_name].append(
-					(node_type, node_stat, node_digest))
-
-		last_type, last_stat, last_digest = None, None, None
-		if len(prev_nums) != 0:
-			last_type, last_stat, last_digest = prev_nums[-1]
+				if node_type == NODE_TYPE_DIR:
+					subdirs.append(node_name)
+				prev_name_data[node_name] = ((node_type, node_stat,
+				                              node_digest))
 
 		#
 		# Initialize scanning data
@@ -386,7 +395,7 @@ class Directory(Node):
 				elif stat.S_ISREG(file_mode):
 					node = File(self.backup, self, name)
 					node.compute_stats()
-					node.scan(ctx,cur_prev)
+					node.scan(ctx, cur_prev)
 					self.children.append(node)
 				else:
 					print "Ignoring unrecognized file type", path
@@ -429,7 +438,18 @@ class Directory(Node):
 		self.write(ctx)
 		self.children = None
 
-		if self.digest != last_digest:
+		#
+		# Update the current dir in completed_nodes_db
+		#
+		for subdir in subdirs:
+			cndb = self.backup.get_completed_nodes_db()
+			subdir_path = os.path.join(self.path(), subdir)
+			subdir_path_digest = Digest.dataDigest(subdir_path)
+			if cndb.has_key(subdir_path_digest):
+				del cndb[subdir_path_digest]
+		cndb[Digest.dataDigest(self.path())] = self.digest
+
+		if self.digest != prev_digest:
 			#print "changed node", self.path()
 			ctx.changed_nodes += 1
 

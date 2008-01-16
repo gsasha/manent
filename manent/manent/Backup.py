@@ -151,6 +151,17 @@ class Backup:
 		finally:
 			self.__close_all()
 	
+	def get_block_size(self):
+		return self.storage_manager.get_block_size()
+	def add_block(self, digest, code, data):
+		self.block_manager.add_block(digest, code, data)
+	def load_block(self, digest):
+		return self.block_manager.load_block(digest)
+	def get_block_code(self, digest):
+		return self.block_manager.get_block_code(digest)
+	def get_completed_nodes_db(self):
+		return self.completed_nodes_db
+
 	def __open_all(self):
 		self.config_db = self.db_manager.get_database_btree("config.db",
 			"data", self.txn_handler)
@@ -169,15 +180,6 @@ class Backup:
 		print "DATA PATH", self.config_db['data_path']
 		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(
 			self.config_db['data_path'])
-
-	def get_block_size(self):
-		return self.storage_manager.get_block_size()
-	def add_block(self, digest, code, data):
-		self.block_manager.add_block(digest, code, data)
-	def load_block(self, digest):
-		return self.block_manager.load_block(digest)
-	def get_block_code(self, digest):
-		return self.block_manager.get_block_code(digest)
 
 	def __close_all(self):
 		self.increment_manager.close()
