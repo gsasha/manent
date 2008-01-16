@@ -15,7 +15,24 @@ class Increment:
 		self.db = db
 
 		self.readonly = None
-		self.finalized = False
+
+	# Class method
+	def get_increments(cls):
+		increments = {}
+
+		increment_rexp = re.compile('Increment\.([^\.]+)\.([^\.]+)')
+		for key, value in self.config_db.iteritems_prefix("Increment"):
+			if value.endswith("fs_digest"):
+				match = increment_rexp.match(key)
+				storage_index = IE.ascii_decode_int_varlen(match.group(1))
+				index = IE.ascii_decode_int_varlen(match.group(2))
+
+				if not increments.has_key(storage_index):
+					increments[storage_index] = []
+				increments[storage_index].append(index)
+		
+		return increments
+	get_increments = classmethod(get_increments)
 
 	def index(self):
 		return self.index
@@ -23,33 +40,6 @@ class Increment:
 	def get_fs_digest(self):
 		return self.fs_digest
 
-	def compute_message(self):
-		m = StringIO.StringIO()
-		m.write("index=%d\n" % self.index)
-		m.write("time=%s\n" % self.ctime)
-		m.write("comment=%s\n" % base64.b64encode(self.comment))
-		m.write("fs_digest=%s\n" % base64.b64encode(self.fs_digest))
-		if self.finalized:
-			m.write("finalized=1\n")
-		else:
-			m.write("finalized=0\n")
-
-		return m.getvalue()
-
-	def parse_message(self,message):
-		items = {}
-		stream = StringIO.StringIO(message)
-		for line in stream:
-			key,value = line.strip().split("=", 1)
-			items[key]=value
-
-		index = int(items['index'])
-		ctime = int(items['time'])
-		comment = base64.b64decode(items['comment'])
-		fs_digest = base64.b64decode(items['fs_digest'])
-		finalized = items['finalized'] == '1'
-
-		return (index, ctime, comment, fs_digest, finalized)
 	#
 	# Methods for manipulating a newly created increment
 	#
@@ -64,42 +54,21 @@ class Increment:
 		self.ctime = int(time.time())
 		self.fs_digest = None
 
-	def finalize(self,fs_digest):
+	def finalize(self, fs_digest):
 		if self.readonly != False:
 			raise Exception("Increment already finalized")
 		
 		self.fs_digest = fs_digest
-		self.finalized = True
 		self.readonly = True
 		
 		#print "Finalizing increment", self.fs_digest
 		storage_index_str = IE.ascii_encode_int_varlen(self.storage_index)
 		index_str = IE.ascii_encode_int_varlen(self.index)
 		self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)] = self.fs_digest
-		self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)] = "1"
 		self.db["Increment.%s.%s.time"     %(storage_index_str,index_str)] = str(self.ctime)
 		self.db["Increment.%s.%s.comment"  %(storage_index_str,index_str)] = self.comment
 		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
-		message = self.compute_message()
-		digest = Digest.dataDigest(message)
-		self.block_database.add_block(digest, Container.CODE_INCREMENT_DESCRIPTOR, message)
-		return digest
-
-	def dump_intermediate(self, fs_digest):
-		if self.readonly != False:
-			raise Exception("Increment already finalized")
-
-		self.fs_digest = fs_digest
-		
-		#print "Creating intermediate increment", base64.b64encode(self.fs_digest)
-		storage_index_str = IE.ascii_encode_int_varlen(self.storage_index)
-		index_str = IE.ascii_encode_int_varlen(self.index)
-		self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)] = self.fs_digest
-		self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)] = "0"
-		self.db["Increment.%s.%s.time"     %(storage_index_str,index_str)] = self.ctime
-		self.db["Increment.%s.%s.comment"  %(storage_index_str,index_str)] = self.comment
-		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
-		message = self.compute_message()
+		message = self.__compute_message()
 		digest = Digest.dataDigest(message)
 		self.block_database.add_block(digest, Container.CODE_INCREMENT_DESCRIPTOR, message)
 		return digest
@@ -116,19 +85,18 @@ class Increment:
 		
 		storage_index_str = IE.ascii_encode_int_varlen(storage_index)
 		index_str = IE.ascii_encode_int_varlen(index)
-		self.fs_digest =     self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)]
-		self.finalized = int(self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)])
-		self.ctime     = int(self.db["Increment.%s.%s.time"%(storage_index_str,index_str)])
-		self.comment   =     self.db["Increment.%s.%s.comment"%(storage_index_str,index_str)]
+		self.fs_digest =     self.db["Increment.%s.%s.fs_digest"%(storage_index_str, index_str)]
+		self.ctime     = int(self.db["Increment.%s.%s.time"%(storage_index_str, index_str)])
+		self.comment   =     self.db["Increment.%s.%s.comment"%(storage_index_str, index_str)]
 		
-		assert self.db["Increment.%s.%s.index"%(storage_index_str,index_str)] == index_str
+		assert self.db["Increment.%s.%s.index"%(storage_index_str, index_str)] == index_str
 
 		self.readonly = True
 
 	#
 	# Restoring an increment from backup to db
 	#
-	def reconstruct(self,digest):
+	def reconstruct(self, digest):
 		if self.readonly != None:
 			raise "Attempt to restore an existing increment"
 
@@ -138,7 +106,7 @@ class Increment:
 		storage_index = self.block_database.get_storage_index(digest)
 		self.storage_index = storage_index
 		message = self.block_database.load_block(digest)
-		(self.index,self.ctime,self.comment,self.fs_digest,self.finalized) = self.parse_message(message)
+		(self.index, self.ctime, self.comment, self.fs_digest) = self.__parse_message(message)
 
 		#
 		# Update the data in the db
@@ -146,13 +114,29 @@ class Increment:
 		storage_index_str = IE.ascii_encode_int_varlen(storage_index)
 		index_str = IE.ascii_encode_int_varlen(self.index)
 		self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)] = self.fs_digest
-		if self.finalized:
-			finalized_str = '1'
-		else:
-			finalized_str = '0'
-		self.db["Increment.%s.%s.finalized"%(storage_index_str,index_str)] = finalized_str
 		self.db["Increment.%s.%s.time"     %(storage_index_str,index_str)] = self.ctime
 		self.db["Increment.%s.%s.comment"  %(storage_index_str,index_str)] = self.comment
 		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
 
 		self.readonly = True
+	def __compute_message(self):
+		m = StringIO.StringIO()
+		m.write("index=%d\n" % self.index)
+		m.write("time=%s\n" % self.ctime)
+		m.write("comment=%s\n" % base64.b64encode(self.comment))
+		m.write("fs_digest=%s\n" % base64.b64encode(self.fs_digest))
+		return m.getvalue()
+
+	def __parse_message(self, message):
+		items = {}
+		stream = StringIO.StringIO(message)
+		for line in stream:
+			key,value = line.strip().split("=", 1)
+			items[key]=value
+
+		index = int(items['index'])
+		ctime = int(items['time'])
+		comment = base64.b64decode(items['comment'])
+		fs_digest = base64.b64decode(items['fs_digest'])
+
+		return (index, ctime, comment, fs_digest)
