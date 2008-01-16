@@ -1,10 +1,11 @@
-import cStringIO as StringIO
-import time
 import base64
+import cStringIO as StringIO
+import re
+import time
 
-import utils.IntegerEncodings as IE
-import manent.utils.Digest as Digest
 import Container
+import utils.Digest as Digest
+import utils.IntegerEncodings as IE
 
 # --------------------------------------------------------------------
 # CLASS: Increment

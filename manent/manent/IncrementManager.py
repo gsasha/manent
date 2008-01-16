@@ -1,5 +1,4 @@
 import base64
-import re
 
 import Increment
 import utils.IntegerEncodings as IE
