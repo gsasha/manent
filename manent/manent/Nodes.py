@@ -380,6 +380,7 @@ class Directory(Node):
 		# Scan the directory
 		#
 		#print "starting scan for", self.path()
+		# Scan the files in the directory
 		exclusion_processor.filter_files()
 		for name in exclusion_processor.get_included_files():
 			path = os.path.join(self.path(), name)
@@ -388,7 +389,7 @@ class Directory(Node):
 			if prev_name_data.has_key(name):
 				cur_prev = prev_name_data[name]
 			else:
-				cur_prev = []
+				cur_prev = None
 
 			try:
 				if stat.S_ISLNK(file_mode):
@@ -410,6 +411,7 @@ class Directory(Node):
 				print "IOError %s accessing '%s'" % (errno, strerror), path
 				traceback.print_exc()
 
+		# Scan the subdirs in the directory
 		for name in exclusion_processor.get_included_dirs():
 			path = os.path.join(self.path(), name)
 			file_mode = os.lstat(path)[stat.ST_MODE]
@@ -417,7 +419,7 @@ class Directory(Node):
 			if prev_name_data.has_key(name):
 				cur_prev = prev_name_data[name]
 			else:
-				cur_prev = []
+				cur_prev = None
 
 			try:
 				if stat.S_ISDIR(file_mode):
@@ -445,8 +447,8 @@ class Directory(Node):
 		#
 		# Update the current dir in completed_nodes_db
 		#
+		cndb = self.backup.get_completed_nodes_db()
 		for subdir in subdirs:
-			cndb = self.backup.get_completed_nodes_db()
 			subdir_path = os.path.join(self.path(), subdir)
 			subdir_path_digest = Digest.dataDigest(subdir_path)
 			if cndb.has_key(subdir_path_digest):
