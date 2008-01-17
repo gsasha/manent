@@ -22,9 +22,6 @@ class IncrementManager:
 	def get_increments(self):
 		increments = {}
 
-		print "----------->"
-		for k, v in self.config_db.iteritems():
-			print "      --> ", k,v
 		increment_rexp = re.compile('Increment\.([^\.]+)\.([^\.]+)')
 		for key, value in self.config_db.iteritems_prefix("Increment"):
 			if key.endswith("fs_digest"):
@@ -42,7 +39,6 @@ class IncrementManager:
 		assert self.active_increment is None
 
 		increments = self.get_increments()
-		print "############# Increments:", increments
 		#
 		# Create the new active increment
 		#

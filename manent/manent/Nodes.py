@@ -352,7 +352,6 @@ class Directory(Node):
 		# Find the digest of prev node if it exists
 		prev_digest = None
 		if prev_num is not None:
-			print "*************", prev_num
 			prev_type, prev_stat, prev_digest = prev_num
 			if prev_type != NODE_TYPE_DIR:
 				prev_digest = None
