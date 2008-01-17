@@ -287,7 +287,7 @@ class File(Node):
 		for digest in read_blocks(valueS,Digest.dataDigestSize()):
 			ctx.request_block(digest)
 	def list_files(self):
-		print "F", self.path(), self.get_digest()
+		print "F", self.path(), base64.b64encode(self.get_digest())
 
 #--------------------------------------------------------
 # CLASS:Symlink
