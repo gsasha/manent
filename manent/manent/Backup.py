@@ -148,8 +148,9 @@ class Backup:
 					print "  increment comment:", increment.comment
 					print "  increment fs     :", base64.b64encode(increment.fs_digest)
 					print "  increment time   :", increment.ctime
-			root = Nodes.Directory(self, None, self.config_db['data_path'])
-			root.list_files()
+					root = Nodes.Directory(self, None, self.config_db['data_path'])
+					root.set_digest(increment.fs_digest)
+					root.list_files()
 			# TODO:Print info on all the storages
 			# TODO:Print info on all the increments
 			
