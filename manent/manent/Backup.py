@@ -1,3 +1,4 @@
+import base64
 import os, os.path
 import traceback
 
@@ -139,6 +140,14 @@ class Backup:
 		try:
 			self.__open_all()
 
+			increments = self.increment_manager.get_increments()
+			for storage, increment_idxs in increments.iteritems():
+				print "Storage", storage, "has increments:", increment_idxs
+				for idx in increment_idxs:
+					increment = self.increment_manager.get_increment(storage, idx)
+					print "  increment comment:", increment.comment
+					print "  increment fs     :", base64.b64encode(increment.fs_digest)
+					print "  increment time   :", increment.ctime
 			root = Nodes.Directory(self, None, self.config_db['data_path'])
 			root.list_files()
 			# TODO:Print info on all the storages

@@ -60,6 +60,11 @@ class IncrementManager:
 		last_increment.load(storage_index, last_index)
 		return last_increment.get_fs_digest()
 
+	def get_increment(self, storage_idx, index):
+		increment = Increment.Increment(self.block_manager, self.config_db)
+		increment.load(storage_idx, index)
+		return increment
+
 	def finalize_increment(self, digest):
 		assert self.active_increment is not None
 
