@@ -287,7 +287,7 @@ class File(Node):
 		for digest in read_blocks(valueS,Digest.dataDigestSize()):
 			ctx.request_block(digest)
 	def list_files(self):
-		print "F", self.path(), base64.b64encode(self.get_digest())
+		print "F", base64.b64encode(self.get_digest())[:8]+"...", self.path()
 
 #--------------------------------------------------------
 # CLASS:Symlink
@@ -324,7 +324,7 @@ class Symlink(Node):
 		self.restore_stats(restore_chmod=False, restore_utime=False)
 
 	def list_files(self):
-		print "S", self.path(), self.get_digest()
+		print "S", base64.b64encode(self.get_digest())[:8]+'...', self.path()
 
 #--------------------------------------------------------
 # CLASS:Directory
@@ -508,7 +508,7 @@ class Directory(Node):
 			self.restore_stats()
 
 	def list_files(self):
-		print self.path()
+		print "D", base64.b64encode(self.digest)[:8]+'...', self.path()
 		packer = PackerStream.PackerIStream(self.backup, self.get_digest())
 		for (node_type, node_name, node_stat, node_digest) in\
 			self.read_directory_entries(packer, self.stats):
