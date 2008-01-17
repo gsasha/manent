@@ -82,7 +82,7 @@ class Node:
 		self.stats = {}
 		for mode in STAT_PRESERVED_MODES:
 			self.stats[mode] = node_stat[mode]
-	def set_stats(self,stats):
+	def set_stats(self, stats):
 		self.stats = stats
 	def get_stats(self):
 		return self.stats
@@ -458,7 +458,12 @@ class Directory(Node):
 			subdir_path_digest = Digest.dataDigest(subdir_path)
 			if cndb.has_key(subdir_path_digest):
 				del cndb[subdir_path_digest]
-		cndb[Digest.dataDigest(self.path())] = self.digest + self.serialize_stats(None)
+		if self.stats is not None:
+			# Stats are empty for the root node, but we don't want to store
+			# it in the cndb, because at this point we're already done with the
+			# increment anyway
+			cndb[Digest.dataDigest(self.path())] =\
+				self.digest + self.serialize_stats(None)
 
 		if self.digest != prev_digest:
 			#print "changed node", self.path()
@@ -472,8 +477,8 @@ class Directory(Node):
 		# sorting is an optimization to make everybody access files in the same order,
 		# TODO: measure if this really makes things faster (probably will with a btree db)
 		for child in self.children:
-			Format.write_int(packer,child.get_type())
-			Format.write_string(packer,child.get_name())
+			Format.write_int(packer, child.get_type())
+			Format.write_string(packer, child.get_name())
 			packer.write(child.get_digest())
 			stats_str = child.serialize_stats(self.get_stats())
 			packer.write(stats_str)
