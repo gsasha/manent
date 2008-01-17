@@ -362,12 +362,12 @@ class Directory(Node):
 			if cndb.has_key(path_digest):
 				prev_data_is = StringIO.StringIO(cndb[path_digest])
 				prev_digest = prev_data_is.read(Digest.dataDigestSize())
-				print "prev_stat_data->", base64.b64encode(prev_data_is.read())
+				#print "prev_stat_data->", base64.b64encode(prev_data_is.read())
 				prev_stat = self.unserialize_stats(prev_data_is, None)
 		# Load the data of the prev node
 		if prev_digest is not None:
-			print "prev_digest=", prev_digest
-			print "prev_stat= ", prev_stat
+			#print "prev_digest=", prev_digest
+			#print "prev_stat= ", prev_stat
 			dir_stream = PackerStream.PackerIStream(self.backup, prev_digest)
 			for node_type, node_name, node_stat, node_digest in\
 			      self.read_directory_entries(dir_stream, prev_stat):
