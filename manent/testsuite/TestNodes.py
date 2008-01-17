@@ -56,11 +56,11 @@ class TestNodes(unittest.TestCase):
 		#
 		self.assertEquals(file1_node.scan_hlink(ctx), False)
 		file1_node.compute_stats()
-		file1_node.scan(ctx,[])
+		file1_node.scan(ctx, None)
 		file1_node.update_hlink(ctx)
 		self.assertEquals(file2_node.scan_hlink(ctx), True)
 		file2_node.compute_stats()
-		file2_node.scan(ctx,[])
+		file2_node.scan(ctx, None)
 		file2_node.update_hlink(ctx)
 		backup.finalize_increment()
 		#
@@ -97,12 +97,12 @@ class TestNodes(unittest.TestCase):
 		basedir = Nodes.Directory(backup, None, self.fsc.get_home())
 		node1 = Nodes.File(backup, basedir, "file1")
 		node1.compute_stats()
-		node1.scan(ctx,[])
+		node1.scan(ctx, None)
 		digest1 = node1.get_digest()
 		stats1 = node1.get_stats()
 		node2 = Nodes.File(backup, basedir, "file2")
 		node2.compute_stats()
-		node2.scan(ctx, [])
+		node2.scan(ctx, None)
 		digest2 = node2.get_digest()
 		stats2 = node2.get_stats()
 		#
@@ -142,7 +142,7 @@ class TestNodes(unittest.TestCase):
 		# Scan the directory structure
 		basedir = Nodes.Directory(backup, None, self.fsc.get_home())
 		ep = EP.ExclusionProcessor(self.fsc.get_home())
-		basedir.scan(ctx, [], ep)
+		basedir.scan(ctx, None, ep)
 		digest = basedir.get_digest()
 		
 		# Try to restore
@@ -168,7 +168,7 @@ class TestNodes(unittest.TestCase):
 		# Scan the directory structure
 		basedir = Nodes.Directory(backup, None, self.fsc.get_home())
 		ep = EP.ExclusionProcessor(self.fsc.get_home())
-		basedir.scan(ctx, [], ep)
+		basedir.scan(ctx, None, ep)
 		digest = basedir.get_digest()
 
 		# Try to restore
@@ -194,7 +194,7 @@ class TestNodes(unittest.TestCase):
 		# Scan the directory structure
 		basedir = Nodes.Directory(backup, None, self.fsc.get_home())
 		ep = EP.ExclusionProcessor(self.fsc.get_home())
-		basedir.scan(ctx, [], ep)
+		basedir.scan(ctx, None, ep)
 		digest = basedir.get_digest()
 
 		time.sleep(1.1)
@@ -203,7 +203,7 @@ class TestNodes(unittest.TestCase):
 		#self.fsc.add_files({"file_new":"kukui"})
 		ctx = backup.start_increment("test prev")
 		basedir = Nodes.Directory(backup, None, self.fsc.get_home())
-		basedir.scan(ctx, [(Nodes.NODE_TYPE_DIR, None, digest)], ep)
+		basedir.scan(ctx, (Nodes.NODE_TYPE_DIR, None, digest), ep)
 		digest = basedir.get_digest()
 
 		self.assertEquals(ctx.total_nodes, 6)

@@ -94,12 +94,13 @@ class MockBlockDatabase:
 		return 0
 
 class MockBackup:
-	def __init__(self,home):
+	def __init__(self, home):
 		self.container_config = MockContainerConfig()
 		self.global_config = MockGlobalConfig()
 		self.increments = MockIncrementsDB()
 		self.repository = MockRepository()
 		self.config_db = {}
+		self.completed_nodes_db = {}
 		self.home = home
 	def get_block_size(self):
 		return 1024
@@ -125,3 +126,6 @@ class MockBackup:
 		return self.repository.load_block(digest)
 	def get_block_code(self, digest):
 		return self.repository.block_code(digest)
+
+	def get_completed_nodes_db(self):
+		return self.completed_nodes_db

@@ -149,9 +149,12 @@ class Node:
 		"""
 		"""
 		ctx.total_nodes += 1
+		if prev_num is None:
+			ctx.changed_nodes += 1
+			return False
 
 		changed = False
-		
+
 		prev_type, prev_stat, prev_digest = prev_num
 		if prev_type != self.get_type():
 			print "  node type differs in the db"
@@ -349,13 +352,14 @@ class Directory(Node):
 		# Find the digest of prev node if it exists
 		prev_digest = None
 		if prev_num is not None:
+			print "*************", prev_num
 			prev_type, prev_stat, prev_digest = prev_num
 			if prev_type != NODE_TYPE_DIR:
 				prev_digest = None
 		else:
 			# Only dirs stored here, so no need to check node type
-			path_digest = Digest.DataDigest(self.path())
-			if self.backup.get_completed_nodes_db.has_key(path_digest):
+			path_digest = Digest.dataDigest(self.path())
+			if self.backup.get_completed_nodes_db().has_key(path_digest):
 				prev_digest = self.backup.get_completed_nodes_db[path_digest]
 		# Load the data of the prev node
 		if prev_digest is not None:

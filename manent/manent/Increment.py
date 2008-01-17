@@ -1,6 +1,5 @@
 import base64
 import cStringIO as StringIO
-import re
 import time
 
 import Container
@@ -16,24 +15,6 @@ class Increment:
 		self.db = db
 
 		self.readonly = None
-
-	# Class method
-	def get_increments(cls):
-		increments = {}
-
-		increment_rexp = re.compile('Increment\.([^\.]+)\.([^\.]+)')
-		for key, value in self.config_db.iteritems_prefix("Increment"):
-			if value.endswith("fs_digest"):
-				match = increment_rexp.match(key)
-				storage_index = IE.ascii_decode_int_varlen(match.group(1))
-				index = IE.ascii_decode_int_varlen(match.group(2))
-
-				if not increments.has_key(storage_index):
-					increments[storage_index] = []
-				increments[storage_index].append(index)
-		
-		return increments
-	get_increments = classmethod(get_increments)
 
 	def index(self):
 		return self.index

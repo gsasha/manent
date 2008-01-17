@@ -1,4 +1,5 @@
 import base64
+import re
 
 import Increment
 import utils.IntegerEncodings as IE
@@ -19,28 +20,48 @@ class IncrementManager:
 		self.config_db.close()
 
 	def get_increments(self):
-		return Increment.Increment.get_increments()
+		increments = {}
+
+		print "----------->"
+		for k, v in self.config_db.iteritems():
+			print "      --> ", k,v
+		increment_rexp = re.compile('Increment\.([^\.]+)\.([^\.]+)')
+		for key, value in self.config_db.iteritems_prefix("Increment"):
+			if key.endswith("fs_digest"):
+				match = increment_rexp.match(key)
+				storage_index = IE.ascii_decode_int_varlen(match.group(1))
+				index = IE.ascii_decode_int_varlen(match.group(2))
+
+				if not increments.has_key(storage_index):
+					increments[storage_index] = []
+				increments[storage_index].append(index)
 		
+		return increments
+
 	def start_increment(self, comment):
 		assert self.active_increment is None
 
 		increments = self.get_increments()
-
+		print "############# Increments:", increments
 		#
 		# Create the new active increment
 		#
 		storage_index = self.storage_manager.get_active_storage_index()
 		if increments.has_key(storage_index):
-			last_index, last_finalized = sorted(increments[storage_index])[-1]
+			last_index = sorted(increments[storage_index])[-1]
 			next_index = last_index + 1
 		else:
+			last_index = None
 			next_index = 0
 
 		self.active_increment = Increment.Increment(self.block_manager, self.config_db)
 		self.active_increment.start(storage_index, next_index, comment)
 
+		if last_index is None:
+			return None
+
 		last_increment = Increment.Increment(self.block_manager, self.config_db)
-		last_increment.load()
+		last_increment.load(storage_index, last_index)
 		return last_increment.get_fs_digest()
 
 	def finalize_increment(self, digest):
