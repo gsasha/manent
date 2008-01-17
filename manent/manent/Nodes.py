@@ -87,7 +87,7 @@ class Node:
 	def get_stats(self):
 		return self.stats
 	
-	def serialize_stats(self,base_stats):
+	def serialize_stats(self, base_stats):
 		stats = self.get_stats()
 		file = StringIO.StringIO()
 		if base_stats is not None:
@@ -103,7 +103,7 @@ class Node:
 		if base_stats is not None:
 			for mode in STAT_PRESERVED_MODES:
 				val = Format.read_int(file)
-				stats[mode] = base_stats[mode]+val
+				stats[mode] = base_stats[mode] + val
 		else:
 			for mode in STAT_PRESERVED_MODES:
 				val = Format.read_int(file)
@@ -357,14 +357,20 @@ class Directory(Node):
 				prev_digest = None
 		else:
 			# Only dirs stored here, so no need to check node type
+			cndb = self.backup.get_completed_nodes_db()
 			path_digest = Digest.dataDigest(self.path())
-			if self.backup.get_completed_nodes_db().has_key(path_digest):
-				prev_digest = self.backup.get_completed_nodes_db[path_digest]
+			if cndb.has_key(path_digest):
+				prev_data_is = StringIO.StringIO(cndb[path_digest])
+				prev_digest = prev_data_is.read(Digest.dataDigestSize())
+				print "prev_stat_data->", base64.b64encode(prev_data_is.read())
+				prev_stat = self.unserialize_stats(prev_data_is, None)
 		# Load the data of the prev node
 		if prev_digest is not None:
+			print "prev_digest=", prev_digest
+			print "prev_stat= ", prev_stat
 			dir_stream = PackerStream.PackerIStream(self.backup, prev_digest)
 			for node_type, node_name, node_stat, node_digest in\
-			      self.read_directory_entries(dir_stream,prev_stat):
+			      self.read_directory_entries(dir_stream, prev_stat):
 				if node_type == NODE_TYPE_DIR:
 					subdirs.append(node_name)
 				prev_name_data[node_name] = ((node_type, node_stat,
@@ -452,7 +458,7 @@ class Directory(Node):
 			subdir_path_digest = Digest.dataDigest(subdir_path)
 			if cndb.has_key(subdir_path_digest):
 				del cndb[subdir_path_digest]
-		cndb[Digest.dataDigest(self.path())] = self.digest
+		cndb[Digest.dataDigest(self.path())] = self.digest + self.serialize_stats(None)
 
 		if self.digest != prev_digest:
 			#print "changed node", self.path()
@@ -479,7 +485,8 @@ class Directory(Node):
 			os.mkdir(self.path())
 
 		packer = PackerStream.PackerIStream(self.backup, self.get_digest())
-		for (node_type, node_name, node_stat, node_digest) in self.read_directory_entries(packer):
+		for (node_type, node_name, node_stat, node_digest) in\
+			self.read_directory_entries(packer, self.stats):
 			if node_type == NODE_TYPE_DIR:
 				node = Directory(self.backup, self, node_name)
 			elif node_type == NODE_TYPE_FILE:
@@ -498,7 +505,8 @@ class Directory(Node):
 	def list_files(self):
 		print self.path()
 		packer = PackerStream.PackerIStream(self.backup, self.get_digest())
-		for (node_type, node_name, node_stat, node_digest) in self.read_directory_entries(packer):
+		for (node_type, node_name, node_stat, node_digest) in\
+			self.read_directory_entries(packer, self.stats):
 			if node_type == NODE_TYPE_DIR:
 				node = Directory(self.backup, self, node_name)
 			elif node_type == NODE_TYPE_FILE:
@@ -509,9 +517,7 @@ class Directory(Node):
 			node.set_digest(node_digest)
 			node.list_files()
 	
-	def read_directory_entries(self, file, base_stats=None):
-		if base_stats is None:
-			base_stats = self.stats
+	def read_directory_entries(self, file, base_stats):
 		while True:
 			node_type = Format.read_int(file)
 			if node_type is None:

@@ -2,6 +2,8 @@
 
 - Reconstruct the list of increments
 
+- make sure that container bodies of containers with metadata are read
+
 - Remove the base_fs_digests
 
 - Remove dump_intermediate from IncrementManager
