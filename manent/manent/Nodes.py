@@ -167,7 +167,7 @@ class Node:
 			changed = True
 		elif self.stats[stat.ST_INO] != prev_stat[stat.ST_INO]:
 			print "  Inode number differs: was %d, now %d" %\
-				(file_stat[stat.ST_INO], old_stat[stat.ST_INO]), file_stat
+				(prev_stat[stat.ST_INO], self.stats[stat.ST_INO]), self.stats
 			changed = True
 		elif self.stats[stat.ST_MTIME] != prev_stat[stat.ST_MTIME]:
 			print "  Mtime differs: %d != %d" %\
@@ -218,18 +218,22 @@ class File(Node):
 	# Scanning and restoring
 	#
 	def scan(self, ctx, prev_num):
-		print "Scanning file     :", self.path()
+		print "Scanning file     :", self.path(),
 		#
 		# Check if we have encountered this file during this scan already
 		#
 		if self.scan_hlink(ctx):
+			print "HLINK"
 			return
 
 		#
 		# Check if the file is the same as in one of the upper levels
 		#
 		if self.scan_prev(ctx, prev_num):
+			print "PREV"
 			return
+		
+		print ""
 		
 		# --- File not yet in database, process it
 		packer = PackerStream.PackerOStream(self.backup, Container.CODE_DATA)

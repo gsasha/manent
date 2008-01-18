@@ -1,5 +1,3 @@
-- Add "info" command
-
 - Reconstruct the list of increments
 
 - make sure that container bodies of containers with metadata are read
@@ -27,4 +25,6 @@
   - Check that in all the places where load_body is called, which can be abandoned.
 
 - Remove flush method from Node
+
+- Add "info" command
 

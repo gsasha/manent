@@ -44,23 +44,30 @@ class BlockManager:
 		else:
 			self.requested_blocks[digest] = "1"
 	def add_block(self, digest, code, data):
-		self.storage_manager.add_block(digest, code, data)
 		if code != Container.CODE_DATA:
 			# We store the block code only for blocks that are not DATA.
 			# The DATA blocks are the majority, and so  by not storing them,
 			# we save space in the database.
-			self.block_codes[digest] = code
 			self.cached_blocks[digest] = data
+	def block_saved(self, digest, code):
+		# We wait for storage manager to report that the block has been saved,
+		# since its saving might get delayed if the block is put to an aside
+		# container.
+		# TODO: make use of this
+		if code != Container.CODE_DATA:
+			self.block_codes[digest] = code
+	def has_block(self, digest):
+		# It is important to use block_codes here, since they are filled up
+		# only when the block is saved (which is not immediate for aside
+		# blocks).
+		return self.block_codes.has_key(digest) or\
+			self.loaded_blocks.has_key(digest)
 	def load_block(self, digest):
 		"""
 		Actually perform loading of the block. Assumes that the block
 		was reported by request_block, and was loaded not more times than
 		it was requested.
 		"""
-		if not self.cached_blocks.has_key(digest) and\
-		   not self.loaded_blocks.has_key(digest):
-			self.storage_manager.load_block(digest, BlockLoadHandler(self))
-
 		if self.cached_blocks.has_key(digest):
 			#
 			# Blocks that sit in self.cached_blocks are never unloaded

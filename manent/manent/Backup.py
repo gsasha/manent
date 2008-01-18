@@ -183,11 +183,8 @@ class Backup:
 		# TODO: consider not loading storages on initialization, only on meaningful
 		# operations
 		self.storage_manager.load_storages(None)
-		self.block_manager = BlockManager.BlockManager(self.db_manager,
-			self.txn_handler, self.storage_manager)
 		self.increment_manager = IncrementManager.IncrementManager(
-			self.db_manager, self.txn_handler, self.block_manager,
-			self.storage_manager)
+			self.db_manager, self.txn_handler, self.block_manager)
 		print "DATA PATH", self.config_db['data_path']
 		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(
 			self.config_db['data_path'])

@@ -2,6 +2,7 @@ import base64
 import logging
 import cStringIO as StringIO
 
+import BlockManager
 import Container
 import Storage
 import utils.IntegerEncodings as IE
@@ -31,6 +32,9 @@ class StorageManager:
 	def __init__(self, db_manager, txn_manager):
 		self.db_manager = db_manager
 		self.txn_manager = txn_manager
+		self.block_manager = BlockManager.BlockManager(self.db_manager,
+			self.txn_handler, self)
+
 		self.config_db = db_manager.get_database_btree("config.db", "storage",
 			txn_manager)
 		self.block_container_db = db_manager.get_database_hash("storage.db",
@@ -61,6 +65,10 @@ class StorageManager:
 			storage_idx, sequence_idx = IE.binary_decode_int_varlen_list(val)
 			self.seq_to_index[sequence_id] = (storage_idx, sequence_idx)
 			self.index_to_seq[sequence_idx] = (storage_idx, sequence_id)
+	def close(self):
+		self.block_container_db.close()
+		self.config_db.close()
+		self.block_manager.close()
 	def _key(self, suffix):
 		return PREFIX + suffix
 	def _register_sequence(self, storage_idx, sequence_id):
@@ -183,9 +191,9 @@ class StorageManager:
 	def load(self):
 		for storage_index in range(int(self.config_db[self._key("next_storage")])):
 			storage_type = self.config_db[self._key("storage.%d.type"%storage_index)]
-	def close(self):
-		self.block_container_db.close()
 	def add_block(self, digest, code, data):
+		self.block_manager.add_block(digest, code, data)
+		
 		if self.block_container_db.has_key(digest):
 			return
 
@@ -194,8 +202,8 @@ class StorageManager:
 		# Make sure we have a container that can take this block
 		#
 		if code == Container.CODE_DATA:
-			print "Block", base64.b64encode(digest),\
-				Container.code_name(code), "sent to normal container"
+			#print "Block", base64.b64encode(digest),\
+				#Container.code_name(code), "sent to normal container"
 			# Put the data to a normal container
 			if self.current_open_container is None:
 				self.current_open_container = storage.create_container()
@@ -205,8 +213,8 @@ class StorageManager:
 			# add the block to the container
 			self.current_open_container.add_block(digest, code, data)
 		else:
-			print "Block", base64.b64encode(digest),\
-				Container.code_name(code), "sent to aside container"
+			#print "Block", base64.b64encode(digest),\
+				#Container.code_name(code), "sent to aside container"
 			# Put the data into an aside container
 			if self.current_aside_container is None:
 				self.current_aside_container = storage.create_aside_container()
@@ -215,6 +223,18 @@ class StorageManager:
 				self._write_container(self.current_aside_container)
 				self.current_aside_container = storage.create_container()
 			self.current_aside_container.add_block(digest, code, data)
+	def load_block(self, digest):
+		if not self.block_manager.has_block(digest):
+			self.__load_blocks_for(digest, self.block_manager.get_block_handler())
+		return self.block_manager.load_block(digest)
+	def __load_blocks_for(self, digest, handler):
+		sequence_idx, container_idx = self._decode_block_info(
+			self.block_container_db[digest])
+		storage_idx, sequence_id = self.index_to_seq[sequence_idx]
+		storage = self.storages[storage_idx]
+		container = storage.get_container(sequence_id, container_idx)
+		container.load_header()
+		container.load_blocks(handler)
 	def flush(self):
 		storage = self.storages[self.active_storage_idx]
 
@@ -258,14 +278,6 @@ class StorageManager:
 		for digest, code in container.list_blocks():
 			self.block_container_db[digest] = encoded
 		self.txn_manager.commit()
-	def load_block(self, digest, handler):
-		sequence_idx, container_idx = self._decode_block_info(
-			self.block_container_db[digest])
-		storage_idx, sequence_id = self.index_to_seq[sequence_idx]
-		storage = self.storages[storage_idx]
-		container = storage.get_container(sequence_id, container_idx)
-		container.load_header()
-		container.load_blocks(handler)
 	#--------------------------------------------------------
 	# Utility methods
 	#--------------------------------------------------------

@@ -7,7 +7,7 @@ import utils.IntegerEncodings as IE
 # TODO: reconstruction of IncrementManager
 
 class IncrementManager:
-	def __init__(self, db_manager, txn_handler, block_manager, storage_manager):
+	def __init__(self, db_manager, txn_handler, block_manager):
 		self.block_manager = block_manager
 		self.storage_manager = storage_manager
 		self.config_db = db_manager.get_database_btree("config.db", "increments",
