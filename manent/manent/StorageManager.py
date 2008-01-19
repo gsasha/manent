@@ -33,7 +33,7 @@ class StorageManager:
 		self.db_manager = db_manager
 		self.txn_manager = txn_manager
 		self.block_manager = BlockManager.BlockManager(self.db_manager,
-			self.txn_handler, self)
+			self.txn_manager, self)
 
 		self.config_db = db_manager.get_database_btree("config.db", "storage",
 			txn_manager)
