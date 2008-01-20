@@ -7,8 +7,7 @@ import utils.IntegerEncodings as IE
 # TODO: reconstruction of IncrementManager
 
 class IncrementManager:
-	def __init__(self, db_manager, txn_handler, block_manager):
-		self.block_manager = block_manager
+	def __init__(self, db_manager, txn_handler, storage_manager):
 		self.storage_manager = storage_manager
 		self.config_db = db_manager.get_database_btree("config.db", "increments",
 			txn_handler)
@@ -50,18 +49,18 @@ class IncrementManager:
 			last_index = None
 			next_index = 0
 
-		self.active_increment = Increment.Increment(self.block_manager, self.config_db)
+		self.active_increment = Increment.Increment(self.storage_manager, self.config_db)
 		self.active_increment.start(storage_index, next_index, comment)
 
 		if last_index is None:
 			return None
 
-		last_increment = Increment.Increment(self.block_manager, self.config_db)
+		last_increment = Increment.Increment(self.storage_manager, self.config_db)
 		last_increment.load(storage_index, last_index)
 		return last_increment.get_fs_digest()
 
 	def get_increment(self, storage_idx, index):
-		increment = Increment.Increment(self.block_manager, self.config_db)
+		increment = Increment.Increment(self.storage_manager, self.config_db)
 		increment.load(storage_idx, index)
 		return increment
 
@@ -86,4 +85,4 @@ class IncrementManager:
 				increment.reconstruct(digest)
 		
 		handler = Handler(self)
-		self.block_manager.reconstruct(handler)
+		self.storage_manager.reconstruct(handler)

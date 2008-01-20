@@ -53,19 +53,15 @@ class TestIncrement(unittest.TestCase):
 		#
 		# Create one increment and see that it produces correct basis
 		#
-		class MockBlockManager:
-			def __init__(self):
-				self.blocks = {}
-			def add_block(self, digest, code, data):
-				self.blocks[digest] = (code, data)
 		class MockStorageManager:
 			def __init__(self):
-				pass
+				self.blocks = {}
 			def get_active_storage_index(self):
 				return 0
-		mbm = MockBlockManager()
+			def add_block(self, digest, code, data):
+				self.blocks[digest] = (code, data)
 		msm = MockStorageManager()
-		idb = IncrementManager.IncrementManager(env, txn, mbm, msm)
+		idb = IncrementManager.IncrementManager(env, txn, msm)
 		bases1 = idb.start_increment("test increment 1")
 		self.assertEqual(bases1, None)
 		
@@ -78,10 +74,10 @@ class TestIncrement(unittest.TestCase):
 		# Emulate restart of the program: IncrementDB is recreated from
 		# the databases
 		#
-		idb = IncrementManager.IncrementManager(env, txn, mbm, msm)
+		idb = IncrementManager.IncrementManager(env, txn, msm)
 		bases3 = idb.start_increment("test increment 3")
 		self.assertEqual(bases3, fs1_digest)
 		
-		idb = IncrementManager.IncrementManager(env, txn, mbm, msm)
+		idb = IncrementManager.IncrementManager(env, txn, msm)
 		bases4 = idb.start_increment("test increment 4")
 		self.assertEqual(bases4, fs1_digest)
