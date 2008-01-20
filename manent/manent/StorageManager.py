@@ -225,9 +225,9 @@ class StorageManager:
 			self.current_aside_container.add_block(digest, code, data)
 	def load_block(self, digest):
 		if not self.block_manager.has_block(digest):
-			self.__load_blocks_for(digest, self.block_manager.get_block_handler())
+			self.load_blocks_for(digest, self.block_manager.get_block_handler())
 		return self.block_manager.load_block(digest)
-	def __load_blocks_for(self, digest, handler):
+	def load_blocks_for(self, digest, handler):
 		sequence_idx, container_idx = self._decode_block_info(
 			self.block_container_db[digest])
 		storage_idx, sequence_id = self.index_to_seq[sequence_idx]

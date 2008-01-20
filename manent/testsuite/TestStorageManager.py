@@ -64,7 +64,7 @@ class TestStorageManager(unittest.TestCase):
 			def loaded(self, digest, code, data):
 				self.blocks[(digest, code)] = data
 		handler = Handler()
-		storage_manager.load_block(block_digest, handler)
+		storage_manager.load_blocks_for(block_digest, handler)
 		self.assertEqual({(block_digest, Container.CODE_DATA): block},
 			handler.blocks)
 	def test_rescan_storage(self):
@@ -96,7 +96,7 @@ class TestStorageManager(unittest.TestCase):
 		storage_index2 = storage_manager2.add_storage(
 		    {'type': '__mock__', 'password': 'kuku', 'key': ''}, None)
 		storage_manager2.make_active_storage(storage_index2)
-		storage_manager2.load_block(block_digest, handler)
+		storage_manager2.load_blocks_for(block_digest, handler)
 		self.assertEqual({(block_digest, Container.CODE_DATA): block},
 			handler.blocks)
 	def test_base_storage(self):
@@ -131,7 +131,7 @@ class TestStorageManager(unittest.TestCase):
 		storage_index2 = storage_manager2.add_storage(
 		    {'type': '__mock__', 'password': 'kuku', 'key': 'a'}, None)
 		storage_manager2.make_active_storage(storage_index2)
-		storage_manager2.load_block(block_digest, handler)
+		storage_manager2.load_blocks_for(block_digest, handler)
 		self.assertEqual({(block_digest, Container.CODE_DATA): block},
 			handler.blocks)
 	def test_container(self):
