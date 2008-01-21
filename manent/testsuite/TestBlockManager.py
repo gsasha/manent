@@ -21,8 +21,10 @@ class MockStorageManager:
 	def new_container(self):
 		self.container += 1
 	def add_block(self, digest, code, data):
+		print "-------------- adding block", base64.b64encode(digest), code, data
+		self.block_manager.add_block(digest, code, data)
 		self.blocks.append((digest, code, data, self.container))
-	def load_block(self, digest, handler):
+	def load_blocks_for(self, digest, handler):
 		self.num_load_block_requests += 1
 		found_container = None
 		for b_digest, b_code, b_data, b_container in self.blocks:
@@ -30,8 +32,11 @@ class MockStorageManager:
 				found_container = b_container
 		for b_digest, b_code, b_data, b_container in self.blocks:
 			if handler.is_requested(b_digest, b_code):
+				print "--------- block", base64.b64encode(b_digest), b_code, "requested"
 				handler.loaded(b_digest, b_code, b_data)
 				self.num_blocks_loaded += 1
+			else:
+				print "--------- block", base64.b64encode(b_digest), b_code, "not requested"
 
 class TestBlockManager(unittest.TestCase):
 	def setUp(self):
@@ -42,10 +47,12 @@ class TestBlockManager(unittest.TestCase):
 	def test_add_data_block_types(self):
 		"""Test that blocks of different types can be added and restored"""
 		bm = BlockManager.BlockManager(self.env, None, self.storage_manager)
-		self.add_block(bm, Container.CODE_DATA, "aaa")
-		self.add_block(bm, Container.CODE_DATA_PACKER, "bbb")
-		self.add_block(bm, Container.CODE_DIR, "ccc")
-		self.add_block(bm, Container.CODE_DIR_PACKER, "ddd")
+		sm = self.storage_manager
+		sm.block_manager = bm
+		sm.add_block(Digest.dataDigest("aaa"), Container.CODE_DATA, "aaa")
+		sm.add_block(Digest.dataDigest("bbb"), Container.CODE_DATA_PACKER, "bbb")
+		sm.add_block(Digest.dataDigest("ccc"), Container.CODE_DIR, "ccc")
+		sm.add_block(Digest.dataDigest("ddd"), Container.CODE_DIR_PACKER, "ddd")
 
 		# bbb is not a data block. It should be there always
 		self.assertEqual(bm.load_block(Digest.dataDigest("bbb")), "bbb")
@@ -53,6 +60,8 @@ class TestBlockManager(unittest.TestCase):
 
 		# aaa is a data block. It is not available if not requested
 		bm.request_block(Digest.dataDigest("aaa"))
+		self.storage_manager.load_blocks_for(Digest.dataDigest("aaa"),
+			bm.get_block_handler())
 		self.assertEqual(bm.load_block(Digest.dataDigest("aaa")), "aaa")
 		self.assertEqual(1, self.storage_manager.num_load_block_requests)
 		# ccc and ddd are non-data blocks, so they should be cached and

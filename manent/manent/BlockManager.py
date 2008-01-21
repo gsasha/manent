@@ -92,6 +92,8 @@ class BlockManager:
 			return int(self.block_codes[digest])
 		else:
 			return Container.CODE_DATA
+	def get_block_handler(self):
+		return BlockLoadHandler(self)
 		
 class BlockLoadHandler:
 	"""Callback class used by repository to return loaded blocks
