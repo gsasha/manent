@@ -12,12 +12,12 @@ class BlockManager:
 		# These two databases are scratch-only, so they don't need to reliably
 		# survive through program restarts
 		self.requested_blocks = self.db_manager.get_scratch_database(
-			"scratch-requested-blocks", None)
+			"scratch-requested-blocks.db", None)
 		self.loaded_blocks = self.db_manager.get_scratch_database(
-			"scratch-data-blocks", None)
-		self.cached_blocks = self.db_manager.get_database("cached-blocks",
+			"scratch-data-blocks.db", None)
+		self.cached_blocks = self.db_manager.get_database("cached-blocks.db",
 			None, self.txn_handler)
-		self.block_codes = self.db_manager.get_database("block-types",
+		self.block_codes = self.db_manager.get_database("block-types.db",
 			None, self.txn_handler)
 		#
 		# It is possible that the program was terminated before the scratch
@@ -49,13 +49,7 @@ class BlockManager:
 			# The DATA blocks are the majority, and so  by not storing them,
 			# we save space in the database.
 			self.cached_blocks[digest] = data
-	def block_saved(self, digest, code):
-		# We wait for storage manager to report that the block has been saved,
-		# since its saving might get delayed if the block is put to an aside
-		# container.
-		# TODO: make use of this
-		if code != Container.CODE_DATA:
-			self.block_codes[digest] = code
+			self.block_codes[digest] = str(code)
 	def has_block(self, digest):
 		# It is important to use block_codes here, since they are filled up
 		# only when the block is saved (which is not immediate for aside

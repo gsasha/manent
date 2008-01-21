@@ -2,7 +2,6 @@ import base64
 import os, os.path
 import traceback
 
-import BlockManager
 import Container
 import Database
 import IncrementManager
@@ -165,11 +164,11 @@ class Backup:
 	def get_block_size(self):
 		return self.storage_manager.get_block_size()
 	def add_block(self, digest, code, data):
-		self.block_manager.add_block(digest, code, data)
+		self.storage_manager.add_block(digest, code, data)
 	def load_block(self, digest):
-		return self.block_manager.load_block(digest)
+		return self.storage_manager.load_block(digest)
 	def get_block_code(self, digest):
-		return self.block_manager.get_block_code(digest)
+		return self.storage_manager.get_block_code(digest)
 	def get_completed_nodes_db(self):
 		return self.completed_nodes_db
 
@@ -184,14 +183,13 @@ class Backup:
 		# operations
 		self.storage_manager.load_storages(None)
 		self.increment_manager = IncrementManager.IncrementManager(
-			self.db_manager, self.txn_handler, self.block_manager)
+			self.db_manager, self.txn_handler, self.storage_manager)
 		print "DATA PATH", self.config_db['data_path']
 		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(
 			self.config_db['data_path'])
 
 	def __close_all(self):
 		self.increment_manager.close()
-		self.block_manager.close()
 		self.storage_manager.close()
 		self.completed_nodes_db.close()
 		self.config_db.close()

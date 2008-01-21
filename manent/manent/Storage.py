@@ -155,7 +155,7 @@ class Storage:
 				continue
 			self.config_db[config_k] = str(value)
 		# Report the new containers found
-		for seq_id, index in new_header_files.iterkeys():
+		for seq_id, index in sorted(new_header_files.iterkeys()):
 			if new_body_files.has_key((seq_id, index)):
 				container = self.get_container(seq_id, index)
 				new_container_handler.report_new_container(container)
