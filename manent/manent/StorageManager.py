@@ -282,9 +282,9 @@ class StorageManager:
 					print "Exporting block", base64.b64encode(digest),\
 						Container.code_name(code)
 					if self.sm.current_open_container is None:
-						self.sm.current_open_container = storage.create_container()
+						self.sm.current_open_container = self.storage.create_container()
 					elif not self.sm.current_open_container.can_add(data):
-						self.sm._write_container(self.current_open_container)
+						self.sm._write_container(self.sm.current_open_container)
 						self.sm.current_open_container = self.storage.create_container()
 					# add the block to the container
 					self.sm.current_open_container.add_block(digest, code, data)
