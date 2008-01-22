@@ -289,6 +289,8 @@ class StorageManager:
 					# add the block to the container
 					self.sm.current_open_container.add_block(digest, code, data)
 			self.current_aside_container.finish_dump()
+			self.current_aside_container = None
+			self.aside_block_db.truncate()
 			aside_load_container = storage.get_aside_container()
 			aside_load_container.load_header()
 			aside_load_container.load_blocks(Handler(self, storage))
