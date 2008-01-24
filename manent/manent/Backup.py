@@ -113,19 +113,22 @@ class Backup:
 	#
 	# Restoring an increment to filesystem
 	#
-	def restore(self, target_path):
+	def restore(self, args):
 		try:
 			self.__open_all()
 
-			fs_digest = self.increment_manager.find_last_increment()
-			root_node = Nodes.Directory(self, None, target_path)
-			root_node.set_digest(fs_digest)
-
-			ctx = RestoreContext()
-			root_node.request_blocks(ctx)
+			params = parse_to_keys(args)
+			storage = int(params['storage'])
+			idx = int(params['increment'])
+			target = params['target']
 			
+			increment = self.increment_manager.get_increment(storage, idx)
+			root = Nodes.Directory(self, None, target)
+			root.set_digest(increment.fs_digest)
 			ctx = RestoreContext()
-			root_node.restore(ctx)
+			root.request_blocks(ctx)
+			ctx = RestoreContext()
+			root.restore(ctx)
 			
 			self.txn_handler.commit()
 		except:
