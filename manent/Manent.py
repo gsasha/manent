@@ -81,7 +81,7 @@ elif sys.argv[1] == "remove":
 elif sys.argv[1] == "info":
 	label = sys.argv[2]
 	backup = config.load_backup(label)
-	backup.info()
+	backup.info(sys.argv[3:])
 	#config.save()
 	config.close()
 

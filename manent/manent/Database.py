@@ -121,7 +121,7 @@ class DatabaseManager:
 		#
 		# Now actually delete the database file
 		#
-		print "Removing scratch database", filename, tablename
+		#print "Removing scratch database", filename, tablename
 		fname = self.__scratch_db_fname(filename)
 		d = db.DB(self.dbenv)
 		d.remove(fname, tablename)

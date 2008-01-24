@@ -6,12 +6,6 @@
 
 - Remove dump_intermediate from IncrementManager
 
-- Make sure that all aside blocks are saved in the end
-
-- Make sure that aside blocks registered in BlockManager are always sent out to a container. Possible solution: have a database of blocks that were put aside. For that, move BlockManager to within StorageManager (which makes sense anyway).
-
-- Write the caching of hash(path)->digest for directories for faster restart of scanning
-
 - Provide a more accurate estimate of progress
 
 - Write parsing plugins for MP3, JPG, ZIP, .o, .a, .so
@@ -27,4 +21,10 @@
 - Remove flush method from Node
 
 - Add "info" command
+
+- Make sure that all aside blocks are saved in the end
+
+- Make sure that aside blocks registered in BlockManager are always sent out to a container. Possible solution: have a database of blocks that were put aside. For that, move BlockManager to within StorageManager (which makes sense anyway).
+
+- Write the caching of hash(path)->digest for directories for faster restart of scanning
 

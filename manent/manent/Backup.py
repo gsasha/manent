@@ -9,6 +9,13 @@ import Nodes
 import StorageManager
 import ExclusionProcessor
 
+def parse_to_keys(params):
+	result = {}
+	for kv in params:
+		key, value = kv.split('=')
+		result[key] = value
+	return result
+
 class Backup:
 	"""
 	Database of a complete backup set
@@ -36,10 +43,7 @@ class Backup:
 	#
 	def configure(self, args):
 		self.__open_all()
-		params = {}
-		for kv in args[1:]:
-			key, value = kv.split("=")
-			params[key] = value
+		params = parse_to_keys(args[1:])
 		if args[0] == 'show':
 			for k, v in self.config_db.iteritems():
 				print k, '=', v
@@ -113,8 +117,7 @@ class Backup:
 		try:
 			self.__open_all()
 
-			if fs_digest is None:
-				fs_digest = self.increment_manager.find_last_increment()
+			fs_digest = self.increment_manager.find_last_increment()
 			root_node = Nodes.Directory(self, None, target_path)
 			root_node.set_digest(fs_digest)
 
@@ -135,21 +138,32 @@ class Backup:
 	#
 	# Information
 	#
-	def info(self):
+	def info(self, args):
 		try:
 			self.__open_all()
 
-			increments = self.increment_manager.get_increments()
-			for storage, increment_idxs in increments.iteritems():
-				print "Storage", storage, "has increments:", increment_idxs
-				for idx in increment_idxs:
-					increment = self.increment_manager.get_increment(storage, idx)
-					print "  increment comment:", increment.comment
-					print "  increment fs     :", base64.b64encode(increment.fs_digest)
-					print "  increment time   :", increment.ctime
-					root = Nodes.Directory(self, None, self.config_db['data_path'])
-					root.set_digest(increment.fs_digest)
-					root.list_files()
+			detail = args[0]
+			params = parse_to_keys(args[1:])
+
+			if detail == 'increments':
+				increments = self.increment_manager.get_increments()
+				for storage, increment_idxs in increments.iteritems():
+					print "Storage", storage, "has increments:", increment_idxs
+					for idx in increment_idxs:
+						increment = self.increment_manager.get_increment(storage, idx)
+						print '  increment', idx, 'comment:', increment.comment,\
+							'fs:', base64.b64encode(increment.fs_digest)
+			elif detail == 'fs':
+				increments = self.increment_manager.get_increments()
+				storage = int(params['storage'])
+				idx = int(params['increment'])
+				increment = self.increment_manager.get_increment(storage, idx)
+				print "  increment comment:", increment.comment
+				print "  increment fs     :", base64.b64encode(increment.fs_digest)
+				print "  increment time   :", increment.ctime
+				root = Nodes.Directory(self, None, self.config_db['data_path'])
+				root.set_digest(increment.fs_digest)
+				root.list_files()
 			# TODO:Print info on all the storages
 			# TODO:Print info on all the increments
 			
@@ -184,7 +198,7 @@ class Backup:
 		self.storage_manager.load_storages(None)
 		self.increment_manager = IncrementManager.IncrementManager(
 			self.db_manager, self.txn_handler, self.storage_manager)
-		print "DATA PATH", self.config_db['data_path']
+		#print "DATA PATH", self.config_db['data_path']
 		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(
 			self.config_db['data_path'])
 
