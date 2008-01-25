@@ -274,22 +274,21 @@ class File(Node):
 		"""
 		Put requests for the blocks of the file into the blocks cache
 		"""
-		key = self.get_key()
-		stats = Format.deserialize_ints(stats_db[key])
-
 		#
 		# Check if the file has already been processed
 		# during this pass
 		#
-		if self.restore_hlink(ctx, stats, dryrun=True):
+		if self.restore_hlink(ctx, dryrun=True):
 			return
-		
-		#
-		# Ok, this file is new. Count all its blocks
-		#
-		valueS = StringIO.StringIO(db[key])
-		for digest in read_blocks(valueS,Digest.dataDigestSize()):
-			ctx.request_block(digest)
+
+		print "Requesting blocks for", self.path()
+		digest_lister = PackerStream.PackerDigestLister(self.backup,
+			self.get_digest())
+		print "Done requesting blocks for", self.path()
+		for digest in digest_lister:
+			print "  ", base64.b64encode(digest)
+		for digest in digest_lister:
+			self.backup.request_block(digest)
 	def list_files(self):
 		print "F", base64.b64encode(self.get_digest())[:8]+"...", self.path()
 
@@ -327,6 +326,8 @@ class Symlink(Node):
 		# and no way to restore the times of the link itself
 		self.restore_stats(restore_chmod=False, restore_utime=False)
 
+	def request_blocks(self):
+		pass
 	def list_files(self):
 		print "S", base64.b64encode(self.get_digest())[:8]+'...', self.path()
 
@@ -510,6 +511,20 @@ class Directory(Node):
 		if self.stats is not None:
 			# Root node has no stats
 			self.restore_stats()
+
+	def request_blocks(self, ctx):
+		packer = PackerStream.PackerIStream(self.backup, self.get_digest())
+		for (node_type, node_name, node_stat, node_digest) in\
+			self.read_directory_entries(packer, self.stats):
+			if node_type == NODE_TYPE_DIR:
+				node = Directory(self.backup, self, node_name)
+			elif node_type == NODE_TYPE_FILE:
+				node = File(self.backup, self, node_name)
+			elif node_type == NODE_TYPE_SYMLINK:
+				node = Symlink(self.backup, self, node_name)
+			node.set_stats(node_stat)
+			node.set_digest(node_digest)
+			node.request_blocks(ctx)
 
 	def list_files(self):
 		print "D", base64.b64encode(self.digest)[:8]+'...', self.path()

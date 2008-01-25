@@ -184,6 +184,8 @@ class Backup:
 		self.storage_manager.add_block(digest, code, data)
 	def load_block(self, digest):
 		return self.storage_manager.load_block(digest)
+	def request_block(self, digest):
+		return self.storage_manager.request_block(digest)
 	def get_block_code(self, digest):
 		return self.storage_manager.get_block_code(digest)
 	def get_completed_nodes_db(self):
@@ -230,4 +232,3 @@ class ScanContext:
 class RestoreContext:
 	def __init__(self):
 		self.inodes_db = {}
-

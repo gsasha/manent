@@ -134,6 +134,9 @@ def is_packer_code(code):
 	assert code < CODE_COMPRESSION_END
 	return code%2==1
 
+def is_user_code(code):
+	return code < CODE_CONTROL_START
+
 def code_name(code):
 	return CODE_NAME_TABLE[code]
 
@@ -280,7 +283,7 @@ class DataDumpLoader:
 					(s_digest, s_size, s_code) = self.blocks[j]
 					if s_code == CODE_ENCRYPTION_END:
 						break
-					if handler.is_requested(s_digest, s_code):
+					if is_user_code(s_code) and handler.is_requested(s_digest, s_code):
 						requested = True
 				else:
 					raise Exception("Block table error: encryption start without end")
@@ -322,7 +325,7 @@ class DataDumpLoader:
 					if s_code == CODE_COMPRESSION_END:
 						self.uncompress_bytes = s_size
 						break
-					if handler.is_requested(s_digest,s_code):
+					if is_user_code(s_code) and handler.is_requested(s_digest, s_code):
 						requested = True
 				else:
 					raise Exception("Block table error: compression start without end")
@@ -344,7 +347,7 @@ class DataDumpLoader:
 					if s_code == CODE_COMPRESSION_END:
 						self.uncompress_bytes = s_size
 						break
-					if handler.is_requested(s_digest,s_code):
+					if is_user_code(s_code) and handler.is_requested(s_digest, s_code):
 						requested = True
 				else:
 					raise Exception("Block table error: compression start without end")
@@ -408,7 +411,7 @@ class DataDumpLoader:
 						self.decryptor_data_digest.update(data)
 						self.decrypted_bytes += len(data)
 
-				if handler.is_requested(digest, code):
+				if is_user_code(code) and handler.is_requested(digest, code):
 					handler.loaded(digest, code, data)
 
 class Container:
@@ -645,7 +648,7 @@ class Container:
 		self.read_blocks(bc, filename)
 	def load_blocks(self, handler):
 		for (digest, size, code) in self.body_blocks:
-			if handler.is_requested(digest, code):
+			if is_user_code(code) and handler.is_requested(digest, code):
 				self.load_body()
 				self.body_dump_loader.load_blocks(handler)
 				break

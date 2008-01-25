@@ -95,11 +95,14 @@ class BlockLoadHandler:
 	def __init__(self, block_manager):
 		self.block_manager = block_manager
 	def is_requested(self, digest, code):
+		print "considering block", base64.b64encode(digest),\
+			Container.code_name(code)
 		if code != Container.CODE_DATA:
 			# Other kinds of blocks are cached always
 			return True
 		if self.block_manager.requested_blocks.has_key(digest):
 			# Data blocks must be specifically requested
+			self.block_manager.block_codes[digest] = str(code)
 			return True
 		return False
 	def loaded(self, digest, code, data):

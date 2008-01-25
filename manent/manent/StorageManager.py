@@ -251,9 +251,12 @@ class StorageManager:
 			self.num_aside_blocks += 1
 			self.aside_block_db[key] = digest
 	def load_block(self, digest):
+		print "SM loading block", base64.b64encode(digest)
 		if not self.block_manager.has_block(digest):
 			self.load_blocks_for(digest, self.block_manager.get_block_handler())
 		return self.block_manager.load_block(digest)
+	def request_block(self, digest):
+		self.block_manager.request_block(digest)
 	def get_block_code(self, digest):
 		if not self.block_manager.has_block(digest):
 			self.load_blocks_for(digest, self.block_manager.get_block_handler())
@@ -263,7 +266,9 @@ class StorageManager:
 			self.block_container_db[digest])
 		storage_idx, sequence_id = self.index_to_seq[sequence_idx]
 		storage = self.storages[storage_idx]
+
 		container = storage.get_container(sequence_id, container_idx)
+		print "Digest", base64.b64encode(digest), "is in", sequence_idx, container_idx
 		container.load_header()
 		container.load_blocks(handler)
 	def flush(self):
