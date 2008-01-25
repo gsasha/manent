@@ -257,6 +257,7 @@ class StorageManager:
 			self.load_blocks_for(digest, self.block_manager.get_block_handler())
 		return self.block_manager.load_block(digest)
 	def request_block(self, digest):
+		#print "SM requesting block", base64.b64encode(digest)
 		self.block_manager.request_block(digest)
 	def get_block_code(self, digest):
 		#print "SM getting code for block", base64.b64encode(digest)

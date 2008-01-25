@@ -38,6 +38,7 @@ class BlockManager:
 		Used for preprocessing, to make all the future needed blocks known -
 		this is to avoid reloading containers unnecessarily.
 		"""
+		print "Requested block:", base64.b64encode(digest)
 		if self.requested_blocks.has_key(digest):
 			self.requested_blocks[digest] = str(
 				int(self.requested_blocks[digest]) + 1)
@@ -62,6 +63,7 @@ class BlockManager:
 		was reported by request_block, and was loaded not more times than
 		it was requested.
 		"""
+		#print "BM Loading block", base64.b64encode(digest), Container.code_name(self.get_block_code(digest))
 		if self.cached_blocks.has_key(digest):
 			#
 			# Blocks that sit in self.cached_blocks are never unloaded
@@ -95,15 +97,18 @@ class BlockLoadHandler:
 	def __init__(self, block_manager):
 		self.block_manager = block_manager
 	def is_requested(self, digest, code):
-		print "considering block", base64.b64encode(digest),\
-			Container.code_name(code)
+		#print "considering block", base64.b64encode(digest),\
+			#Container.code_name(code),
 		if code != Container.CODE_DATA:
 			# Other kinds of blocks are cached always
+			#print ": Yes"
 			return True
 		if self.block_manager.requested_blocks.has_key(digest):
 			# Data blocks must be specifically requested
 			self.block_manager.block_codes[digest] = str(code)
+			#print ": Yes"
 			return True
+		#print ": No"
 		return False
 	def loaded(self, digest, code, data):
 		# All non-DATA blocks go to cache. These blocks are identified

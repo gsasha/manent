@@ -250,6 +250,7 @@ class File(Node):
 		backup
 		"""
 		
+		print "Restoring", self.path()
 		#
 		# Check if the file has already been processed
 		# during this pass
@@ -287,6 +288,8 @@ class File(Node):
 		#print "Done requesting blocks for", self.path()
 		for digest in digest_lister:
 			print "  ", base64.b64encode(digest)
+		digest_lister = PackerStream.PackerDigestLister(self.backup,
+			self.get_digest())
 		for digest in digest_lister:
 			self.backup.request_block(digest)
 	def list_files(self):
@@ -316,6 +319,7 @@ class Symlink(Node):
 		self.update_hlink(ctx)
 		
 	def restore(self, ctx):
+		print "Restoring", self.path()
 		if self.restore_hlink(ctx):
 			return
 
@@ -491,6 +495,7 @@ class Directory(Node):
 		self.digest = packer.get_digest()
 		
 	def restore(self, ctx):
+		print "Restoring", self.path()
 		if self.parent != None:
 			os.mkdir(self.path())
 
