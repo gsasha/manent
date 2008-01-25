@@ -251,17 +251,18 @@ class StorageManager:
 			self.num_aside_blocks += 1
 			self.aside_block_db[key] = digest
 	def load_block(self, digest):
-		print "SM loading block", base64.b64encode(digest)
+		#print "SM loading block", base64.b64encode(digest)
 		if not self.block_manager.has_block(digest):
+			#print "calling load blocks for", base64.b64encode(digest)
 			self.load_blocks_for(digest, self.block_manager.get_block_handler())
 		return self.block_manager.load_block(digest)
 	def request_block(self, digest):
 		self.block_manager.request_block(digest)
 	def get_block_code(self, digest):
-		if not self.block_manager.has_block(digest):
-			self.load_blocks_for(digest, self.block_manager.get_block_handler())
+		#print "SM getting code for block", base64.b64encode(digest)
 		return self.block_manager.get_block_code(digest)
 	def load_blocks_for(self, digest, handler):
+		#print "Loading blocks for", base64.b64encode(digest)
 		sequence_idx, container_idx = self._decode_block_info(
 			self.block_container_db[digest])
 		storage_idx, sequence_id = self.index_to_seq[sequence_idx]
@@ -313,7 +314,9 @@ class StorageManager:
 		container_idx = container.get_index()
 		storage_idx, seq_idx = self.seq_to_index[container.get_sequence_id()]
 		encoded = self._encode_block_info(seq_idx, container_idx)
+		print "Encoding block info seq=",seq_idx, "container=", container_idx
 		for digest, code in container.list_blocks():
+			print "   ", base64.b64encode(digest)
 			self.block_container_db[digest] = encoded
 		self.txn_manager.commit()
 	#--------------------------------------------------------

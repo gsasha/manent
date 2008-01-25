@@ -213,8 +213,11 @@ class Storage:
 		container.start_dump(self.active_sequence_id, index)
 		return container
 	def import_aside_container(self, container):
-		# TODO: implement this
-		pass
+		#TODO: implement this
+		index = self.get_next_index()
+		container.override_index(index)
+		self.sequences[self.active_sequence_id] = index
+		self.config_db[self._key(".sequences." + self.active_sequence_id)] = str(index)
 	def get_container(self, sequence_id, index):
 		container = Container.Container(self)
 		container.start_load(sequence_id, index)

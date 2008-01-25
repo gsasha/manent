@@ -284,7 +284,7 @@ class File(Node):
 		print "Requesting blocks for", self.path()
 		digest_lister = PackerStream.PackerDigestLister(self.backup,
 			self.get_digest())
-		print "Done requesting blocks for", self.path()
+		#print "Done requesting blocks for", self.path()
 		for digest in digest_lister:
 			print "  ", base64.b64encode(digest)
 		for digest in digest_lister:
