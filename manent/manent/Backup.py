@@ -139,6 +139,33 @@ class Backup:
 			self.__close_all()
 	
 	#
+	# Testing that an increment can be loaded
+	#
+	def test(self, args):
+		try:
+			self.__open_all()
+
+			params = parse_to_keys(args)
+			storage = int(params['storage'])
+			idx = int(params['increment'])
+			
+			increment = self.increment_manager.get_increment(storage, idx)
+			root = Nodes.Directory(self, None, "")
+			root.set_digest(increment.fs_digest)
+			ctx = RestoreContext()
+			root.request_blocks(ctx)
+			ctx = RestoreContext()
+			root.test(ctx)
+			
+			self.txn_handler.commit()
+		except:
+			traceback.print_exc()
+			self.txn_handler.abort()
+			raise
+		finally:
+			self.__close_all()
+	
+	#
 	# Information
 	#
 	def info(self, args):

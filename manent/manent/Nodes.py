@@ -329,6 +329,13 @@ class Symlink(Node):
 		self.digest = packer.get_digest()
 		self.update_hlink(ctx)
 		
+	def test(self, ctx):
+		print "Testing", self.path()
+
+		packer = PackerStream.PackerIStream(self.backup, self.digest)
+		# Do nothing! We just make sure that it can be loaded.
+		self.link = packer.read()
+
 	def restore(self, ctx):
 		print "Restoring", self.path()
 		if self.restore_hlink(ctx):
@@ -505,6 +512,26 @@ class Directory(Node):
 		
 		self.digest = packer.get_digest()
 		
+	def test(self, ctx):
+		print "Testing", self.path()
+		if self.parent != None:
+			os.mkdir(self.path())
+
+		packer = PackerStream.PackerIStream(self.backup, self.get_digest())
+		for (node_type, node_name, node_stat, node_digest) in\
+			self.read_directory_entries(packer, self.stats):
+			if node_type == NODE_TYPE_DIR:
+				node = Directory(self.backup, self, node_name)
+			elif node_type == NODE_TYPE_FILE:
+				node = File(self.backup, self, node_name)
+			elif node_type == NODE_TYPE_SYMLINK:
+				node = Symlink(self.backup, self, node_name)
+			else:
+				raise Exception("Unknown node type [%s]"%node_type)
+			node.set_stats(node_stat)
+			node.set_digest(node_digest)
+			node.test(ctx)
+	
 	def restore(self, ctx):
 		print "Restoring", self.path()
 		if self.parent != None:
