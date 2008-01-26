@@ -105,6 +105,12 @@ class DatabaseManager:
 			db_type=db.DB_HASH)
 	def get_scratch_database(self, filename, tablename):
 		full_fname = self.__scratch_db_fname(filename)
+		assert tablename is None
+		try:
+			os.unlink(full_fname)
+		except:
+			# If the file doesn't exist, the better
+			pass
 		return DatabaseWrapper(self, full_fname, tablename, txn_handler=None,
 			is_scratch = True)
 	def get_queue_database(self, filename, tablename):

@@ -38,7 +38,7 @@ class BlockManager:
 		Used for preprocessing, to make all the future needed blocks known -
 		this is to avoid reloading containers unnecessarily.
 		"""
-		print "Requested block:", base64.b64encode(digest)
+		#print "Requested block:", base64.b64encode(digest)
 		if self.requested_blocks.has_key(digest):
 			self.requested_blocks[digest] = str(
 				int(self.requested_blocks[digest]) + 1)
@@ -75,8 +75,9 @@ class BlockManager:
 			# See if we can unload this block
 			#
 			if self.requested_blocks.has_key(digest):
-				refcount = int(self.requested_blocks[digest])-1
+				refcount = int(self.requested_blocks[digest]) - 1
 				if refcount == 0:
+					#print "Removing block from loaded", base64.b64encode(digest)
 					del self.requested_blocks[digest]
 					del self.loaded_blocks[digest]
 				else:
@@ -105,7 +106,6 @@ class BlockLoadHandler:
 			return True
 		if self.block_manager.requested_blocks.has_key(digest):
 			# Data blocks must be specifically requested
-			self.block_manager.block_codes[digest] = str(code)
 			#print ": Yes"
 			return True
 		#print ": No"
@@ -114,6 +114,8 @@ class BlockLoadHandler:
 		# All non-DATA blocks go to cache. These blocks are identified
 		# by having their code in the block_codes database
 		if self.block_manager.block_codes.has_key(digest):
+			#print "Caching block", base64.b64encode(digest), "code", Container.code_name(self.block_manager.get_block_code(digest))
 			self.block_manager.cached_blocks[digest] = data
 		else:
 			self.block_manager.loaded_blocks[digest] = data
+			#print "Putting block into loaded", base64.b64encode(digest)

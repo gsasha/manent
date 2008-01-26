@@ -250,7 +250,6 @@ class File(Node):
 		"""
 		print "Testing", self.path()
 		packer = PackerStream.PackerIStream(self.backup, self.digest)
-		file = open(self.path(), "wb")
 		for data in FileIO.read_blocks(packer, Digest.dataDigestSize()):
 			# Do nothing with the data, just make sure it got loaded
 			pass
@@ -294,11 +293,10 @@ class File(Node):
 			return
 
 		print "Requesting blocks for", self.path()
-		digest_lister = PackerStream.PackerDigestLister(self.backup,
-			self.get_digest())
-		#print "Done requesting blocks for", self.path()
-		for digest in digest_lister:
-			print "  ", base64.b64encode(digest)
+		#digest_lister = PackerStream.PackerDigestLister(self.backup,
+			#self.get_digest())
+		#for digest in digest_lister:
+			#print "  ", base64.b64encode(digest)
 		digest_lister = PackerStream.PackerDigestLister(self.backup,
 			self.get_digest())
 		for digest in digest_lister:
@@ -514,8 +512,6 @@ class Directory(Node):
 		
 	def test(self, ctx):
 		print "Testing", self.path()
-		if self.parent != None:
-			os.mkdir(self.path())
 
 		packer = PackerStream.PackerIStream(self.backup, self.get_digest())
 		for (node_type, node_name, node_stat, node_digest) in\
