@@ -244,6 +244,17 @@ class File(Node):
 		self.digest = packer.get_digest()
 		self.update_hlink(ctx)
 
+	def test(self, ctx):
+		"""
+		Test that loading the data from the storages is successful
+		"""
+		print "Testing", self.path()
+		packer = PackerStream.PackerIStream(self.backup, self.digest)
+		file = open(self.path(), "wb")
+		for data in FileIO.read_blocks(packer, Digest.dataDigestSize()):
+			# Do nothing with the data, just make sure it got loaded
+			pass
+
 	def restore(self, ctx):
 		"""
 		Recreate the data from the information stored in the
