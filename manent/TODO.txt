@@ -1,4 +1,4 @@
-- Reconstruct the list of increments
+- Reconstruct the list of increments.
 
 - make sure that container bodies of containers with metadata are read
 
