@@ -53,7 +53,7 @@ class IncrementManager:
 		self.active_increment.start(storage_index, next_index, comment)
 
 		if last_index is None:
-			return None
+			return (None, None)
 
 		last_increment = Increment.Increment(self.storage_manager, self.config_db)
 		last_increment.load(storage_index, last_index)
@@ -64,11 +64,11 @@ class IncrementManager:
 		increment.load(storage_idx, index)
 		return increment
 
-	def finalize_increment(self, digest):
+	def finalize_increment(self, digest, level):
 		assert self.active_increment is not None
 
 		print "Finalizing increment", self.active_increment.index, "to", base64.b64encode(digest)
-		inc_digest = self.active_increment.finalize(digest)
+		inc_digest = self.active_increment.finalize(digest, level)
 		self.active_increment = None
 		return inc_digest
 
