@@ -21,6 +21,8 @@ class Increment:
 
 	def get_fs_digest(self):
 		return self.fs_digest
+	def get_fs_level(self):
+		return self.fs_level
 
 	#
 	# Methods for manipulating a newly created increment
@@ -35,18 +37,21 @@ class Increment:
 		self.comment = comment
 		self.ctime = int(time.time())
 		self.fs_digest = None
+		self.fs_level = None
 
-	def finalize(self, fs_digest):
+	def finalize(self, fs_digest, fs_level):
 		if self.readonly != False:
 			raise Exception("Increment already finalized")
 		
 		self.fs_digest = fs_digest
+		self.fs_level = fs_level
 		self.readonly = True
 		
 		#print "Finalizing increment", self.fs_digest
 		storage_index_str = IE.ascii_encode_int_varlen(self.storage_index)
 		index_str = IE.ascii_encode_int_varlen(self.index)
 		self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)] = self.fs_digest
+		self.db["Increment.%s.%s.fs_level" %(storage_index_str,index_str)] = self.fs_level
 		self.db["Increment.%s.%s.time"     %(storage_index_str,index_str)] = str(self.ctime)
 		self.db["Increment.%s.%s.comment"  %(storage_index_str,index_str)] = self.comment
 		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
@@ -68,6 +73,7 @@ class Increment:
 		storage_index_str = IE.ascii_encode_int_varlen(storage_index)
 		index_str = IE.ascii_encode_int_varlen(index)
 		self.fs_digest =     self.db["Increment.%s.%s.fs_digest"%(storage_index_str, index_str)]
+		self.fs_level  =     self.db["Increment.%s.%s.fs_level"%(storage_index_str, index_str)]
 		self.ctime     = int(self.db["Increment.%s.%s.time"%(storage_index_str, index_str)])
 		self.comment   =     self.db["Increment.%s.%s.comment"%(storage_index_str, index_str)]
 		
@@ -88,7 +94,8 @@ class Increment:
 		storage_index = self.block_database.get_storage_index(digest)
 		self.storage_index = storage_index
 		message = self.block_database.load_block(digest)
-		(self.index, self.ctime, self.comment, self.fs_digest) = self.__parse_message(message)
+		(self.index, self.ctime, self.comment, self.fs_digest, self.fs_level) =\
+			self.__parse_message(message)
 
 		#
 		# Update the data in the db
@@ -96,6 +103,7 @@ class Increment:
 		storage_index_str = IE.ascii_encode_int_varlen(storage_index)
 		index_str = IE.ascii_encode_int_varlen(self.index)
 		self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)] = self.fs_digest
+		self.db["Increment.%s.%s.fs_level" %(storage_index_str,index_str)] = self.fs_level
 		self.db["Increment.%s.%s.time"     %(storage_index_str,index_str)] = self.ctime
 		self.db["Increment.%s.%s.comment"  %(storage_index_str,index_str)] = self.comment
 		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
@@ -107,6 +115,7 @@ class Increment:
 		m.write("time=%s\n" % self.ctime)
 		m.write("comment=%s\n" % base64.b64encode(self.comment))
 		m.write("fs_digest=%s\n" % base64.b64encode(self.fs_digest))
+		m.write("fs_level=%s\n" % str(self.fs_level))
 		return m.getvalue()
 
 	def __parse_message(self, message):
@@ -120,5 +129,6 @@ class Increment:
 		ctime = int(items['time'])
 		comment = base64.b64decode(items['comment'])
 		fs_digest = base64.b64decode(items['fs_digest'])
+		fs_level = int(items['fs_level'])
 
-		return (index, ctime, comment, fs_digest)
+		return (index, ctime, comment, fs_digest, fs_level)

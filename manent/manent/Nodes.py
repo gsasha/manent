@@ -52,8 +52,12 @@ class Node:
 		self.cached_path = None
 	def get_digest(self):
 		return self.digest
-	def set_digest(self,digest):
+	def set_digest(self, digest):
 		self.digest = digest
+	def get_level(self):
+		return self.level
+	def set_level(self, level):
+		self.level = level
 	#
 	# Path computations
 	#
@@ -121,7 +125,9 @@ class Node:
 			return False
 		inode_num = self.stats[stat.ST_INO]
 		if ctx.inodes_db.has_key(inode_num):
-			self.digest = ctx.inodes_db[inode_num]
+			self.digest = ctx.inodes_db[inode_num][:Digest.dataDigestSize()]
+			level_str = ctx.inodes_db[inode_num][Digest.dataDigestSize()+1:]
+			self.level = IE.binary_decode_int_varlen(level_str)
 			return True
 		return False
 	def update_hlink(self, ctx):
@@ -130,7 +136,8 @@ class Node:
 		inode_num = self.stats[stat.ST_INO]
 		if ctx.inodes_db.has_key(inode_num):
 			return
-		ctx.inodes_db[inode_num] = self.digest
+		ctx.inodes_db[inode_num] = self.digest +\
+			IE.binary_encode_int_varlen(self.level)
 	def restore_hlink(self, ctx, dryrun=False):
 		if self.stats[stat.ST_NLINK] == 1:
 			return False
@@ -141,7 +148,7 @@ class Node:
 			otherFile = ctx.inodes_db[self.digest]
 			os.link(otherFile, self.path())
 		return True
-		
+
 	#
 	# Support for scanning in previous increments
 	#
@@ -242,6 +249,7 @@ class File(Node):
 			packer.write(data)
 			
 		self.digest = packer.get_digest()
+		self.level = packer.get_level()
 		self.update_hlink(ctx)
 
 	def test(self, ctx):
@@ -249,7 +257,8 @@ class File(Node):
 		Test that loading the data from the storages is successful
 		"""
 		print "Testing", self.path()
-		packer = PackerStream.PackerIStream(self.backup, self.digest)
+		packer = PackerStream.PackerIStream(self.backup, self.digest,
+			self.level)
 		for data in FileIO.read_blocks(packer, Digest.dataDigestSize()):
 			# Do nothing with the data, just make sure it got loaded
 			pass
@@ -271,7 +280,8 @@ class File(Node):
 		#
 		# No, this file is new. Create it.
 		#
-		packer = PackerStream.PackerIStream(self.backup, self.digest)
+		packer = PackerStream.PackerIStream(self.backup, self.digest,
+			self.level)
 		file = open(self.path(), "wb")
 		for data in FileIO.read_blocks(packer, Digest.dataDigestSize()):
 			#print "File", self.path(), "reading digest",
@@ -298,7 +308,7 @@ class File(Node):
 		#for digest in digest_lister:
 			#print "  ", base64.b64encode(digest)
 		digest_lister = PackerStream.PackerDigestLister(self.backup,
-			self.get_digest())
+			self.get_digest(), self.level)
 		for digest in digest_lister:
 			self.backup.request_block(digest)
 	def list_files(self):
@@ -325,12 +335,14 @@ class Symlink(Node):
 		packer.write(self.link)
 
 		self.digest = packer.get_digest()
+		self.level = packer.get_level()
 		self.update_hlink(ctx)
 		
 	def test(self, ctx):
 		print "Testing", self.path()
 
-		packer = PackerStream.PackerIStream(self.backup, self.digest)
+		packer = PackerStream.PackerIStream(self.backup, self.digest,
+			self.level)
 		# Do nothing! We just make sure that it can be loaded.
 		self.link = packer.read()
 
@@ -339,7 +351,8 @@ class Symlink(Node):
 		if self.restore_hlink(ctx):
 			return
 
-		packer = PackerStream.PackerIStream(self.backup, self.digest)
+		packer = PackerStream.PackerIStream(self.backup, self.digest,
+			self.level)
 		self.link = packer.read()
 		os.symlink(self.link, self.path())
 		# on Linux, there is no use of the mode of a symlink
@@ -347,7 +360,10 @@ class Symlink(Node):
 		self.restore_stats(restore_chmod=False, restore_utime=False)
 
 	def request_blocks(self):
-		pass
+		digest_lister = PackerStream.PackerDigestLister(self.backup,
+			self.get_digest(), self.level)
+		for digest in digest_lister:
+			self.backup.request_block(digest)
 	def list_files(self):
 		print "S", base64.b64encode(self.get_digest())[:8]+'...', self.path()
 
@@ -387,19 +403,21 @@ class Directory(Node):
 			if cndb.has_key(path_digest):
 				prev_data_is = StringIO.StringIO(cndb[path_digest])
 				prev_digest = prev_data_is.read(Digest.dataDigestSize())
+				prev_level = IE.binary_read_int_varlen(prev_data_is)
 				#print "prev_stat_data->", base64.b64encode(prev_data_is.read())
 				prev_stat = self.unserialize_stats(prev_data_is, None)
 		# Load the data of the prev node
 		if prev_digest is not None:
 			#print "prev_digest=", prev_digest
 			#print "prev_stat= ", prev_stat
-			dir_stream = PackerStream.PackerIStream(self.backup, prev_digest)
-			for node_type, node_name, node_stat, node_digest in\
+			dir_stream = PackerStream.PackerIStream(self.backup, prev_digest,
+				prev_level)
+			for node_type, node_name, node_stat, node_digest, node_level in\
 			      self.read_directory_entries(dir_stream, prev_stat):
 				if node_type == NODE_TYPE_DIR:
 					subdirs.append(node_name)
 				prev_name_data[node_name] = ((node_type, node_stat,
-				                              node_digest))
+				                              node_digest, node_level))
 
 		#
 		# Initialize scanning data
@@ -488,7 +506,8 @@ class Directory(Node):
 			# it in the cndb, because at this point we're already done with the
 			# increment anyway
 			cndb[Digest.dataDigest(self.path())] =\
-				self.digest + self.serialize_stats(None)
+				self.digest + IE.binary_encode_int_varlen(self.level) +\
+				self.serialize_stats(None)
 
 		if self.digest != prev_digest:
 			#print "changed node", self.path()
@@ -505,6 +524,7 @@ class Directory(Node):
 			Format.write_int(packer, child.get_type())
 			Format.write_string(packer, child.get_name())
 			packer.write(child.get_digest())
+			packer.write(IE.binary_encode_int_varlen(child.get_level()))
 			stats_str = child.serialize_stats(self.get_stats())
 			packer.write(stats_str)
 		
@@ -513,8 +533,9 @@ class Directory(Node):
 	def test(self, ctx):
 		print "Testing", self.path()
 
-		packer = PackerStream.PackerIStream(self.backup, self.get_digest())
-		for (node_type, node_name, node_stat, node_digest) in\
+		packer = PackerStream.PackerIStream(self.backup, self.get_digest(),
+			self.get_level())
+		for (node_type, node_name, node_stat, node_digest, node_level) in\
 			self.read_directory_entries(packer, self.stats):
 			if node_type == NODE_TYPE_DIR:
 				node = Directory(self.backup, self, node_name)
@@ -526,6 +547,7 @@ class Directory(Node):
 				raise Exception("Unknown node type [%s]"%node_type)
 			node.set_stats(node_stat)
 			node.set_digest(node_digest)
+			node.set_level(node_level)
 			node.test(ctx)
 	
 	def restore(self, ctx):
@@ -533,8 +555,9 @@ class Directory(Node):
 		if self.parent != None:
 			os.mkdir(self.path())
 
-		packer = PackerStream.PackerIStream(self.backup, self.get_digest())
-		for (node_type, node_name, node_stat, node_digest) in\
+		packer = PackerStream.PackerIStream(self.backup, self.get_digest(),
+			self.get_level())
+		for (node_type, node_name, node_stat, node_digest, node_level) in\
 			self.read_directory_entries(packer, self.stats):
 			if node_type == NODE_TYPE_DIR:
 				node = Directory(self.backup, self, node_name)
@@ -546,14 +569,16 @@ class Directory(Node):
 				raise Exception("Unknown node type [%s]"%node_type)
 			node.set_stats(node_stat)
 			node.set_digest(node_digest)
+			node.set_level(node_level)
 			node.restore(ctx)
 		if self.stats is not None:
 			# Root node has no stats
 			self.restore_stats()
 
 	def request_blocks(self, ctx):
-		packer = PackerStream.PackerIStream(self.backup, self.get_digest())
-		for (node_type, node_name, node_stat, node_digest) in\
+		packer = PackerStream.PackerIStream(self.backup, self.get_digest(),
+			self.get_level())
+		for (node_type, node_name, node_stat, node_digest, node_level) in\
 			self.read_directory_entries(packer, self.stats):
 			if node_type == NODE_TYPE_DIR:
 				node = Directory(self.backup, self, node_name)
@@ -563,12 +588,14 @@ class Directory(Node):
 				node = Symlink(self.backup, self, node_name)
 			node.set_stats(node_stat)
 			node.set_digest(node_digest)
+			node.set_level(node_level)
 			node.request_blocks(ctx)
 
 	def list_files(self):
 		print "D", base64.b64encode(self.digest)[:8]+'...', self.path()
-		packer = PackerStream.PackerIStream(self.backup, self.get_digest())
-		for (node_type, node_name, node_stat, node_digest) in\
+		packer = PackerStream.PackerIStream(self.backup, self.get_digest(),
+			self.get_level())
+		for (node_type, node_name, node_stat, node_digest, node_level) in\
 			self.read_directory_entries(packer, self.stats):
 			if node_type == NODE_TYPE_DIR:
 				node = Directory(self.backup, self, node_name)
@@ -578,6 +605,7 @@ class Directory(Node):
 				node = Symlink(self.backup, self, node_name)
 			node.set_stats(node_stat)
 			node.set_digest(node_digest)
+			node.set_level(node_level)
 			node.list_files()
 	
 	def read_directory_entries(self, file, base_stats):
@@ -587,5 +615,6 @@ class Directory(Node):
 				raise StopIteration
 			node_name = Format.read_string(file)
 			node_digest = file.read(Digest.dataDigestSize())
+			node_level = IE.binary_read_varlen_list(file)
 			node_stat = self.unserialize_stats(file, base_stats)
-			yield (node_type, node_name, node_stat, node_digest)
+			yield (node_type, node_name, node_stat, node_digest, node_level)

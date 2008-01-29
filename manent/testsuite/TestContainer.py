@@ -66,7 +66,7 @@ class MockStorage:
 		container.start_load("sequence_a", index)
 		return container
 
-	def get_password(self):
+	def get_encryption_key(self):
 		return self.password
 	def open_header_file(self, sequence_id, index):
 		return self.header_file
