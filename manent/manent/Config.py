@@ -40,6 +40,32 @@ import manent.utils.IntegerEncodings as IntegerEncodings
 #   backups=<list of backups>
 #
 # The lists of names are stored as arrays of strings.
+class Paths:
+	def __init__(self):
+		self.staging_area_exists = False
+		self.home_area_exists = False
+	def home_area(self):
+		if os.name == "nt":
+			path = os.path.join(os.environ["APPDATA"], "manent")
+		else:
+			path = os.path.join(os.environ["HOME"], ".manent")
+		if not self.home_area_exists and not os.path.exists(path):
+			os.mkdir(path)
+			self.home_area_exists = True
+		return path
+
+	def staging_area(self):
+		if os.name == "nt":
+			path = os.path.join(os.environ["TEMP"], "manent.staging")
+		else:
+			path = "/tmp/manent.staging."+os.environ["USER"]
+		if not self.staging_area_exists and not os.path.exists(path):
+			os.mkdir(path)
+			self.staging_area_exists = True
+		return path
+
+paths = Paths()
+
 class GlobalConfig:
 	def __init__(self):
 		self.config_parser = ConfigParser.ConfigParser()

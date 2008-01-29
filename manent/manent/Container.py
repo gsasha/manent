@@ -464,10 +464,10 @@ class Container:
 		self.header_dump_os = StringIO.StringIO()
 		self.header_dumper = DataDumper(self.header_dump_os)
 
-		if self.storage.get_password() != "":
+		if self.storage.get_encryption_key() != "":
 			self.encryption_active = True
-			self.body_dumper.start_encryption(CODE_ENCRYPTION_ARC4, os.urandom(Digest.dataDigestSize()), self.storage.get_password())
-			self.header_dumper.start_encryption(CODE_ENCRYPTION_ARC4, os.urandom(Digest.dataDigestSize()), self.storage.get_password())
+			self.body_dumper.start_encryption(CODE_ENCRYPTION_ARC4, os.urandom(Digest.dataDigestSize()), self.storage.get_encryption_key())
+			self.header_dumper.start_encryption(CODE_ENCRYPTION_ARC4, os.urandom(Digest.dataDigestSize()), self.storage.get_encryption_key())
 		else:
 			self.encryption_active = False
 
@@ -610,7 +610,7 @@ class Container:
 		handler = Handler()
 		header_dump_str_io = StringIO.StringIO(header_dump_str)
 		header_dump_loader = DataDumpLoader(header_dump_str_io, header_blocks,
-			password=self.storage.get_password())
+			password=self.storage.get_encryption_key())
 		header_dump_loader.load_blocks(handler)
 
 		body_table_io = StringIO.StringIO(handler.body_table_str)
@@ -623,7 +623,7 @@ class Container:
 		else:
 			self.body_file = self.storage.load_container_body(self.sequence_id, self.index)
 		self.body_dump_loader = DataDumpLoader(self.body_file, self.body_blocks,
-			password=self.storage.get_password())
+			password=self.storage.get_encryption_key())
 	def info(self):
 		print "Manent container #%d of storage %s" % (
 			self.index, self.storage.get_label())

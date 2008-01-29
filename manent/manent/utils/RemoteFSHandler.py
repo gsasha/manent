@@ -121,7 +121,7 @@ class SFTPHandler(RemoteFSHandler):
 		handle.close()
 	
 	@retry_decorator(10, "rename")
-	def download(self, old_name, new_name):
+	def rename(self, old_name, new_name):
 		old_path = os.path.join(self.path, old_name)
 		old_path = old_path.replace("\\", "/")
 		new_path = os.path.join(self.path, new_name)

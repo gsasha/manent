@@ -1,5 +1,48 @@
 import time
 
+class BandwidthMonitor:
+	"""Measures bandwitdh of the given network connection.
+
+	Does the following measurements:
+	1. Bandwidth from the beginning of connection
+	2. Bandwidth for the last second
+	3. Bandwidth for the last 15 seconds
+	4. Bandwidth for the last minute
+	5. Bandwidth for the last hour
+	"""
+	def __init__(self):
+		self.start_time = time.time()
+		self.total_data = 0
+		self.last_second_window = []
+		self.seconds_window = []
+		self.minutes_window = []
+	def packet(self, size):
+		cur_time = time.time()
+		self.total_data += size
+		if len(self.last_second_window) == 0:
+			return
+		# Report an empty second for every full second since
+		# the last package
+		last_time, last_size = self.last_second_window[-1]
+		while cur_time - last_time > 1.0:
+			self.report_second(last_time, 0)
+			last_time += 1.0
+		# Check if a whole second has accumulated
+		self.report_second
+		self.last_second_window.append((time, size))
+	def report_second(self, size):
+		self.seconds_window.append(size)
+		
+	def get_bandwidth(self):
+		pass
+class NewBandwidthLimiter:
+	def __init__(self, speed_limit):
+		pass
+	def packet(self, size):
+		pass
+	def get_measured_speed(self):
+		pass
+
 class BandwidthLimiter:
 	def __init__(self,speed_limit):
 		self.packets = []

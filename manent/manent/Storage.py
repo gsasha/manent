@@ -7,8 +7,10 @@ import cStringIO as StringIO
 import tempfile
 import traceback
 
+import Config
 import Container
 import utils.IntegerEncodings as IE
+import utils.RemoteFSHandler as RemoteFSHandler
 
 HEADER_EXT = "mhd"
 HEADER_EXT_TMP = "mhd-tmp"
@@ -21,9 +23,9 @@ def _instantiate(config_db, storage_type, index):
 	elif storage_type == "mail":
 		return MailStorage(index, config_db)
 	elif storage_type == "ftp":
-		return FTPStorage(index, config_db, FTPHandler)
+		return FTPStorage(index, config_db, RemoteFSHandler.FTPHandler)
 	elif storage_type == "sftp":
-		return FTPStorage(index, config_db, SFTPHandler)
+		return FTPStorage(index, config_db, RemoteFSHandler.SFTPHandler)
 	elif storage_type == "__mock__":
 		return MemoryStorage(index, config_db)
 	else:
@@ -82,9 +84,9 @@ class Storage:
 			config[key[PREFIX_len:]] = val
 		return config
 
-	def get_password(self):
-		if self.config.has_key('password'):
-			return self.config['password']
+	def get_encryption_key(self):
+		if self.config.has_key('encryption_key'):
+			return self.config['encryption_key']
 		return None
 	def get_index(self):
 		return self.index
@@ -308,18 +310,20 @@ class FTPStorage(Storage):
 	def __init__(self, index, config_db, RemoteHandlerClass):
 		Storage.__init__(self, index, config_db)
 		self.RemoteHandlerClass = RemoteHandlerClass
-		self.up_bw_limiter = BandwidthLimiter(15.0E3)
-		self.down_bw_limiter = BandwidthLimiter(10000.0E3)
+		self.fs_handler = None
+		#self.up_bw_limiter = BandwidthLimiter(15.0E3)
+		#self.down_bw_limiter = BandwidthLimiter(10000.0E3)
 	def configure(self, params, new_container_handler):
 		Storage.configure(self, params, new_container_handler)
 	def load_configuration(self, new_container_handler):
 		Storage.load_configuration(self, new_container_handler)
 		print "Loaded directory storage configuration", self.config
-	def init(self, backup, txn_handler, params):
-		Storage.init(self, backup, txn_handler)
-		(host, user, password, path) = params
-		self.fs_handler = self.RemoteHandlerClass(self.get_host(),
-			self.get_user(), self.get_password(), self.get_path())
+
+	def get_fs_handler(self):
+		if self.fs_handler is None:
+			self.fs_handler = self.RemoteHandlerClass(self.get_host(),
+				self.get_user(), self.get_password(), self.get_path())
+		return self.fs_handler
 
 	def get_host(self):
 		return self.config["host"]
@@ -338,30 +342,30 @@ class FTPStorage(Storage):
 	
 	def list_container_files(self):
 		print "Scanning containers:"
-		file_list = self.fs_handler.list_files()
+		file_list = self.get_fs_handler().list_files()
 		print "listed files", file_list
 		return file_list
 
 	def open_header_file(self, sequence_id, index):
 		print "Starting container header", base64.urlsafe_b64encode(sequence_id), index
-		return tempfile.TemporaryFile(dir=self.backup.global_config.staging_path())
+		return tempfile.TemporaryFile(dir=Config.paths.staging_area())
 	def open_body_file(self, sequence_id, index):
 		print "Starting container body", base64.urlsafe_b64encode(sequence_id), index
-		return tempfile.TemporaryFile(dir=self.backup.global_config.staging_path())
+		return tempfile.TemporaryFile(dir=Config.paths.staging_area())
 	
 	def load_container_header(self, sequence_id, index):
 		print "Loading container header", base64.urlsafe_b64encode(sequence_id), index
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
-		filehandle = tempfile.TemporaryFile(dir=self.backup.global_config.staging_path())
-		self.fs_handler.download(filenandle, header_file_name)
-		filehandle.rewind()
+		filehandle = tempfile.TemporaryFile(dir=Config.paths.staging_area())
+		self.get_fs_handler().download(filenandle, header_file_name)
+		filehandle.seek(0)
 		return filehandle
 	def load_container_body(self, sequence_id, index):
 		print "Loading container body", base64.urlsafe_b64encode(sequence_id), index
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
-		filehandle = tempfile.TemporaryFile(dir=self.backup.global_config.staging_path())
-		self.fs_handler.download(filenandle, body_file_name)
-		filehandle.rewind()
+		filehandle = tempfile.TemporaryFile(dir=Config.paths.staging_area())
+		self.get_fs_handler().download(filenandle, body_file_name)
+		filehandle.seek(0)
 		return filehandle
 	
 	#def load_container_header(self, index, filename):
@@ -384,17 +388,17 @@ class FTPStorage(Storage):
 		body_file_name_tmp = self.encode_container_name(sequence_id, index, BODY_EXT_TMP)
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
 		# Upload the files
-		header_file.rewind()
-		self.fs_handler.upload(header_file, header_file_name_tmp)
-		body_file.rewind()
-		self.fs_handler.upload(body_file, body_file_name_tmp)
+		header_file.seek(0)
+		self.get_fs_handler().upload(header_file, header_file_name_tmp)
+		body_file.seek(0)
+		self.get_fs_handler().upload(body_file, body_file_name_tmp)
 		# Rename the tmp files to permanent ones
-		self.fs_handler.rename(header_file_name_tmp, header_file_name)
-		self.fs_handler.rename(body_file_name_tmp, body_file_name)
+		self.get_fs_handler().rename(header_file_name_tmp, header_file_name)
+		self.get_fs_handler().rename(body_file_name_tmp, body_file_name)
 		#TODO: return to using FileReader, FileWriter
 		# Remove the write permission off the permanent files
-		self.fs_handler.chmod(header_file_name, 0444)
-		self.fs_handler.chmod(body_file_name, 0444)
+		self.get_fs_handler().chmod(header_file_name, 0444)
+		self.get_fs_handler().chmod(body_file_name, 0444)
 	#def upload_container(self,index,header_file_name,body_file_name):
 		#remote_header_file_name = self.compute_header_filename(index)
 		#remote_body_file_name = self.compute_body_filename(index)
