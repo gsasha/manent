@@ -17,7 +17,7 @@ class TestIncrement(unittest.TestCase):
 		increment1 = Increment.Increment(blockDB, db)
 		increment2 = Increment.Increment(blockDB, db)
 		increment1.start(0,1,"test increment 1")
-		increment1.finalize(Digest.dataDigest("aaaaaa"))
+		increment1.finalize(Digest.dataDigest("aaaaaa"), 0)
 		increment2.load(0,1)
 		
 		self.assertEqual(increment1.comment, increment2.comment)
@@ -35,7 +35,7 @@ class TestIncrement(unittest.TestCase):
 		# create the increment
 		increment1 = Increment.Increment(blockDB, db)
 		increment1.start(0,1,"test increment 1")
-		digest1 = increment1.finalize(Digest.dataDigest("aaaaa"))
+		digest1 = increment1.finalize(Digest.dataDigest("aaaaa"), 1)
 		
 		# Reconstruct the increment from the digest
 		increment2 = Increment.Increment(blockDB, db)
@@ -62,22 +62,27 @@ class TestIncrement(unittest.TestCase):
 				self.blocks[digest] = (code, data)
 		msm = MockStorageManager()
 		idb = IncrementManager.IncrementManager(env, txn, msm)
-		bases1 = idb.start_increment("test increment 1")
+		bases1, level1 = idb.start_increment("test increment 1")
 		self.assertEqual(bases1, None)
-		
+		self.assertEqual(level1, None)
+
 		fs1_digest = Digest.dataDigest("data1")
-		idb.finalize_increment(fs1_digest)
-		bases2 = idb.start_increment("test increment 2")
+		fs1_level = 0
+		idb.finalize_increment(fs1_digest, fs1_level)
+		bases2, level2 = idb.start_increment("test increment 2")
 		# Unfinalized increment is not returned
 		self.assertEqual(bases2, fs1_digest)
+		self.assertEqual(level2, fs1_level)
 		#
 		# Emulate restart of the program: IncrementDB is recreated from
 		# the databases
 		#
 		idb = IncrementManager.IncrementManager(env, txn, msm)
-		bases3 = idb.start_increment("test increment 3")
+		bases3, level3 = idb.start_increment("test increment 3")
 		self.assertEqual(bases3, fs1_digest)
+		self.assertEqual(level3, fs1_level)
 		
 		idb = IncrementManager.IncrementManager(env, txn, msm)
-		bases4 = idb.start_increment("test increment 4")
+		bases4, level4 = idb.start_increment("test increment 4")
 		self.assertEqual(bases4, fs1_digest)
+		self.assertEqual(level4, fs1_level)

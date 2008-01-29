@@ -99,11 +99,13 @@ class TestNodes(unittest.TestCase):
 		node1.compute_stats()
 		node1.scan(ctx, None)
 		digest1 = node1.get_digest()
+		level1 = node1.get_level()
 		stats1 = node1.get_stats()
 		node2 = Nodes.File(backup, basedir, "file2")
 		node2.compute_stats()
 		node2.scan(ctx, None)
 		digest2 = node2.get_digest()
+		level2 = node2.get_level()
 		stats2 = node2.get_stats()
 		#
 		# Restore the files and see if everything is in place
@@ -112,10 +114,12 @@ class TestNodes(unittest.TestCase):
 		restore_node = Nodes.Directory(backup, None, self.fsc.get_home())
 		node1 = Nodes.File(backup, restore_node, "file1")
 		node1.set_digest(digest1)
+		node1.set_level(level1)
 		node1.set_stats(stats1)
 		node1.restore(ctx)
 		node2 = Nodes.File(backup, restore_node, "file2")
 		node2.set_digest(digest2)
+		node2.set_level(level2)
 		node2.set_stats(stats2)
 		node2.restore(ctx)
 
@@ -144,11 +148,13 @@ class TestNodes(unittest.TestCase):
 		ep = EP.ExclusionProcessor(self.fsc.get_home())
 		basedir.scan(ctx, None, ep)
 		digest = basedir.get_digest()
+		level = basedir.get_level()
 		
 		# Try to restore
 		self.fsc.reset()
 		restore_dir = Nodes.Directory(backup, None, self.fsc.get_home())
 		restore_dir.set_digest(digest)
+		restore_dir.set_level(level)
 		restore_dir.restore(ctx)
 
 		self.failUnless(self.fsc.test_files(file_data))
@@ -170,11 +176,13 @@ class TestNodes(unittest.TestCase):
 		ep = EP.ExclusionProcessor(self.fsc.get_home())
 		basedir.scan(ctx, None, ep)
 		digest = basedir.get_digest()
+		level = basedir.get_level()
 
 		# Try to restore
 		self.fsc.reset()
 		restore_dir = Nodes.Directory(backup, None, self.fsc.get_home())
 		restore_dir.set_digest(digest)
+		restore_dir.set_level(level)
 		restore_dir.restore(ctx)
 
 		self.failUnless(self.fsc.test_files(file_data))
@@ -196,6 +204,7 @@ class TestNodes(unittest.TestCase):
 		ep = EP.ExclusionProcessor(self.fsc.get_home())
 		basedir.scan(ctx, None, ep)
 		digest = basedir.get_digest()
+		level = basedir.get_level()
 
 		time.sleep(1.1)
 		file_data["file_new"] = FSC.FSCFile("kukui")
@@ -203,8 +212,9 @@ class TestNodes(unittest.TestCase):
 		#self.fsc.add_files({"file_new":"kukui"})
 		ctx = backup.start_increment("test prev")
 		basedir = Nodes.Directory(backup, None, self.fsc.get_home())
-		basedir.scan(ctx, (Nodes.NODE_TYPE_DIR, None, digest), ep)
+		basedir.scan(ctx, (Nodes.NODE_TYPE_DIR, None, digest, level), ep)
 		digest = basedir.get_digest()
+		level = basedir.get_level()
 
 		self.assertEquals(ctx.total_nodes, 6)
 		# 3 nodes have changed: the new file and the directories that contain it.

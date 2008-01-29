@@ -57,7 +57,7 @@ class IncrementManager:
 
 		last_increment = Increment.Increment(self.storage_manager, self.config_db)
 		last_increment.load(storage_index, last_index)
-		return last_increment.get_fs_digest()
+		return (last_increment.get_fs_digest(), last_increment.get_fs_level())
 
 	def get_increment(self, storage_idx, index):
 		increment = Increment.Increment(self.storage_manager, self.config_db)

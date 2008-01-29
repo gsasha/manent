@@ -127,7 +127,7 @@ class Node:
 		if ctx.inodes_db.has_key(inode_num):
 			self.digest = ctx.inodes_db[inode_num][:Digest.dataDigestSize()]
 			level_str = ctx.inodes_db[inode_num][Digest.dataDigestSize()+1:]
-			self.level = IE.binary_decode_int_varlen(level_str)
+			self.level = IntegerEncodings.binary_decode_int_varlen(level_str)
 			return True
 		return False
 	def update_hlink(self, ctx):
@@ -137,7 +137,7 @@ class Node:
 		if ctx.inodes_db.has_key(inode_num):
 			return
 		ctx.inodes_db[inode_num] = self.digest +\
-			IE.binary_encode_int_varlen(self.level)
+			IntegerEncodings.binary_encode_int_varlen(self.level)
 	def restore_hlink(self, ctx, dryrun=False):
 		if self.stats[stat.ST_NLINK] == 1:
 			return False
@@ -162,7 +162,7 @@ class Node:
 
 		changed = False
 
-		prev_type, prev_stat, prev_digest = prev_num
+		prev_type, prev_stat, prev_digest, prev_level = prev_num
 		if prev_type != self.get_type():
 			print "  node type differs in the db"
 			changed = True
@@ -192,6 +192,7 @@ class Node:
 			#
 			self.stats = prev_stat
 			self.digest = prev_digest
+			self.level = prev_level
 			return True
 
 		#print "changed node", self.path()
@@ -393,7 +394,7 @@ class Directory(Node):
 		# Find the digest of prev node if it exists
 		prev_digest = None
 		if prev_num is not None:
-			prev_type, prev_stat, prev_digest = prev_num
+			prev_type, prev_stat, prev_digest, prev_level = prev_num
 			if prev_type != NODE_TYPE_DIR:
 				prev_digest = None
 		else:
@@ -403,7 +404,7 @@ class Directory(Node):
 			if cndb.has_key(path_digest):
 				prev_data_is = StringIO.StringIO(cndb[path_digest])
 				prev_digest = prev_data_is.read(Digest.dataDigestSize())
-				prev_level = IE.binary_read_int_varlen(prev_data_is)
+				prev_level = IntegerEncodings.binary_read_int_varlen(prev_data_is)
 				#print "prev_stat_data->", base64.b64encode(prev_data_is.read())
 				prev_stat = self.unserialize_stats(prev_data_is, None)
 		# Load the data of the prev node
@@ -506,7 +507,7 @@ class Directory(Node):
 			# it in the cndb, because at this point we're already done with the
 			# increment anyway
 			cndb[Digest.dataDigest(self.path())] =\
-				self.digest + IE.binary_encode_int_varlen(self.level) +\
+				self.digest + IntegerEncodings.binary_encode_int_varlen(self.level) +\
 				self.serialize_stats(None)
 
 		if self.digest != prev_digest:
@@ -524,11 +525,12 @@ class Directory(Node):
 			Format.write_int(packer, child.get_type())
 			Format.write_string(packer, child.get_name())
 			packer.write(child.get_digest())
-			packer.write(IE.binary_encode_int_varlen(child.get_level()))
+			packer.write(IntegerEncodings.binary_encode_int_varlen(child.get_level()))
 			stats_str = child.serialize_stats(self.get_stats())
 			packer.write(stats_str)
 		
 		self.digest = packer.get_digest()
+		self.level = packer.get_level()
 		
 	def test(self, ctx):
 		print "Testing", self.path()
@@ -615,6 +617,6 @@ class Directory(Node):
 				raise StopIteration
 			node_name = Format.read_string(file)
 			node_digest = file.read(Digest.dataDigestSize())
-			node_level = IE.binary_read_varlen_list(file)
+			node_level = IntegerEncodings.binary_read_int_varlen(file)
 			node_stat = self.unserialize_stats(file, base_stats)
 			yield (node_type, node_name, node_stat, node_digest, node_level)
