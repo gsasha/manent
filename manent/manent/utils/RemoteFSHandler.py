@@ -54,12 +54,21 @@ class FTPHandler(RemoteFSHandler):
 		return self.ftp.nlst()
 	
 	@retry_decorator(10, "upload")
-	def upload(self,file,remote_name):
+	def upload(self, file, remote_name):
 		self.ftp.storbinary("STOR %s" % (remote_name), file)
 	
 	@retry_decorator(10, "download")
 	def download(self, file, remote_name):
 		self.ftp.retrbinary("RETR %s" % (remote_name), file.write, 100<<10)
+
+	@retry_decorator(10, "rename")
+	def rename(self, old_name, new_name):
+		self.ftp.rename(old_name, new_name)
+
+	@retry_decorator(10, "chmod")
+	def chmod(self, file_name, mode):
+		# Python's FTP doesn't know how to do this
+		pass
 	# --------
 	# Internal implementation
 	# --------
@@ -109,6 +118,20 @@ class SFTPHandler(RemoteFSHandler):
 		for block in FileIO.read_blocks(handle, 16<<10):
 			file.write(block)
 		handle.close()
+	
+	@retry_decorator(10, "rename")
+	def download(self, old_name, new_name):
+		old_path = os.path.join(self.path, old_name)
+		old_path = old_path.replace("\\", "/")
+		new_path = os.path.join(self.path, new_name)
+		new_path = new_path.replace("\\", "/")
+		self.channel.rename(old_path, new_path)
+	
+	@retry_decorator(10, "chmod")
+	def chmod(self, remote_name, mode):
+		remote_path = os.path.join(self.path, remote_name)
+		remote_path = remote_path.replace("\\", "/")
+		self.channel.chmod(remote_path, mode)
 	#
 	# Internal implementation
 	#

@@ -19,11 +19,11 @@ def _instantiate(config_db, storage_type, index):
 	if storage_type == "directory":
 		return DirectoryStorage(index, config_db)
 	elif storage_type == "mail":
-		return MailStorage()
+		return MailStorage(index, config_db)
 	elif storage_type == "ftp":
-		return FTPStorage(FTPHandler)
+		return FTPStorage(index, config_db, FTPHandler)
 	elif storage_type == "sftp":
-		return FTPStorage(SFTPHandler)
+		return FTPStorage(index, config_db, SFTPHandler)
 	elif storage_type == "__mock__":
 		return MemoryStorage(index, config_db)
 	else:
@@ -267,51 +267,6 @@ class Storage:
 	def get_compression_block_size(self):
 		return 2*1024*1024
 
-
-class FTPStorage(Storage):
-	"""
-	Handler for a FTP site storage
-	"""
-	def __init__(self, RemoteHandlerClass):
-		Storage.__init__(self)
-		self.RemoteHandlerClass = RemoteHandlerClass
-		self.up_bw_limiter = BandwidthLimiter(15.0E3)
-		self.down_bw_limiter = BandwidthLimiter(10000.0E3)
-	def init(self, backup, txn_handler, params):
-		Storage.init(self, backup, txn_handler)
-		(host, user, password, path) = params
-		self.fs_handler = self.RemoteHandlerClass(host, user, password, path)
-	def container_size(self):
-		return 4<<20
-	def load_container_header(self, index, filename):
-		print "Loading header for container", index, "     "
-		remote_filename = self.compute_header_filename(index)
-		self.fs_handler.download(
-			FileWriter(filename,self.down_bw_limiter), remote_filename)
-	
-	def load_container_data(self,index,filename):
-		print "Loading body for container", index, "     "
-		remote_filename = self.compute_body_filename(index)
-		self.fs_handler.download(
-			FileWriter(filename,self.down_bw_limiter),
-			remote_filename)
-	
-	def upload_container(self,index,header_file_name,body_file_name):
-		remote_header_file_name = self.compute_header_filename(index)
-		remote_body_file_name = self.compute_body_filename(index)
-		self.fs_handler.upload(
-			FileReader(header_file_name,self.up_bw_limiter),
-			remote_header_file_name)
-		self.fs_handler.upload(
-			FileReader(body_file_name,self.up_bw_limiter),
-			remote_body_file_name)
-	
-	def list_container_files(self):
-		print "Scanning containers:"
-		file_list = self.fs_handler.list_files()
-		print "listed files", file_list
-		return file_list
-
 # Used only for testing
 class MemoryStorage(Storage):
 	# NOTE: global var. It doesn't matter, since it's for testing only.
@@ -345,6 +300,110 @@ class MemoryStorage(Storage):
 	def load_container_body(self, sequence_id, index):
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
 		return StringIO.StringIO(self.get_cur_files()[body_file_name])
+
+class FTPStorage(Storage):
+	"""
+	Handler for a FTP site storage
+	"""
+	def __init__(self, index, config_db, RemoteHandlerClass):
+		Storage.__init__(self, index, config_db)
+		self.RemoteHandlerClass = RemoteHandlerClass
+		self.up_bw_limiter = BandwidthLimiter(15.0E3)
+		self.down_bw_limiter = BandwidthLimiter(10000.0E3)
+	def configure(self, params, new_container_handler):
+		Storage.configure(self, params, new_container_handler)
+	def load_configuration(self, new_container_handler):
+		Storage.load_configuration(self, new_container_handler)
+		print "Loaded directory storage configuration", self.config
+	def init(self, backup, txn_handler, params):
+		Storage.init(self, backup, txn_handler)
+		(host, user, password, path) = params
+		self.fs_handler = self.RemoteHandlerClass(self.get_host(),
+			self.get_user(), self.get_password(), self.get_path())
+
+	def get_host(self):
+		return self.config["host"]
+	
+	def get_user(self):
+		return self.config["user"]
+	
+	def get_password(self):
+		return self.config["password"]
+	
+	def get_path(self):
+		return self.config["path"]
+
+	def container_size(self):
+		return 4<<20
+	
+	def list_container_files(self):
+		print "Scanning containers:"
+		file_list = self.fs_handler.list_files()
+		print "listed files", file_list
+		return file_list
+
+	def open_header_file(self, sequence_id, index):
+		print "Starting container header", base64.urlsafe_b64encode(sequence_id), index
+		return tempfile.TemporaryFile(dir=self.backup.global_config.staging_path())
+	def open_body_file(self, sequence_id, index):
+		print "Starting container body", base64.urlsafe_b64encode(sequence_id), index
+		return tempfile.TemporaryFile(dir=self.backup.global_config.staging_path())
+	
+	def load_container_header(self, sequence_id, index):
+		print "Loading container header", base64.urlsafe_b64encode(sequence_id), index
+		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
+		filehandle = tempfile.TemporaryFile(dir=self.backup.global_config.staging_path())
+		self.fs_handler.download(filenandle, header_file_name)
+		filehandle.rewind()
+		return filehandle
+	def load_container_body(self, sequence_id, index):
+		print "Loading container body", base64.urlsafe_b64encode(sequence_id), index
+		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
+		filehandle = tempfile.TemporaryFile(dir=self.backup.global_config.staging_path())
+		self.fs_handler.download(filenandle, body_file_name)
+		filehandle.rewind()
+		return filehandle
+	
+	#def load_container_header(self, index, filename):
+		#print "Loading header for container", index, "     "
+		#remote_filename = self.compute_header_filename(index)
+		#self.fs_handler.download(
+			#FileWriter(filename,self.down_bw_limiter), remote_filename)
+	
+	#def load_container_data(self,index,filename):
+		#print "Loading body for container", index, "     "
+		#remote_filename = self.compute_body_filename(index)
+		#self.fs_handler.download(
+			#FileWriter(filename,self.down_bw_limiter),
+			#remote_filename)
+
+	def upload_container(self, sequence_id, index, header_file, body_file):
+		print "Uploading container", base64.urlsafe_b64encode(sequence_id), index
+		header_file_name_tmp = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
+		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
+		body_file_name_tmp = self.encode_container_name(sequence_id, index, BODY_EXT_TMP)
+		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
+		# Upload the files
+		header_file.rewind()
+		self.fs_handler.upload(header_file, header_file_name_tmp)
+		body_file.rewind()
+		self.fs_handler.upload(body_file, body_file_name_tmp)
+		# Rename the tmp files to permanent ones
+		self.fs_handler.rename(header_file_name_tmp, header_file_name)
+		self.fs_handler.rename(body_file_name_tmp, body_file_name)
+		#TODO: return to using FileReader, FileWriter
+		# Remove the write permission off the permanent files
+		self.fs_handler.chmod(header_file_name, 0444)
+		self.fs_handler.chmod(body_file_name, 0444)
+	#def upload_container(self,index,header_file_name,body_file_name):
+		#remote_header_file_name = self.compute_header_filename(index)
+		#remote_body_file_name = self.compute_body_filename(index)
+		#self.fs_handler.upload(
+			#FileReader(header_file_name, self.up_bw_limiter),
+			#remote_header_file_name)
+		#self.fs_handler.upload(
+			#FileReader(body_file_name, self.up_bw_limiter),
+			#remote_body_file_name)
 
 class DirectoryStorage(Storage):
 	"""
