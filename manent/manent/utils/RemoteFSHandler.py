@@ -10,6 +10,7 @@ import traceback
 def retry_decorator(retries, message):
 	def impl(func):
 		def retrier(self, *args, **kwargs):
+			print "calling", message, "with params", args, kwargs
 			for i in range(retries):
 				try:
 					self.connect()
