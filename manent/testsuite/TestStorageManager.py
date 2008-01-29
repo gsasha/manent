@@ -22,7 +22,7 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager = StorageManager.StorageManager(self.env, self.txn)
 		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage(
-			{'type': '__mock__', 'password': 'kuku', 'key': ''}, None)
+			{'type': '__mock__', 'encryption_key': 'kuku', 'key': ''}, None)
 		storage_manager.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
@@ -47,7 +47,7 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager = StorageManager.StorageManager(self.env, self.txn)
 		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage(
-			{'type': '__mock__', 'password': 'kuku', 'key': ''}, None)
+			{'type': '__mock__', 'encryption_key': 'kuku', 'key': ''}, None)
 		storage_manager.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
@@ -72,7 +72,7 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager = StorageManager.StorageManager(self.env, self.txn)
 		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage(
-			{'type': '__mock__', 'password': 'kuku', 'key': ''}, None)
+			{'type': '__mock__', 'encryption_key': 'kuku', 'key': ''}, None)
 		storage_manager.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
@@ -94,7 +94,7 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager2 = StorageManager.StorageManager(env2, txn2)
 		storage_manager2.load_storages(None)
 		storage_index2 = storage_manager2.add_storage(
-		    {'type': '__mock__', 'password': 'kuku', 'key': ''}, None)
+		    {'type': '__mock__', 'encryption_key': 'kuku', 'key': ''}, None)
 		storage_manager2.make_active_storage(storage_index2)
 		storage_manager2.load_blocks_for(block_digest, handler)
 		self.assertEqual({(block_digest, Container.CODE_DATA): block},
@@ -106,7 +106,7 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager = StorageManager.StorageManager(self.env, self.txn)
 		storage_manager.load_storages(None)
 		storage_index = storage_manager.add_storage(
-			{'type': '__mock__', 'password': 'kuku', 'key': 'a'}, None)
+			{'type': '__mock__', 'encryption_key': 'kuku', 'key': 'a'}, None)
 		storage_manager.make_active_storage(storage_index)
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
@@ -129,7 +129,7 @@ class TestStorageManager(unittest.TestCase):
 		storage_manager2 = StorageManager.StorageManager(env2, txn2)
 		storage_manager2.load_storages(None)
 		storage_index2 = storage_manager2.add_storage(
-		    {'type': '__mock__', 'password': 'kuku', 'key': 'a'}, None)
+		    {'type': '__mock__', 'encryption_key': 'kuku', 'key': 'a'}, None)
 		storage_manager2.make_active_storage(storage_index2)
 		storage_manager2.load_blocks_for(block_digest, handler)
 		self.assertEqual({(block_digest, Container.CODE_DATA): block},
