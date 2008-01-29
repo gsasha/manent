@@ -126,7 +126,7 @@ class Node:
 		inode_num = self.stats[stat.ST_INO]
 		if ctx.inodes_db.has_key(inode_num):
 			self.digest = ctx.inodes_db[inode_num][:Digest.dataDigestSize()]
-			level_str = ctx.inodes_db[inode_num][Digest.dataDigestSize()+1:]
+			level_str = ctx.inodes_db[inode_num][Digest.dataDigestSize():]
 			self.level = IntegerEncodings.binary_decode_int_varlen(level_str)
 			return True
 		return False
