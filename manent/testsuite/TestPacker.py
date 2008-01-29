@@ -28,8 +28,9 @@ class TestPacker(unittest.TestCase):
 		backup = MockBackup()
 		ostream = PackerStream.PackerOStream(backup, Container.CODE_DATA)
 		digest = ostream.get_digest()
+		level = ostream.get_level()
 
-		istream = PackerStream.PackerIStream(backup, digest)
+		istream = PackerStream.PackerIStream(backup, digest, level)
 		data = istream.read()
 		self.assertEqual(data, "")
 	def test_short_file(self):
@@ -39,8 +40,9 @@ class TestPacker(unittest.TestCase):
 			ostream = PackerStream.PackerOStream(backup, Container.CODE_DATA)
 			ostream.write('a' * size)
 			digest = ostream.get_digest()
+			level = ostream.get_level()
 
-			istream = PackerStream.PackerIStream(backup, digest)
+			istream = PackerStream.PackerIStream(backup, digest, level)
 			self.assertEqual(istream.read(), 'a' * size)
 
 	def test_large_file(self):
@@ -52,8 +54,9 @@ class TestPacker(unittest.TestCase):
 			for i in range(size):
 				ostream.write('a' * 1024)
 			digest = ostream.get_digest()
+			level = ostream.get_level()
 
-			istream = PackerStream.PackerIStream(backup, digest)
+			istream = PackerStream.PackerIStream(backup, digest, level)
 			for i in range(size):
 				self.assertEqual(istream.read(1024), 'a'*1024)
 			self.assertEqual(istream.read(1), '')
@@ -68,8 +71,9 @@ class TestPacker(unittest.TestCase):
 			for i in range(size):
 				ostream.write('a' * 1024)
 			digest = ostream.get_digest()
+			level = ostream.get_level()
 
-			istream = PackerStream.PackerIStream(backup, digest)
+			istream = PackerStream.PackerIStream(backup, digest, level)
 			for i in range(size):
 				self.assertEqual(istream.read(1024), 'a' * 1024)
 			self.assertEqual(istream.read(1), '')

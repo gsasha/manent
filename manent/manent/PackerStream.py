@@ -8,10 +8,11 @@ class PackerOStream(StreamAdapter.OStreamAdapter):
 	"""
 	This ostream writes its data to a stream of containers
 	"""
-	def __init__(self, backup, code):
+	def __init__(self, backup, code, level=0):
 		StreamAdapter.OStreamAdapter.__init__(self, backup.get_block_size())
 		self.backup = backup
 		self.code = code
+		self.level = level
 		# The packer of a packer is a packer itself :)
 		self.code_packer = Container.compute_packer_code(code)
 		self.digests = []
@@ -24,7 +25,8 @@ class PackerOStream(StreamAdapter.OStreamAdapter):
 		else:
 			self.digests.append(digest)
 			if Digest.dataDigestSize()*len(self.digests) > self.backup.get_block_size():
-				self.rec_ostream = PackerOStream(self.backup, self.code_packer)
+				self.rec_ostream = PackerOStream(self.backup, self.code_packer,
+					self.level + 1)
 				for digest in self.digests:
 					self.rec_ostream.write(digest)
 				self.digests = None
@@ -37,6 +39,11 @@ class PackerOStream(StreamAdapter.OStreamAdapter):
 		digest = Digest.dataDigest(digests_str)
 		self.backup.add_block(digest, self.code_packer, digests_str)
 		return digest
+	def get_level(self):
+		# Must be called after get_digest
+		if self.rec_ostream is not None:
+			return self.rec_ostream.get_level()
+		return self.level
 
 class BlockReaderIStream(StreamAdapter.IStreamAdapter):
 	"""Utility class for PackerIStream"""
@@ -51,21 +58,15 @@ class BlockReaderIStream(StreamAdapter.IStreamAdapter):
 		return self.backup.load_block(digest)
 
 class PackerDigestLister:
-	def __init__(self, backup, digest):
+	def __init__(self, backup, digest, level):
 		self.backup = backup
+		self.level = level
 
 		digest_stream = StringIO.StringIO(digest)
 		cur_reader = BlockReaderIStream(self.backup, digest_stream)
-		while True:
-			first_digest = cur_reader.read(Digest.dataDigestSize())
-			if first_digest == '':
-				break
-			cur_reader.unread(first_digest)
-			if Container.is_packer_code(self.backup.get_block_code(first_digest)):
-				# Need one more level of reading
-				cur_reader = BlockReaderIStream(self.backup, cur_reader)
-			else:
-				break
+		while level > 0:
+			cur_reader = BlockReaderIStream(self.backup, cur_reader)
+			level -= 1
 		self.block_istream = cur_reader
 	def __iter__(self):
 		return self
@@ -79,11 +80,11 @@ class PackerIStream(StreamAdapter.IStreamAdapter):
 	"""
 	This istream reads its data from a stream of containers
 	"""
-	def __init__(self,backup,digest):
+	def __init__(self, backup, digest, level):
 		StreamAdapter.IStreamAdapter.__init__(self)
 		
 		self.backup = backup
-		self.digest_lister = PackerDigestLister(self.backup, digest)
+		self.digest_lister = PackerDigestLister(self.backup, digest, level)
 	def read_block(self):
 		try:
 			digest = self.digest_lister.next()
