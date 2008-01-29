@@ -14,7 +14,7 @@ class TestStorage(unittest.TestCase):
 		self.txn = Database.TransactionHandler(self.env)
 		self.config_db = self.env.get_database_btree("a", None, None)
 		self.scratch_path = tempfile.mkdtemp(".storage", "manent.", "/tmp")
-		self.CONFIGURATION = {"path": self.scratch_path, "password": "kuku"}
+		self.CONFIGURATION = {"path": self.scratch_path, "encryption_key": "kuku"}
 		#print "tmp path=", self.scratch_path
 	def tearDown(self):
 		shutil.rmtree(self.scratch_path)
