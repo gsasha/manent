@@ -317,7 +317,7 @@ class StorageManager:
 		encoded = self._encode_block_info(seq_idx, container_idx)
 		print "Encoding block info seq=",seq_idx, "container=", container_idx
 		for digest, code in container.list_blocks():
-			print "   ", base64.b64encode(digest)
+			#print "   ", base64.b64encode(digest)
 			self.block_container_db[digest] = encoded
 		self.txn_manager.commit()
 	#--------------------------------------------------------

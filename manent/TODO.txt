@@ -1,10 +1,8 @@
-- Reconstruct the list of increments.
+- Make sure data reloads correctly on storage manager load
 
-- make sure that container bodies of containers with metadata are read
+- Add a filesystem interface for Linux (FUSE)
 
-- Remove the base_fs_digests
-
-- Remove dump_intermediate from IncrementManager
+- Add command line parameters to configure exclusion engine
 
 - Provide a more accurate estimate of progress
 
@@ -27,4 +25,12 @@
 - Make sure that aside blocks registered in BlockManager are always sent out to a container. Possible solution: have a database of blocks that were put aside. For that, move BlockManager to within StorageManager (which makes sense anyway).
 
 - Write the caching of hash(path)->digest for directories for faster restart of scanning
+
+- Reconstruct the list of increments.
+
+- make sure that container bodies of containers with metadata are read
+
+- Remove the base_fs_digests
+
+- Remove dump_intermediate from IncrementManager
 

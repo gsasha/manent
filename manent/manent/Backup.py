@@ -23,6 +23,7 @@ class Backup:
 	def __init__(self, global_config, label):
 		self.global_config = global_config
 		self.label = label
+		self.storage_opened = False
 
 		try:
 			os.makedirs(os.path.join(global_config.home_area(), self.label))
@@ -50,12 +51,28 @@ class Backup:
 		elif args[0] == 'set':
 			if params.has_key('data_path'):
 				self.config_db['data_path'] = params['data_path']
-		elif args[0] == 'exclusions':
-			pass
+		elif args[0] == 'add_exclusion':
+			exclusion_type = params['type']
+			exclusion_action = params['action']
+			exclusion_pattern = params['pattern']
+			if self.config_db.has_key('num_exclusion_rules'):
+				n = int(self.config_db['num_exclusion_rules'])
+			else:
+				n = 0
+			if not exclusion_type in ['relative', 'absolute', 'wildcard']:
+				raise Exception("Unknown rule type " + exclusion_type)
+			if not exclusion_action in ['include', 'exclude']:
+				raise Exception("Unknown rule action " + exclusion_action)
+			self.config_db['exclusion_rule_%d.type' % n] = exclusion_type
+			self.config_db['exclusion_rule_%d.action' % n] = exclusion_action
+			self.config_db['exclusion_rule_%d.pattern' % n] = exclusion_pattern
+			self.config_db['num_exclusion_rules'] = str(n + 1)
 		elif args[0] == 'add_storage':
+			self.__open_storage()
 			storage_idx = self.storage_manager.add_storage(params, None)
 			self.storage_manager.make_active_storage(storage_idx)
 		elif args[0] == 'add_base_storage':
+			self.__open_storage()
 			self.storage_manager.add_storage(params, None)
 		self.txn_handler.commit()
 
@@ -88,6 +105,7 @@ class Backup:
 	def scan(self, comment):
 		try:
 			self.__open_all()
+			self.__open_storage()
 
 			last_fs_digest, last_fs_level = self.increment_manager.start_increment(comment)
 			root = Nodes.Directory(self, None, self.config_db['data_path'])
@@ -116,6 +134,7 @@ class Backup:
 	def restore(self, args):
 		try:
 			self.__open_all()
+			self.__open_storage()
 
 			params = parse_to_keys(args)
 			storage = int(params['storage'])
@@ -144,6 +163,7 @@ class Backup:
 	def test(self, args):
 		try:
 			self.__open_all()
+			self.__open_storage()
 
 			params = parse_to_keys(args)
 			storage = int(params['storage'])
@@ -171,6 +191,7 @@ class Backup:
 	def info(self, args):
 		try:
 			self.__open_all()
+			self.__open_storage()
 
 			detail = args[0]
 			params = parse_to_keys(args[1:])
@@ -225,18 +246,38 @@ class Backup:
 			"nodes", self.txn_handler)
 		self.storage_manager = StorageManager.StorageManager(self.db_manager,
 			self.txn_handler)
+		#print "DATA PATH", self.config_db['data_path']
+		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(
+			self.config_db['data_path'])
+		if self.config_db.has_key('num_exclusion_rules'):
+			num_exclusion_rules = int(self.config_db['num_exclusion_rules'])
+			for r in range(num_exclusion_rules):
+				type_str = self.config_db['exclusion_rule_%d.type' % r]
+				action_str = self.config_db['exclusion_rule_%d.action' % r]
+				pattern = self.config_db['exclusion_rule_%d.pattern' % r]
+				if action_str == 'exclude':
+					action = ExclusionProcessor.RULE_EXCLUDE
+				elif action_str == 'include':
+					action = ExclusionProcessor.RULE_INCLUDE
+				else:
+					raise Exception()
+				if type_str == 'absolute':
+					self.exclusion_processor.add_absolute_rule(action, pattern)
+				elif type_str == 'relative':
+					self.exclusion_processor.add_rule(action, pattern)
+				elif type_str == 'wildcard':
+					self.exclusion_processor.add_wildcard_rule(action, pattern)
+	def __open_storage(self):
 		# TODO: consider not loading storages on initialization, only on meaningful
 		# operations
 		self.storage_manager.load_storages(None)
 		self.increment_manager = IncrementManager.IncrementManager(
 			self.db_manager, self.txn_handler, self.storage_manager)
-		#print "DATA PATH", self.config_db['data_path']
-		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(
-			self.config_db['data_path'])
-
+		self.storage_opened = True
 	def __close_all(self):
-		self.increment_manager.close()
-		self.storage_manager.close()
+		if self.storage_opened:
+			self.increment_manager.close()
+			self.storage_manager.close()
 		self.completed_nodes_db.close()
 		self.config_db.close()
 	
