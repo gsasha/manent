@@ -1,8 +1,14 @@
+- Organize file names in ~/.manent
+
 - Make sure data reloads correctly on storage manager load
 
 - Add a filesystem interface for Linux (FUSE)
 
 - Add command line parameters to configure exclusion engine
+
+- Add automatic exclusion rules for Linux
+
+- Add reading of exclusion rules from ~/.manent/exclusion_rules
 
 - Provide a more accurate estimate of progress
 

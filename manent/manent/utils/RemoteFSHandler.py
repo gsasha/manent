@@ -2,6 +2,7 @@ import FileIO
 import ftplib
 import paramiko
 import os, os.path
+import time
 import traceback
 
 #----------------------------------------------------
@@ -10,11 +11,14 @@ import traceback
 def retry_decorator(retries, message):
 	def impl(func):
 		def retrier(self, *args, **kwargs):
-			print "calling", message, "with params", args, kwargs
+			print "calling", message, "with params", args, kwargs, "...",
+			start = time.time()
 			for i in range(retries):
 				try:
 					self.connect()
-					return func(self, *args, **kwargs)
+					result = func(self, *args, **kwargs)
+					print "", time.time() - start, "seconds"
+					return result
 				except:
 					traceback.print_exc()
 					self.cleanup_connection()

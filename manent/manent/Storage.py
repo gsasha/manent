@@ -338,7 +338,7 @@ class FTPStorage(Storage):
 		return self.config["path"]
 
 	def container_size(self):
-		return 4<<20
+		return 16<<20
 	
 	def list_container_files(self):
 		print "Scanning containers:"
@@ -425,7 +425,7 @@ class DirectoryStorage(Storage):
 		return self.config["path"]
 	def container_size(self):
 		#return 4<<20
-		return 4<<20
+		return 16<<20
 	def list_container_files(self):
 		return os.listdir(self.get_path())
 	def open_header_file(self, sequence_id, index):
