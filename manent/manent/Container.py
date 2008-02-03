@@ -593,6 +593,7 @@ class Container:
 			raise Exception("Manent: header of container file corrupted")
 		# TODO: read only as much as necessary
 		header_dump_str = self.header_file.read()
+		self.header_file.close()
 		
 		header_table_io = StringIO.StringIO(header_table_str)
 		header_blocks = unserialize_blocks(header_table_io)
@@ -624,6 +625,7 @@ class Container:
 			self.body_file = self.storage.load_container_body(self.sequence_id, self.index)
 		self.body_dump_loader = DataDumpLoader(self.body_file, self.body_blocks,
 			password=self.storage.get_encryption_key())
+		self.body_file = None
 	def info(self):
 		print "Manent container #%d of storage %s" % (
 			self.index, self.storage.get_label())
@@ -652,3 +654,4 @@ class Container:
 				self.load_body()
 				self.body_dump_loader.load_blocks(handler)
 				break
+		self.body_dump_loader = None

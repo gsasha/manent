@@ -63,6 +63,7 @@ class DatabaseManager:
 		self.dbenv.set_lk_max_objects(20000)
 		self.dbenv.set_lk_detect(db.DB_LOCK_DEFAULT)
 		self.dbenv.set_flags(db.DB_LOG_AUTOREMOVE, True)
+		print "Opening environment in", self.__dbenv_dir()
 		self.dbenv.open(self.__dbenv_dir(),
 		    db.DB_RECOVER|db.DB_CREATE|db.DB_INIT_TXN|
 		    db.DB_INIT_MPOOL|db.DB_INIT_LOCK|db.DB_THREAD)
@@ -133,7 +134,8 @@ class DatabaseManager:
 		d.remove(fname, tablename)
 	
 	def __dbenv_dir(self):
-		home_area = self.global_config.home_area()
+		home_area = os.path.join(self.global_config.home_area(),
+			self.db_file_prefix)
 		return home_area
 	
 	def __db_fname(self, filename):

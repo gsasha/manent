@@ -8,17 +8,19 @@
 #
 
 import os, sys
-from errno import *
-from stat import *
+import errno
+import stat
 import fcntl
 # pull in some spaghetti to make this stuff work without fuse-py being installed
-try:
-    import _find_fuse_parts
-except ImportError:
-    pass
+
 import fuse
 from fuse import Fuse
 
+import manent.Backup as Backup
+import manent.Config as Config
+
+config = Config.GlobalConfig()
+config.load()
 
 if not hasattr(fuse, '__version__'):
     raise RuntimeError, \
@@ -39,7 +41,7 @@ def flag2mode(flags):
     return m
 
 
-class Xmp(Fuse):
+class ManentFuse(Fuse):
 
     def __init__(self, *args, **kw):
 
@@ -68,7 +70,7 @@ class Xmp(Fuse):
         return os.readlink("." + path)
 
     def readdir(self, path, offset):
-        for e in os.listdir("." + path):
+        for e in ['a', 'b', 'c']:
             yield fuse.Direntry(e)
 
     def unlink(self, path):
@@ -245,9 +247,12 @@ class Xmp(Fuse):
 
     def main(self, *a, **kw):
 
-        self.file_class = self.XmpFile
+		self.file_class = self.XmpFile
+		print "Loading backup", self.backup
+		self.backup_obj = config.load_backup(self.backup)
+		print "Done loading"
 
-        return Fuse.main(self, *a, **kw)
+		return Fuse.main(self, *a, **kw)
 
 
 def main():
@@ -257,12 +262,14 @@ Userspace nullfs-alike: mirror the filesystem tree from some point on.
 
 """ + Fuse.fusage
 
-    server = Xmp(version="%prog " + fuse.__version__,
+    server = ManentFuse(version="%prog " + fuse.__version__,
                  usage=usage,
                  dash_s_do='setsingle')
 
     server.parser.add_option(mountopt="root", metavar="PATH", default='/',
                              help="mirror filesystem from under PATH [default: %default]")
+    server.parser.add_option(mountopt="backup", default="",
+                             help="Name of the backup to mount")
     server.parse(values=server, errex=1)
 
     try:

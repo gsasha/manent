@@ -357,14 +357,14 @@ class FTPStorage(Storage):
 		print "Loading container header", base64.urlsafe_b64encode(sequence_id), index
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		filehandle = tempfile.TemporaryFile(dir=Config.paths.staging_area())
-		self.get_fs_handler().download(filenandle, header_file_name)
+		self.get_fs_handler().download(filehandle, header_file_name)
 		filehandle.seek(0)
 		return filehandle
 	def load_container_body(self, sequence_id, index):
 		print "Loading container body", base64.urlsafe_b64encode(sequence_id), index
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
 		filehandle = tempfile.TemporaryFile(dir=Config.paths.staging_area())
-		self.get_fs_handler().download(filenandle, body_file_name)
+		self.get_fs_handler().download(filehandle, body_file_name)
 		filehandle.seek(0)
 		return filehandle
 	
