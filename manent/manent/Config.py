@@ -71,16 +71,13 @@ class GlobalConfig:
 		self.config_parser = ConfigParser.ConfigParser()
 		self.open_backups = []
 
-		self.staging_area_exists = False
-		self.home_area_exists = False
-	
 	#
 	# Configuration persistence
 	#
 	def load(self):
-		self.config_parser.read(self.home_area()+"/config.ini")
+		self.config_parser.read(paths.home_area()+"/config.ini")
 	def save(self):
-		self.config_parser.write(open(self.home_area()+"/config.ini", "w"))
+		self.config_parser.write(open(paths.home_area()+"/config.ini", "w"))
 		for backup in self.open_backups:
 			# Save the data for the backup
 			pass

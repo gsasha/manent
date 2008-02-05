@@ -103,7 +103,7 @@ class DatabaseManager:
 		return DatabaseWrapper(self, full_fname, tablename, txn_handler,
 			db_type=db.DB_BTREE)
 	def get_database_hash(self, filename, tablename, txn_handler):
-		full_fname = self.__db_fname(tablename)
+		full_fname = self.__db_fname(filename)
 		return DatabaseWrapper(self, full_fname, tablename, txn_handler,
 			db_type=db.DB_HASH)
 	def get_scratch_database(self, filename, tablename):
