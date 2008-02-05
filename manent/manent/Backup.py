@@ -250,24 +250,46 @@ class Backup:
 		#print "DATA PATH", self.config_db['data_path']
 		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(
 			self.config_db['data_path'])
+
+		# Function that imports the rule into the rules processor
+		def process_rule(type_str, action_str, pattern):
+			if action_str == 'exclude':
+				action = ExclusionProcessor.RULE_EXCLUDE
+			elif action_str == 'include':
+				action = ExclusionProcessor.RULE_INCLUDE
+			else:
+				raise Exception()
+			if type_str == 'absolute':
+				self.exclusion_processor.add_absolute_rule(action, pattern)
+			elif type_str == 'relative':
+				self.exclusion_processor.add_rule(action, pattern)
+			elif type_str == 'wildcard':
+				self.exclusion_processor.add_wildcard_rule(action, pattern)
+		#
+		# Read exclusion rules from the manent home dir
+		#
+		exclusion_rules_file_name = os.path.join(Config.paths.home_area(),
+		                                         "exclusion_rules")
+		if os.path.isfile(exclusion_rules_file_name):
+			exclusion_rules_file = open(exclusion_rules_file_name, "r")
+			for line in exclusion_rules_file:
+				# Ignore comments and empty lines
+				if line.startswith("#"):
+					continue
+				if line.strip() == "":
+					continue
+				type_str, action_str, pattern = line.split()
+				process_rule(type_str, action_str, pattern)
+		#
+		# Process rules from the backup's db
+		#
 		if self.config_db.has_key('num_exclusion_rules'):
 			num_exclusion_rules = int(self.config_db['num_exclusion_rules'])
 			for r in range(num_exclusion_rules):
 				type_str = self.config_db['exclusion_rule_%d.type' % r]
 				action_str = self.config_db['exclusion_rule_%d.action' % r]
 				pattern = self.config_db['exclusion_rule_%d.pattern' % r]
-				if action_str == 'exclude':
-					action = ExclusionProcessor.RULE_EXCLUDE
-				elif action_str == 'include':
-					action = ExclusionProcessor.RULE_INCLUDE
-				else:
-					raise Exception()
-				if type_str == 'absolute':
-					self.exclusion_processor.add_absolute_rule(action, pattern)
-				elif type_str == 'relative':
-					self.exclusion_processor.add_rule(action, pattern)
-				elif type_str == 'wildcard':
-					self.exclusion_processor.add_wildcard_rule(action, pattern)
+				process_rule(type_str, action_str, pattern)
 	def __open_storage(self):
 		# TODO: consider not loading storages on initialization, only on meaningful
 		# operations
