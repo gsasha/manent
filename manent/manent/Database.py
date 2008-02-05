@@ -5,6 +5,8 @@ import time
 import threading
 import traceback
 
+import Config
+
 class CheckpointThread(threading.Thread):
 	def __init__(self, dbenv, done_event, checkpoint_finished):
 		threading.Thread.__init__(self)
@@ -134,15 +136,15 @@ class DatabaseManager:
 		d.remove(fname, tablename)
 	
 	def __dbenv_dir(self):
-		home_area = os.path.join(self.global_config.home_area(),
+		home_area = os.path.join(Config.paths.home_area(),
 			self.db_file_prefix)
 		return home_area
 	
 	def __db_fname(self, filename):
-		return os.path.join(self.global_config.home_area(),
+		return os.path.join(Config.paths.home_area(),
 			os.path.join(self.db_file_prefix, filename))
 	def __scratch_db_fname(self, filename):
-		return os.path.join(self.global_config.staging_area(),
+		return os.path.join(Config.paths.staging_area(),
 			os.path.join(self.db_file_prefix, filename))
 
 class TransactionHandler:

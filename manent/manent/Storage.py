@@ -532,7 +532,7 @@ class MailStorage(Storage):
 		header_attch = MIMEBase("application", "manent-container")
 		filename = container.filename()
 		header_file = open(os.path.join(
-			self.backup.global_config.staging_area(),filename), "rb")
+			Config.paths.staging_area(),filename), "rb")
 		header_attch.set_payload(header_file.read())
 		header_file.close()
 		Encoders.encode_base64(header_attch)
@@ -549,8 +549,7 @@ class MailStorage(Storage):
 		data_attch = MIMEBase("application", "manent-container")
 		filename = container.filename()
 		data_file = open(
-			os.path.join(self.backup.global_config.staging_area(),
-				filename+".data"), "rb")
+			os.path.join(Config.paths.staging_area(), filename+".data"), "rb")
 		data_attch.set_payload(data_file.read())
 		data_file.close()
 		Encoders.encode_base64(data_attch)

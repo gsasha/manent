@@ -2,6 +2,7 @@ import base64
 import os, os.path
 import traceback
 
+import Config
 import Container
 import Database
 import IncrementManager
@@ -26,12 +27,12 @@ class Backup:
 		self.storage_opened = False
 
 		try:
-			os.makedirs(os.path.join(global_config.home_area(), self.label))
+			os.makedirs(os.path.join(Config.paths.home_area(), self.label))
 		except:
 			# It's OK to fail, if the directory already exists
 			pass
 		try:
-			os.makedirs(os.path.join(global_config.staging_area(), self.label))
+			os.makedirs(os.path.join(Config.paths.staging_area(), self.label))
 		except:
 			# It's OK to fail, if the directory already exists
 			pass
