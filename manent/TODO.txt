@@ -1,5 +1,14 @@
 - Organize file names in ~/.manent
 
+- Implement storage queueing. After that, make sure that if process crashes after uploading container, it still can continue.
+
+- Add options for storage and exclusion reconfiguration
+
+- Make sure several DB's can open in parallel (probably it's the DB_JOINENV flag).
+  http://pybsddb.sourceforge.net/ref/env/faq.html
+
+- Implement summary headers
+
 - Make sure data reloads correctly on storage manager load
 
 - Add a filesystem interface for Linux (FUSE)

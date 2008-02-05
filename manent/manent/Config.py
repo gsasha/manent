@@ -76,9 +76,9 @@ class GlobalConfig:
 
 	def home_area(self):
 		if os.name == "nt":
-			path = os.path.join(os.environ["APPDATA"], "manent")
+			path = os.path.join(os.environ["APPDATA"], "manent1")
 		else:
-			path = os.path.join(os.environ["HOME"], ".manent")
+			path = os.path.join(os.environ["HOME"], ".manent1")
 		if not self.home_area_exists and not os.path.exists(path):
 			os.mkdir(path)
 			self.home_area_exists = True
