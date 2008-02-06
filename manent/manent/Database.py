@@ -1,3 +1,8 @@
+#
+#    Copyright (C) 2008 Alex Gontmakher <gsasha@gmail.com>
+#    License: see LICENSE.txt
+#
+
 import os, os.path
 import bsddb.db as db
 import base64

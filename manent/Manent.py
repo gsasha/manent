@@ -1,4 +1,9 @@
 #
+#    Copyright (C) 2008 Alex Gontmakher <gsasha@gmail.com>
+#    License: see LICENSE.txt
+#
+
+#
 # TODO:
 # - optimize the scanning: read each file information just once and do queries
 #   on the results of stat rather than asking several questions on the same filename

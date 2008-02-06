@@ -1,3 +1,5 @@
+- Add copyright statement in every file
+
 - Organize file names in ~/.manent
 
 - Implement storage queueing. After that, make sure that if process crashes after uploading container, it still can continue.

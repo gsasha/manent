@@ -1,4 +1,8 @@
-#import hashlib
+#
+#    Copyright (C) 2008 Alex Gontmakher <gsasha@gmail.com>
+#    License: see LICENSE.txt
+#
+
 import os, os.path, sys
 import re, fnmatch
 import ConfigParser

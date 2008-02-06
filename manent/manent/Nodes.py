@@ -1,3 +1,8 @@
+#
+#    Copyright (C) 2008 Alex Gontmakher <gsasha@gmail.com>
+#    License: see LICENSE.txt
+#
+
 import base64
 import os, os.path
 import re

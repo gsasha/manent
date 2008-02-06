@@ -1,3 +1,8 @@
+#
+#    Copyright (C) 2008 Alex Gontmakher <gsasha@gmail.com>
+#    License: see LICENSE.txt
+#
+
 import base64
 import bz2, zlib
 import Crypto.Cipher.ARC4
