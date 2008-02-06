@@ -29,9 +29,14 @@ EXCLUSION_RULES_TEMPLATE = """
 # PATTERN is the path pattern, using "*" and "?" as wildcards.
 
 # EXAMPLES:
-# Exclude Mozilla cache directory:
-# absolute exclude /home/$USER/.mozilla/*/Cache
+
+# Exclude cache directories frequently used under Linux:
+#absolute exclude /home/*/.mozilla/firefox*/*/Cache
+#absolute exclude /home/*/.local/share/Trash
+#absolute exclude /home/*/.thumbnails
+
 # Exclude backup files:
+# wildcard exclude *~
 """
 # Need to decide how do I store all the configuration:
 # - Do I store all in the config file ~/.manent/config
