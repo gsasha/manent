@@ -31,22 +31,18 @@ class Backup:
 		self.label = label
 		self.storage_opened = False
 
-		try:
-			home_dir = os.path.join(Config.paths.home_area(), self.label)
+		home_dir = os.path.join(Config.paths.home_area(), self.label)
+		if not os.path.isdir(home_dir):
 			os.makedirs(home_dir)
-			exclusion_file_name = os.path.join(home_dir, "exclusion_file")
-			if not os.path.isfile(exclusion_file_name):
-				exclusion_file = open(exclusion_file_name)
-				exclusion_file.write(Config.BACKUP_EXCLUSION_RULES_TEMPLATE)
-				exclusion_file.close()
-		except:
-			# It's OK to fail, if the directory already exists
-			pass
-		try:
+		staging_dir = os.path.join(Config.paths.staging_area(), self.label)
+		if not os.path.isdir(staging_dir):
 			os.makedirs(os.path.join(Config.paths.staging_area(), self.label))
-		except:
-			# It's OK to fail, if the directory already exists
-			pass
+		exclusion_file_name = os.path.join(home_dir, "exclusion_rules")
+		if not os.path.isfile(exclusion_file_name):
+			exclusion_file = open(exclusion_file_name, "w")
+			exclusion_file.write(Config.BACKUP_EXCLUSION_RULES_TEMPLATE)
+			exclusion_file.close()
+		
 		self.db_manager = Database.DatabaseManager(self.global_config,
 			self.label)
 		self.txn_handler = Database.TransactionHandler(self.db_manager)
