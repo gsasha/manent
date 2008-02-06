@@ -254,14 +254,9 @@ class Backup:
 	def __open_all(self):
 		self.config_db = self.db_manager.get_database_btree("config.db",
 			"data", self.txn_handler)
-		self.completed_nodes_db = self.db_manager.get_database("completed_nodes.db",
-			"nodes", self.txn_handler)
-		self.storage_manager = StorageManager.StorageManager(self.db_manager,
-			self.txn_handler)
-		#print "DATA PATH", self.config_db['data_path']
 		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(
 			self.config_db['data_path'])
-
+		
 		# Function that imports the rule into the rules processor
 		def process_rule(type_str, action_str, pattern):
 			if action_str == 'exclude':
@@ -290,9 +285,9 @@ class Backup:
 		#
 		# Read exclusion rules from the manent home dir
 		#
-		read_exclusion_file(os.path.join(Config.path.home_area(),
+		read_exclusion_file(os.path.join(Config.paths.home_area(),
 			"exclusion_rules"))
-		read_exclusion_file(os.path.join(Config.path.home_area(), self.label,
+		read_exclusion_file(os.path.join(Config.paths.home_area(), self.label,
 			"exclusion_rules"))
 		#
 		# Process rules from the backup's db
@@ -304,6 +299,13 @@ class Backup:
 				action_str = self.config_db['exclusion_rule_%d.action' % r]
 				pattern = self.config_db['exclusion_rule_%d.pattern' % r]
 				process_rule(type_str, action_str, pattern)
+		
+		self.completed_nodes_db = self.db_manager.get_database("completed_nodes.db",
+			"nodes", self.txn_handler)
+		self.storage_manager = StorageManager.StorageManager(self.db_manager,
+			self.txn_handler)
+		#print "DATA PATH", self.config_db['data_path']
+
 	def __open_storage(self):
 		# TODO: consider not loading storages on initialization, only on meaningful
 		# operations
