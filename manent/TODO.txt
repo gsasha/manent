@@ -4,6 +4,8 @@
 
 - Add options for storage and exclusion reconfiguration
 
+- Check that name of backup does not collide with existing files
+
 - Make sure several DB's can open in parallel (probably it's the DB_JOINENV flag).
   http://pybsddb.sourceforge.net/ref/env/faq.html
 
