@@ -32,7 +32,13 @@ class Backup:
 		self.storage_opened = False
 
 		try:
-			os.makedirs(os.path.join(Config.paths.home_area(), self.label))
+			home_dir = os.path.join(Config.paths.home_area(), self.label)
+			os.makedirs(home_dir)
+			exclusion_file_name = os.path.join(home_dir, "exclusion_file")
+			if not os.path.isfile(exclusion_file_name):
+				exclusion_file = open(exclusion_file_name)
+				exclusion_file.write(Config.BACKUP_EXCLUSION_RULES_TEMPLATE)
+				exclusion_file.close()
 		except:
 			# It's OK to fail, if the directory already exists
 			pass
@@ -270,21 +276,24 @@ class Backup:
 				self.exclusion_processor.add_rule(action, pattern)
 			elif type_str == 'wildcard':
 				self.exclusion_processor.add_wildcard_rule(action, pattern)
+		def read_exclusion_file(file_name):
+			if os.path.isfile(file_name):
+				exclusion_rules_file = open(file_name, "r")
+				for line in exclusion_rules_file:
+					# Ignore comments and empty lines
+					if line.startswith("#"):
+						continue
+					if line.strip() == "":
+						continue
+					type_str, action_str, pattern = line.split()
+					process_rule(type_str, action_str, pattern)
 		#
 		# Read exclusion rules from the manent home dir
 		#
-		exclusion_rules_file_name = os.path.join(Config.paths.home_area(),
-		                                         "exclusion_rules")
-		if os.path.isfile(exclusion_rules_file_name):
-			exclusion_rules_file = open(exclusion_rules_file_name, "r")
-			for line in exclusion_rules_file:
-				# Ignore comments and empty lines
-				if line.startswith("#"):
-					continue
-				if line.strip() == "":
-					continue
-				type_str, action_str, pattern = line.split()
-				process_rule(type_str, action_str, pattern)
+		read_exclusion_file(os.path.join(Config.path.home_area(),
+			"exclusion_rules"))
+		read_exclusion_file(os.path.join(Config.path.home_area(), self.label,
+			"exclusion_rules"))
 		#
 		# Process rules from the backup's db
 		#

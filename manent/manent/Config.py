@@ -11,10 +11,7 @@ import Backup
 import Container
 import manent.utils.IntegerEncodings as IntegerEncodings
 
-EXCLUSION_RULES_TEMPLATE = """
-# Exclusion rules file. Add your global exclusion rules here.
-# This file is designed for manual editing and reading in by
-# manent on startup.
+EXCLUSION_RULES_DOC = """
 
 # Exclusion rules come in the form:
 # TYPE ACTION PATTERN
@@ -32,6 +29,13 @@ EXCLUSION_RULES_TEMPLATE = """
 #
 # PATTERN is the path pattern, using "*" and "?" as wildcards.
 
+"""
+
+EXCLUSION_RULES_TEMPLATE = """
+# Exclusion rules file. Add your global exclusion rules here.
+# This file is designed for manual editing and reading in by
+# manent on startup.
+""" + EXCLUSION_RULES_DOC + """
 # EXAMPLES:
 
 # Exclude cache directories frequently used under Linux:
@@ -42,6 +46,21 @@ EXCLUSION_RULES_TEMPLATE = """
 # Exclude backup files:
 # wildcard exclude *~
 """
+
+BACKUP_EXCLUSION_RULES_TEMPLATE = """
+# Exclusion rules file. Add exclusion rules specific to this
+# backup.
+# This file is designed for manual editing and reading in by
+# manent on startup.
+""" + EXCLUSION_RULES_DOC + """
+# EXAMPLES:
+
+# Backup only the photos and mails from your current backup directory:
+#relative exclude *
+#relative include Photos
+#relative include Mail
+"""
+
 # Need to decide how do I store all the configuration:
 # - Do I store all in the config file ~/.manent/config
 #   Pros: The configuration is stored in a centralized location,
