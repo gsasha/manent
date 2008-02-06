@@ -7,6 +7,32 @@ import Backup
 import Container
 import manent.utils.IntegerEncodings as IntegerEncodings
 
+EXCLUSION_RULES_TEMPLATE = """
+# Exclusion rules file. Add your global exclusion rules here.
+# This file is designed for manual editing and reading in by
+# manent on startup.
+
+# Exclusion rules come in the form:
+# TYPE ACTION PATTERN
+# TYPE is one of ["absolute", "relative", "wildcard"]
+# - absolute rules assume absolute path, i.e., are relative to the
+#   root of the filesystem.
+# - relative rules are relative to the root of the root directory
+#   of the current backup.
+# - wildcard rules operate on a single path element anywhere in the
+#   directory tree.
+#
+# ACTION is one of ["include", "exclude"].
+#   Note that if several rules are specified, the later ones override
+#   the earlier ones.
+#
+# PATTERN is the path pattern, using "*" and "?" as wildcards.
+
+# EXAMPLES:
+# Exclude Mozilla cache directory:
+# absolute exclude /home/$USER/.mozilla/*/Cache
+# Exclude backup files:
+"""
 # Need to decide how do I store all the configuration:
 # - Do I store all in the config file ~/.manent/config
 #   Pros: The configuration is stored in a centralized location,
@@ -52,6 +78,12 @@ class Paths:
 		if not self.home_area_exists and not os.path.exists(path):
 			os.mkdir(path)
 			self.home_area_exists = True
+			rules_file_name = os.path.join(path, "exclusion_rules")
+			if not os.path.isfile(rules_file_name):
+				print "Creating default rules file"
+				rules_file = open(rules_file_name, "w")
+				rules_file.write(EXCLUSION_RULES_TEMPLATE)
+				rules_file.close()
 		return path
 
 	def staging_area(self):
@@ -75,9 +107,11 @@ class GlobalConfig:
 	# Configuration persistence
 	#
 	def load(self):
-		self.config_parser.read(paths.home_area()+"/config.ini")
+		self.config_parser.read(os.path.join(paths.home_area(),
+			"config.ini"))
 	def save(self):
-		self.config_parser.write(open(paths.home_area()+"/config.ini", "w"))
+		self.config_parser.write(open(os.path.join(paths.home_area(),
+			"config.ini"), "w"))
 		for backup in self.open_backups:
 			# Save the data for the backup
 			pass
