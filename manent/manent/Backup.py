@@ -125,7 +125,8 @@ class Backup:
 			print "Diff from previous increments:", ctx.changed_nodes, "out of", ctx.total_nodes
 			
 			# Upload the special data to the containers
-			self.increment_manager.finalize_increment(root.get_digest())
+			self.increment_manager.finalize_increment(root.get_digest(),
+				root.get_level())
 			self.storage_manager.flush()
 			
 			self.txn_handler.commit()

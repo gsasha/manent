@@ -36,12 +36,17 @@ EXCLUSION_RULES_TEMPLATE = """
 # This file is designed for manual editing and reading in by
 # manent on startup.
 """ + EXCLUSION_RULES_DOC + """
+# IMPORTANT RULES:
+# Do not back up manent's own directory
+absolute exclude /home/*/.manent1
+
 # EXAMPLES:
 
 # Exclude cache directories frequently used under Linux:
 #absolute exclude /home/*/.mozilla/firefox*/*/Cache
 #absolute exclude /home/*/.local/share/Trash
 #absolute exclude /home/*/.thumbnails
+#absolute exclude /home/*/.google/desktop/repo
 
 # Exclude backup files:
 # wildcard exclude *~
