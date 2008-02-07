@@ -1,3 +1,5 @@
+FEATURES PLANNED FOR 1.0
+
 - Implement storage queueing. After that, make sure that if process crashes after uploading container, it still can continue.
 
 - Add options for storage and exclusion reconfiguration
@@ -9,15 +11,31 @@
 
 - Make sure data reloads correctly on storage manager load
 
-- Add a filesystem interface for Linux (FUSE)
+FEATURES PLANNED FOR 1.1
 
 - Provide a more accurate estimate of progress
+
+- Add executable to create summary headers over existing backup
+
+- Create compiled executables out of the Python source
+
+- Add a filesystem interface for Linux (FUSE)
 
 - Write parsing plugins for MP3, JPG, ZIP, .o, .a, .so
 
 - Consider adding curses-based interface
 
+- Improve "info" command
+
+FEATURES PLANNED FOR 2.0
+
+- Add GUI interface
+
+- Add automatic scheduling interface
+
 ------------------------------------
+DONE:
+
 - Check that name of backup does not collide with existing files
 
 - Organize file names in ~/.manent
