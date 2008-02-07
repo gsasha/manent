@@ -284,7 +284,8 @@ class Backup:
 		#
 		read_exclusion_file(os.path.join(Config.paths.home_area(),
 			"exclusion_rules"))
-		read_exclusion_file(Config.paths.backup_home_area(self.label,
+		read_exclusion_file(os.path.join(
+			Config.paths.backup_home_area(self.label),
 			"exclusion_rules"))
 		#
 		# Process rules from the backup's db

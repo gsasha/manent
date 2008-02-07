@@ -146,7 +146,7 @@ class DatabaseManager:
 	
 	def __db_fname(self, filename):
 		return os.path.join(
-			Config.paths.backup_home_area(self.db_file_prefix) filename)
+			Config.paths.backup_home_area(self.db_file_prefix), filename)
 	def __scratch_db_fname(self, filename):
 		return os.path.join(
 			Config.paths.backup_staging_area(self.db_file_prefix),

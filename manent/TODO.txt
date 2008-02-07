@@ -11,7 +11,7 @@ FEATURES PLANNED FOR 1.0
 
 - Make sure data reloads correctly on storage manager load
 
-FEATURES PLANNED FOR 1.1
+FEATURES PLANNED FOR 1.X
 
 - Provide a more accurate estimate of progress
 
