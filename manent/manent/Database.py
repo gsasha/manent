@@ -141,16 +141,16 @@ class DatabaseManager:
 		d.remove(fname, tablename)
 	
 	def __dbenv_dir(self):
-		home_area = os.path.join(Config.paths.home_area(),
-			self.db_file_prefix)
+		home_area = Config.paths.backup_home_area(self.db_file_prefix)
 		return home_area
 	
 	def __db_fname(self, filename):
-		return os.path.join(Config.paths.home_area(),
-			os.path.join(self.db_file_prefix, filename))
+		return os.path.join(
+			Config.paths.backup_home_area(self.db_file_prefix) filename)
 	def __scratch_db_fname(self, filename):
-		return os.path.join(Config.paths.staging_area(),
-			os.path.join(self.db_file_prefix, filename))
+		return os.path.join(
+			Config.paths.backup_staging_area(self.db_file_prefix),
+			filename)
 
 class TransactionHandler:
 	"""

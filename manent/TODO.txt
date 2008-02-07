@@ -2,8 +2,6 @@
 
 - Add options for storage and exclusion reconfiguration
 
-- Check that name of backup does not collide with existing files
-
 - Make sure several DB's can open in parallel (probably it's the DB_JOINENV flag).
   http://pybsddb.sourceforge.net/ref/env/faq.html
 
@@ -13,12 +11,6 @@
 
 - Add a filesystem interface for Linux (FUSE)
 
-- Add command line parameters to configure exclusion engine
-
-- Add automatic exclusion rules for Linux
-
-- Add reading of exclusion rules from ~/.manent/exclusion_rules
-
 - Provide a more accurate estimate of progress
 
 - Write parsing plugins for MP3, JPG, ZIP, .o, .a, .so
@@ -26,6 +18,8 @@
 - Consider adding curses-based interface
 
 ------------------------------------
+- Check that name of backup does not collide with existing files
+
 - Organize file names in ~/.manent
 
 - Add copyright statement in every file
@@ -51,4 +45,10 @@
 - Remove the base_fs_digests
 
 - Remove dump_intermediate from IncrementManager
+
+- Add command line parameters to configure exclusion engine
+
+- Add automatic exclusion rules for Linux
+
+- Add reading of exclusion rules from ~/.manent/exclusion_rules
 

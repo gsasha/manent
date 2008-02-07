@@ -31,12 +31,12 @@ class Backup:
 		self.label = label
 		self.storage_opened = False
 
-		home_dir = os.path.join(Config.paths.home_area(), self.label)
+		home_dir = Config.paths.backup_home_area(self.label)
 		if not os.path.isdir(home_dir):
 			os.makedirs(home_dir)
-		staging_dir = os.path.join(Config.paths.staging_area(), self.label)
+		staging_dir = Config.paths.backup_staging_area(self.label)
 		if not os.path.isdir(staging_dir):
-			os.makedirs(os.path.join(Config.paths.staging_area(), self.label))
+			os.makedirs(Config.paths.backup_staging_area(self.label))
 		exclusion_file_name = os.path.join(home_dir, "exclusion_rules")
 		if not os.path.isfile(exclusion_file_name):
 			exclusion_file = open(exclusion_file_name, "w")
@@ -284,7 +284,7 @@ class Backup:
 		#
 		read_exclusion_file(os.path.join(Config.paths.home_area(),
 			"exclusion_rules"))
-		read_exclusion_file(os.path.join(Config.paths.home_area(), self.label,
+		read_exclusion_file(Config.paths.backup_home_area(self.label,
 			"exclusion_rules"))
 		#
 		# Process rules from the backup's db

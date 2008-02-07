@@ -119,6 +119,9 @@ class Paths:
 				rules_file.close()
 		return path
 
+	def backup_home_area(self, label):
+		return os.path.join(self.home_area(), "BACKUP." + label)
+
 	def staging_area(self):
 		if os.name == "nt":
 			path = os.path.join(os.environ["TEMP"], "manent.staging")
@@ -128,6 +131,9 @@ class Paths:
 			os.mkdir(path)
 			self.staging_area_exists = True
 		return path
+
+	def backup_staging_area(self, label):
+		return os.path.join(self.staging_area(), "BACKUP." + label)
 
 paths = Paths()
 
