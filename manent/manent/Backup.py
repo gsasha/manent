@@ -152,7 +152,8 @@ class Backup:
 			
 			increment = self.increment_manager.get_increment(storage, idx)
 			root = Nodes.Directory(self, None, target)
-			root.set_digest(increment.fs_digest)
+			root.set_digest(increment.get_fs_digest())
+			root.set_level(increment.get_fs_level())
 			ctx = RestoreContext()
 			root.request_blocks(ctx)
 			ctx = RestoreContext()
@@ -180,7 +181,8 @@ class Backup:
 			
 			increment = self.increment_manager.get_increment(storage, idx)
 			root = Nodes.Directory(self, None, "")
-			root.set_digest(increment.fs_digest)
+			root.set_digest(increment.get_fs_digest())
+			root.set_level(increment.get_fs_level())
 			ctx = RestoreContext()
 			root.request_blocks(ctx)
 			ctx = RestoreContext()
@@ -212,17 +214,18 @@ class Backup:
 					for idx in increment_idxs:
 						increment = self.increment_manager.get_increment(storage, idx)
 						print '  increment', idx, 'comment:', increment.comment,\
-							'fs:', base64.b64encode(increment.fs_digest)
+							'fs:', base64.b64encode(increment.get_fs_digest())
 			elif detail == 'fs':
 				increments = self.increment_manager.get_increments()
 				storage = int(params['storage'])
 				idx = int(params['increment'])
 				increment = self.increment_manager.get_increment(storage, idx)
 				print "  increment comment:", increment.comment
-				print "  increment fs     :", base64.b64encode(increment.fs_digest)
+				print "  increment fs     :", base64.b64encode(increment.get_fs_digest())
 				print "  increment time   :", increment.ctime
 				root = Nodes.Directory(self, None, self.config_db['data_path'])
-				root.set_digest(increment.fs_digest)
+				root.set_digest(increment.get_fs_digest())
+				root.set_level(increment.get_fs_level())
 				root.list_files()
 			# TODO:Print info on all the storages
 			# TODO:Print info on all the increments

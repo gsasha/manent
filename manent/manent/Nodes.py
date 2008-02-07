@@ -365,7 +365,7 @@ class Symlink(Node):
 		# and no way to restore the times of the link itself
 		self.restore_stats(restore_chmod=False, restore_utime=False)
 
-	def request_blocks(self):
+	def request_blocks(self, ctx):
 		digest_lister = PackerStream.PackerDigestLister(self.backup,
 			self.get_digest(), self.level)
 		for digest in digest_lister:
