@@ -1,3 +1,8 @@
+#
+#    Copyright (C) 2008 Alex Gontmakher <gsasha@gmail.com>
+#    License: see LICENSE.txt
+#
+
 import exceptions
 import os, os.path
 import random
@@ -8,25 +13,40 @@ import unittest
 import manent.Config as Config
 import manent.Database as DB
 
-TEST_DIR = os.path.join(Config.paths.temp_area, "test-manent-db")
-
-class MockupConfig:
-	def __init__(self):
-		pass
+# The lists of names are stored as arrays of strings.
+class MockPaths:
 	def home_area(self):
-		return TEST_DIR
+		path = self.temp_area()
+		return path
+
+	def backup_home_area(self, label):
+		path = os.path.join(self.home_area(), "BACKUP." + label)
+		return path
+
 	def staging_area(self):
-		return TEST_DIR
+		return os.path.join(self.temp_area, "staging")
+
+	def backup_staging_area(self, label):
+		if not os.path.isdir(path):
+			os.path.makedirs(path)
+		return os.path.join(self.staging_area(), "BACKUP." + label)
+
+	def temp_area(self):
+		if os.name == "nt":
+			return os.path.join(os.environ["TEMP"], "test-manent-db")
+		else:
+			return os.path.join("/tmp", "test-manent-db")
 
 class TestDatabase(unittest.TestCase):
 	def setUp(self):
-		os.mkdir(TEST_DIR)
-		self.config = MockupConfig()
+		self.path_config = MockPaths()
+		if not os.path.isdir(self.path_config.backup_home_area("")):
+			os.makedirs(self.path_config.backup_home_area(""))
 	def tearDown(self):
-		shutil.rmtree(TEST_DIR)
+		shutil.rmtree(self.path_config.backup_home_area(""))
 	def testCommit(self):
 		try:
-			dbc = DB.DatabaseManager(self.config, "")
+			dbc = DB.DatabaseManager(self.path_config, "")
 			txn = DB.TransactionHandler(dbc)
 			db = dbc.get_database("table1", None, txn)
 			db["kuku"] = "bebe"
@@ -38,7 +58,7 @@ class TestDatabase(unittest.TestCase):
 			dbc.close()
 	def testAbort(self):
 		try:
-			dbc = DB.DatabaseManager(self.config, "")
+			dbc = DB.DatabaseManager(self.path_config, "")
 			txn = DB.TransactionHandler(dbc)
 			db = dbc.get_database("table2", None, txn)
 			db["kuku"] = "bebe"
@@ -56,7 +76,7 @@ class TestDatabase(unittest.TestCase):
 			dbc.close()
 	def testIterate(self):
 		try:
-			dbc = DB.DatabaseManager(self.config, "")
+			dbc = DB.DatabaseManager(self.path_config, "")
 			txn = DB.TransactionHandler(dbc)
 			db = dbc.get_database_btree("table3", None, txn)
 			vals = [("aaa1", "bbb1"), ("aaa2", "bbb2"), ("aaa3", "bbb3")]
@@ -73,7 +93,7 @@ class TestDatabase(unittest.TestCase):
 			dbc.close()
 	def testIteratePrefix(self):
 		try:
-			dbc = DB.DatabaseManager(self.config, "")
+			dbc = DB.DatabaseManager(self.path_config, "")
 			txn = DB.TransactionHandler(dbc)
 			db = dbc.get_database_btree("table3", None, txn)
 			vals = [("aaa1", "bbb1"), ("aab1", "bbb2"), ("aab2", "bbb3"), ("aac1", "bbb4")]

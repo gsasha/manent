@@ -21,9 +21,9 @@ class TestIncrement(unittest.TestCase):
 
 		increment1 = Increment.Increment(blockDB, db)
 		increment2 = Increment.Increment(blockDB, db)
-		increment1.start(0,1,"test increment 1")
+		increment1.start(0, 1, "test increment 1")
 		increment1.finalize(Digest.dataDigest("aaaaaa"), 0)
-		increment2.load(0,1)
+		increment2.load(0, 1)
 		
 		self.assertEqual(increment1.comment, increment2.comment)
 		self.assertEqual(increment1.fs_digest, increment2.fs_digest)
@@ -39,7 +39,7 @@ class TestIncrement(unittest.TestCase):
 
 		# create the increment
 		increment1 = Increment.Increment(blockDB, db)
-		increment1.start(0,1,"test increment 1")
+		increment1.start(0, 1, "test increment 1")
 		digest1 = increment1.finalize(Digest.dataDigest("aaaaa"), 1)
 		
 		# Reconstruct the increment from the digest
