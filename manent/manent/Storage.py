@@ -3,6 +3,16 @@
 #    License: see LICENSE.txt
 #
 
+# CURRENT TASK:
+# Implementing summary headers.
+# The following things must be done:
+# - collecting the data for the summary header file and uploading it
+# - When scanning, recognize the summary headers and handle them correctly
+# - When flushing the increment, write the summary header
+# - Write small summary headers, and when they collect to something large,
+#   remove the small headers and replace then with the large one.
+# - Unit tests for everything.
+
 import base64
 import logging
 import os
@@ -21,6 +31,15 @@ HEADER_EXT = "mhd"
 HEADER_EXT_TMP = "mhd-tmp"
 BODY_EXT = "mbd"
 BODY_EXT_TMP = "mbd-tmp"
+SUMMARY_HEADER_EXT = "mhs"
+SUMMARY_HEADER_EXT_TMP = "mhs-tmp"
+
+#
+# The summary headers work as follows.
+# Once every preset number of written header files, a summary file is pushed
+# to the server. After enough header files were pushed (i.e., enough to fill a
+# full body-size file, the existing headers are removed and a new header file
+# is pushed instead.
 
 def _instantiate(config_db, storage_type, index):
 	if storage_type == "directory":
@@ -171,6 +190,13 @@ class Storage:
 			self.active_sequence_id = self.config_db[self._key("active_sequence")]
 			NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
 			self.active_sequence_next_index = int(self.config_db[NEXT_INDEX_KEY])
+	def add_summary_header(self, sequence_id, index, file):
+		# TODO: implement this
+		# This should write the contents of the header file to the accumulated
+		# header, and register in the database what was done.
+		# Then, if the accumulated header file is large enough, it should be
+		# uploaded to the storage location.
+		pass
 	def get_sequence_ids(self):
 		return self.sequences.keys()
 	def close(self):
@@ -220,7 +246,6 @@ class Storage:
 		container.start_dump(self.active_sequence_id, index)
 		return container
 	def import_aside_container(self, container):
-		#TODO: implement this
 		index = self.get_next_index()
 		container.override_index(index)
 		self.sequences[self.active_sequence_id] = index
@@ -373,19 +398,6 @@ class FTPStorage(Storage):
 		filehandle.seek(0)
 		return filehandle
 	
-	#def load_container_header(self, index, filename):
-		#print "Loading header for container", index, "     "
-		#remote_filename = self.compute_header_filename(index)
-		#self.fs_handler.download(
-			#FileWriter(filename,self.down_bw_limiter), remote_filename)
-	
-	#def load_container_data(self,index,filename):
-		#print "Loading body for container", index, "     "
-		#remote_filename = self.compute_body_filename(index)
-		#self.fs_handler.download(
-			#FileWriter(filename,self.down_bw_limiter),
-			#remote_filename)
-
 	def upload_container(self, sequence_id, index, header_file, body_file):
 		print "Uploading container", base64.urlsafe_b64encode(sequence_id), index
 		header_file_name_tmp = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
@@ -395,6 +407,8 @@ class FTPStorage(Storage):
 		# Upload the files
 		header_file.seek(0)
 		self.get_fs_handler().upload(header_file, header_file_name_tmp)
+		header_file.seek(0)
+		self.add_summary_header(sequence_id, index, header_file)
 		body_file.seek(0)
 		self.get_fs_handler().upload(body_file, body_file_name_tmp)
 		# Rename the tmp files to permanent ones
@@ -453,6 +467,8 @@ class DirectoryStorage(Storage):
 		header_file_path = os.path.join(self.get_path(), header_file_name)
 		body_file_path_tmp = os.path.join(self.get_path(), body_file_name_tmp)
 		body_file_path = os.path.join(self.get_path(), body_file_name)
+		header_file.seek(0)
+		self.add_summary_header(sequence_id, index, header_file)
 		# Rename the tmp files to permanent ones
 		shutil.move(header_file_path_tmp, header_file_path)
 		shutil.move(body_file_path_tmp, body_file_path)
