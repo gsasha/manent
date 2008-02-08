@@ -210,8 +210,9 @@ class Node:
 		if restore_chmod:
 			os.chmod(self.path(),self.stats[stat.ST_MODE])
 		if restore_chown:
-			os.lchown(self.path(),self.stats[stat.ST_UID],
-				      self.stats[stat.ST_GID])
+			if os.name != 'nt':
+				os.lchown(self.path(),self.stats[stat.ST_UID],
+					      self.stats[stat.ST_GID])
 		if restore_utime:
 			# Was: first parameter = stat.ST_ATIME, but we canceled it
 			# because atime changes all the time and we don't want to
