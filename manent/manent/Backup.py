@@ -113,6 +113,7 @@ class Backup:
 	def scan(self, comment):
 		try:
 			self.__open_all()
+			self.__open_exclusion_processor()
 			self.__open_storage()
 
 			last_fs_digest, last_fs_level = self.increment_manager.start_increment(comment)
@@ -254,6 +255,13 @@ class Backup:
 	def __open_all(self):
 		self.config_db = self.db_manager.get_database_btree("config.db",
 			"data", self.txn_handler)
+		self.completed_nodes_db = self.db_manager.get_database("completed_nodes.db",
+			"nodes", self.txn_handler)
+		self.storage_manager = StorageManager.StorageManager(self.db_manager,
+			self.txn_handler)
+		#print "DATA PATH", self.config_db['data_path']
+
+	def __open_exclusion_processor(self):
 		self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(
 			self.config_db['data_path'])
 		
@@ -300,13 +308,6 @@ class Backup:
 				action_str = self.config_db['exclusion_rule_%d.action' % r]
 				pattern = self.config_db['exclusion_rule_%d.pattern' % r]
 				process_rule(type_str, action_str, pattern)
-		
-		self.completed_nodes_db = self.db_manager.get_database("completed_nodes.db",
-			"nodes", self.txn_handler)
-		self.storage_manager = StorageManager.StorageManager(self.db_manager,
-			self.txn_handler)
-		#print "DATA PATH", self.config_db['data_path']
-
 	def __open_storage(self):
 		# TODO: consider not loading storages on initialization, only on meaningful
 		# operations

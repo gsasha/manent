@@ -1,12 +1,14 @@
-import unittest
-import random
-import os,shutil
 import exceptions
+import os, os.path
+import random
+import shutil
 import traceback
+import unittest
 
+import manent.Config as Config
 import manent.Database as DB
 
-TEST_DIR = "/tmp/test-manent-db"
+TEST_DIR = os.path.join(Config.paths.temp_area, "test-manent-db")
 
 class MockupConfig:
 	def __init__(self):

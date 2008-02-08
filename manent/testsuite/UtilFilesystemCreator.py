@@ -117,7 +117,7 @@ class FilesystemCreator:
 			#
 			# It's a hard link. Test that it connects to the right inode
 			#
-			if os.uname()[0] == 'Darwin' and isinstance(contents,FSCSymlink):
+			if os.name == 'Darwin' and isinstance(contents, FSCSymlink):
 				# On MacOS, it appears that it is not possible to add a hard link
 				# to a symlink (is the symlink not an inode there?).
 				# Therefore, we do not check symbolic links in the hlinks dictionary

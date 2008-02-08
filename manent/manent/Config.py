@@ -135,6 +135,12 @@ class Paths:
 	def backup_staging_area(self, label):
 		return os.path.join(self.staging_area(), "BACKUP." + label)
 
+	def temp_area(self):
+		if os.name == "nt":
+			return os.environ["TEMP"]
+		else:
+			return "/tmp"
+
 paths = Paths()
 
 class GlobalConfig:
