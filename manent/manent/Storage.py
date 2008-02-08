@@ -453,6 +453,10 @@ class DirectoryStorage(Storage):
 		header_file_path = os.path.join(self.get_path(), header_file_name)
 		body_file_path_tmp = os.path.join(self.get_path(), body_file_name_tmp)
 		body_file_path = os.path.join(self.get_path(), body_file_name)
+		# Close the file handles before doing operations on them since
+		# Windows doesn't permit renaming while open.
+		header_file.close()
+		body_file.close()
 		# Rename the tmp files to permanent ones
 		shutil.move(header_file_path_tmp, header_file_path)
 		shutil.move(body_file_path_tmp, body_file_path)
