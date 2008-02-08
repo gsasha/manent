@@ -437,12 +437,12 @@ class DirectoryStorage(Storage):
 		print "Starting container header", base64.urlsafe_b64encode(sequence_id), index
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
 		header_file_path = os.path.join(self.get_path(), header_file_name)
-		return open(header_file_path, "w+")
+		return open(header_file_path, "wb+")
 	def open_body_file(self, sequence_id, index):
 		print "Starting container body", base64.urlsafe_b64encode(sequence_id), index
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT_TMP)
 		body_file_path = os.path.join(self.get_path(), body_file_name)
-		return open(body_file_path, "w+")
+		return open(body_file_path, "wb+")
 	def upload_container(self, sequence_id, index, header_file, body_file):
 		print "Uploading container", base64.urlsafe_b64encode(sequence_id), index
 		header_file_name_tmp = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
@@ -467,12 +467,12 @@ class DirectoryStorage(Storage):
 		print "Loading container header", base64.urlsafe_b64encode(sequence_id), index
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		header_file_path = os.path.join(self.get_path(), header_file_name)
-		return open(header_file_path, "r")
+		return open(header_file_path, "rb")
 	def load_container_body(self, sequence_id, index):
 		print "Loading container body", base64.urlsafe_b64encode(sequence_id), index
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
 		body_file_path = os.path.join(self.get_path(), body_file_name)
-		return open(body_file_path, "r")
+		return open(body_file_path, "rb")
 
 import smtplib
 import email.Encoders as Encoders
