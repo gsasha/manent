@@ -34,7 +34,7 @@ class CheckpointThread(threading.Thread):
 class PrivateDatabaseManager:
 	def __init__(self):
 		self.dbenv = db.DBEnv()
-		self.dbenv.open("/tmp", db.DB_PRIVATE|db.DB_CREATE|db.DB_INIT_TXN|
+		self.dbenv.open(Config.paths.temp_area(), db.DB_PRIVATE|db.DB_CREATE|db.DB_INIT_TXN|
 						db.DB_INIT_MPOOL|db.DB_INIT_LOCK|db.DB_THREAD)
 	def get_database(self, filename, tablename, txn_handler):
 		return DatabaseWrapper(self, None, filename + "." + str(tablename),
@@ -54,8 +54,8 @@ class PrivateDatabaseManager:
 
 # The normal database manager class
 class DatabaseManager:
-	def __init__(self, global_config, db_file_prefix):
-		self.global_config = global_config
+	def __init__(self, path_config, db_file_prefix):
+		self.path_config = path_config
 		self.db_file_prefix = db_file_prefix
 		
 		self.open_dbs = {}
@@ -141,15 +141,15 @@ class DatabaseManager:
 		d.remove(fname, tablename)
 	
 	def __dbenv_dir(self):
-		home_area = Config.paths.backup_home_area(self.db_file_prefix)
+		home_area = self.path_config.backup_home_area(self.db_file_prefix)
 		return home_area
 	
 	def __db_fname(self, filename):
 		return os.path.join(
-			Config.paths.backup_home_area(self.db_file_prefix), filename)
+			self.path_config.backup_home_area(self.db_file_prefix), filename)
 	def __scratch_db_fname(self, filename):
 		return os.path.join(
-			Config.paths.backup_staging_area(self.db_file_prefix),
+			self.path_config.backup_staging_area(self.db_file_prefix),
 			filename)
 
 class TransactionHandler:
