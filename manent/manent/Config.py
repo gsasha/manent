@@ -109,7 +109,7 @@ class Paths:
 		else:
 			path = os.path.join(os.environ["HOME"], ".manent1")
 		if not self.home_area_exists and not os.path.exists(path):
-			os.mkdir(path)
+			os.mkdir(path, 0700)
 			self.home_area_exists = True
 			rules_file_name = os.path.join(path, "exclusion_rules")
 			if not os.path.isfile(rules_file_name):
@@ -128,7 +128,7 @@ class Paths:
 		else:
 			path = "/tmp/manent.staging."+os.environ["USER"]
 		if not self.staging_area_exists and not os.path.exists(path):
-			os.mkdir(path)
+			os.mkdir(path, 0700)
 			self.staging_area_exists = True
 		return path
 

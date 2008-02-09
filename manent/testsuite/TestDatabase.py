@@ -28,7 +28,7 @@ class MockPaths:
 
 	def backup_staging_area(self, label):
 		if not os.path.isdir(path):
-			os.path.makedirs(path)
+			os.path.makedirs(path, 0700)
 		return os.path.join(self.staging_area(), "BACKUP." + label)
 
 	def temp_area(self):

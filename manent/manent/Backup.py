@@ -33,10 +33,10 @@ class Backup:
 
 		home_dir = Config.paths.backup_home_area(self.label)
 		if not os.path.isdir(home_dir):
-			os.makedirs(home_dir)
+			os.makedirs(home_dir, 0700)
 		staging_dir = Config.paths.backup_staging_area(self.label)
 		if not os.path.isdir(staging_dir):
-			os.makedirs(Config.paths.backup_staging_area(self.label))
+			os.makedirs(Config.paths.backup_staging_area(self.label), 0700)
 		exclusion_file_name = os.path.join(home_dir, "exclusion_rules")
 		if not os.path.isfile(exclusion_file_name):
 			exclusion_file = open(exclusion_file_name, "w")

@@ -27,6 +27,8 @@ FEATURES PLANNED FOR 1.X
 
 - Add a filesystem interface for Linux (FUSE)
 
+- Add a filesystem interface as a http or ftp server
+
 - Write parsing plugins for MP3, JPG, ZIP, .o, .a, .so
 
 - Consider adding curses-based interface
