@@ -43,7 +43,7 @@ class Backup:
 			exclusion_file.write(Config.BACKUP_EXCLUSION_RULES_TEMPLATE)
 			exclusion_file.close()
 		
-		self.db_manager = Database.DatabaseManager(Config.path_config,
+		self.db_manager = Database.DatabaseManager(Config.paths,
 			self.label)
 		self.txn_handler = Database.TransactionHandler(self.db_manager)
 	#
