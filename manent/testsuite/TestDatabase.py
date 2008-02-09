@@ -32,10 +32,7 @@ class MockPaths:
 		return os.path.join(self.staging_area(), "BACKUP." + label)
 
 	def temp_area(self):
-		if os.name == "nt":
-			return os.path.join(os.environ["TEMP"], "test-manent-db")
-		else:
-			return os.path.join("/tmp", "test-manent-db")
+		return os.path.join(Config.paths.temp_area(), "test-manent-db")
 
 class TestDatabase(unittest.TestCase):
 	def setUp(self):

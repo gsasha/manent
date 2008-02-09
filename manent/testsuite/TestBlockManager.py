@@ -26,7 +26,7 @@ class MockStorageManager:
 	def new_container(self):
 		self.container += 1
 	def add_block(self, digest, code, data):
-		print "-------------- adding block", base64.b64encode(digest), code, data
+		#print "-------------- adding block", base64.b64encode(digest), code, data
 		self.block_manager.add_block(digest, code, data)
 		self.blocks.append((digest, code, data, self.container))
 	def load_blocks_for(self, digest, handler):
@@ -37,11 +37,12 @@ class MockStorageManager:
 				found_container = b_container
 		for b_digest, b_code, b_data, b_container in self.blocks:
 			if handler.is_requested(b_digest, b_code):
-				print "--------- block", base64.b64encode(b_digest), b_code, "requested"
+				#print "--------- block", base64.b64encode(b_digest), b_code, "requested"
 				handler.loaded(b_digest, b_code, b_data)
 				self.num_blocks_loaded += 1
 			else:
-				print "--------- block", base64.b64encode(b_digest), b_code, "not requested"
+				#print "--------- block", base64.b64encode(b_digest), b_code, "not requested"
+				pass
 
 class TestBlockManager(unittest.TestCase):
 	def setUp(self):

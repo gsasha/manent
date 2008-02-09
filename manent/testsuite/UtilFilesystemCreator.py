@@ -7,6 +7,8 @@ import os, os.path, shutil
 import stat
 import tempfile
 
+import manent.Config as Config
+
 class FSCSymlink:
 	def __init__(self,link):
 		self.link = link
@@ -21,7 +23,8 @@ class FSCFile:
 
 class FilesystemCreator:
 	def __init__(self):
-		self.home = tempfile.mkdtemp("","manent.test.scratch","/tmp")
+		self.home = tempfile.mkdtemp("","manent.test.scratch",
+			Config.paths.temp_area())
 		#print "*** Selected homedir %s " % self.home
 		try:
 			shutil.rmtree(self.home)

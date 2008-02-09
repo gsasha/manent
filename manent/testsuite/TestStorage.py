@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import unittest
 
+import manent.Config as Config
 import manent.Container as Container
 import manent.Database as Database
 import manent.Storage as Storage
@@ -18,7 +19,8 @@ class TestStorage(unittest.TestCase):
 		self.env = Database.PrivateDatabaseManager()
 		self.txn = Database.TransactionHandler(self.env)
 		self.config_db = self.env.get_database_btree("a", None, None)
-		self.scratch_path = tempfile.mkdtemp(".storage", "manent.", "/tmp")
+		self.scratch_path = tempfile.mkdtemp(".storage", "manent.",
+			Config.paths.temp_area())
 		self.CONFIGURATION = {"path": self.scratch_path, "encryption_key": "kuku"}
 		#print "tmp path=", self.scratch_path
 	def tearDown(self):

@@ -10,8 +10,9 @@ import cStringIO as StringIO
 import tempfile
 import unittest
 
-import manent.utils.Digest as Digest
+import manent.Config as Config
 import manent.Container as Container
+import manent.utils.Digest as Digest
 
 #random.seed(23423)
 
@@ -55,10 +56,10 @@ class MockStorage:
 	def __init__(self, password):
 		self.password = password
 		dummy, self.header_file_name = tempfile.mkstemp(
-			".header","manent.test_container", "/tmp")
+			".header","manent.test_container", Config.paths.temp_area())
 		self.header_file = open(self.header_file_name, "r+w") 
 		dummy, self.body_file_name = tempfile.mkstemp(
-			".body", "manent.test_container", "/tmp")
+			".body", "manent.test_container", Config.paths.temp_area())
 		self.body_file = open(self.body_file_name, "r+w")
 		self.cur_index = 0
 
