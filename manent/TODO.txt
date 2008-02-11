@@ -1,10 +1,12 @@
-FEATURES FOR 0.9.7
+CHANGELIST:
 
-- add option "compare=" to "Manent.py test"
+0.9.7:
 
 - fix permissions for db files
 
 FEATURES PLANNED FOR 1.0
+
+- add option "compare=" to "Manent.py test"
 
 - Implement storage queueing. After that, make sure that if process crashes after uploading container, it still can continue.
 
