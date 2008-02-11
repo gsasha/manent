@@ -1,6 +1,13 @@
+#
+#    Copyright (C) 2008 Alex Gontmakher <gsasha@gmail.com>
+#    License: see LICENSE.txt
+#
+
 import os, os.path, shutil
 import stat
 import tempfile
+
+import manent.Config as Config
 
 class FSCSymlink:
 	def __init__(self,link):
@@ -16,14 +23,15 @@ class FSCFile:
 
 class FilesystemCreator:
 	def __init__(self):
-		self.home = tempfile.mkdtemp("","manent.test.scratch","/tmp")
+		self.home = tempfile.mkdtemp("","manent.test.scratch",
+			Config.paths.temp_area())
 		#print "*** Selected homedir %s " % self.home
 		try:
 			shutil.rmtree(self.home)
 		except:
 			# If we run for the first time, the dir doesn't exists
 			pass
-		os.mkdir(self.home)
+		os.mkdir(self.home, 0700)
 
 	def cleanup(self):
 		try:
@@ -33,7 +41,7 @@ class FilesystemCreator:
 
 	def reset(self):
 		self.cleanup()
-		os.mkdir(self.home)
+		os.mkdir(self.home, 0700)
 
 	def get_home(self):
 		return self.home

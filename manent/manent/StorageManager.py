@@ -275,7 +275,7 @@ class StorageManager:
 		storage = self.storages[storage_idx]
 
 		container = storage.get_container(sequence_id, container_idx)
-		print "Digest", base64.b64encode(digest), "is in", sequence_idx, container_idx
+		#print "Digest", base64.b64encode(digest), "is in", sequence_idx, container_idx
 		container.load_header()
 		container.load_blocks(handler)
 	def flush(self):

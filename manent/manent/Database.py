@@ -70,7 +70,7 @@ class DatabaseManager:
 		self.dbenv.set_lk_max_objects(20000)
 		self.dbenv.set_lk_detect(db.DB_LOCK_DEFAULT)
 		self.dbenv.set_flags(db.DB_LOG_AUTOREMOVE, True)
-		print "Opening environment in", self.__dbenv_dir()
+		#print "Opening environment in", self.__dbenv_dir()
 		self.dbenv.open(self.__dbenv_dir(),
 		    db.DB_RECOVER|db.DB_CREATE|db.DB_INIT_TXN|
 		    db.DB_INIT_MPOOL|db.DB_INIT_LOCK|db.DB_THREAD)
