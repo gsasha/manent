@@ -436,7 +436,8 @@ class MemoryStorage(Storage):
 	def load_container_body(self, sequence_id, index):
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
 		return StringIO.StringIO(self.get_cur_files()[body_file_name])
-
+	def upload_file(self, file_name, tmp_file_name, file_stream):
+		self.get_cur_files()[file_name] = file_stream.read()
 class FTPStorage(Storage):
 	"""
 	Handler for a FTP site storage
