@@ -228,7 +228,18 @@ class Storage:
 		self.summary_headers_len += len(cname) + len(file_contents)
 		self.summary_headers_num += 1
 		if self.summary_headers_len >= self.container_size:
-			self.upload_file((*&(&^#@$#$#@)
+			summary_file_name = self.encode_container_name(
+				sequence_id, index, SUMMARY_HEADER_EXT)
+			summary_file_name_tmp = self.encode_container_name(
+				sequence_id, index, SUMMARY_HEADER_EXT_TMP)
+			tmpfile = tempfile.open(, "wb")
+			for key, value in self.summary_headers_db.iteritems():
+				tmpfile.write(IE.binary_encode_int_varlen(len(key)))
+				tmpfile.write(key)
+				tmpfile.write(IE.binary_encode_int_varlen(len(value)))
+				tmpfile.write(value)
+			self.upload_file(summary_file_name, summary_file_name_tmp, tmpfile)
+			tmpfile.close()
 	def get_sequence_ids(self):
 		return self.sequences.keys()
 	def close(self):
