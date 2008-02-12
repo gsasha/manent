@@ -170,6 +170,16 @@ class Storage:
 		container_files = self.list_container_files()
 		new_header_files = {}
 		new_body_files = {}
+		# TODO(gsasha): scan saved summary headers
+		self.summary_headers_num = 0
+		self.summary_headers_len = 0
+		for name, contents in self.summary_headers_db.iteritems():
+			sequence, index, extension = self.decode_container_name(name)
+			if sequence = self.active_sequence_id:
+				self.summary_headers_num += 1
+				self.summary_headers_len += len(name) + len(contents)
+		# TODO(gsasha): here load the summary containers
+		# in the reverse order
 		for file in container_files:
 			seq_id, index, extension = self.decode_container_name(file)
 			if not self.sequences.has_key(seq_id) or self.sequences[seq_id] < index:
@@ -205,27 +215,20 @@ class Storage:
 			self.active_sequence_id = self.config_db[self._key("active_sequence")]
 			NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
 			self.active_sequence_next_index = int(self.config_db[NEXT_INDEX_KEY])
-		# Reload summary header data
-		# TODO: pass backup name here so that we can read it
-		summary_header_file_name = os.path.join(Config.paths.backup_home_area())
-		summary_headers = []
-		if os.path.isfile(summary_header_file_name):
-			summary_header_file = open(summary_header_file_name, "rb")
-			while (True):
-				header_idx = IE.binary_read_int_varlen(summary_header_file)
-				if header_idx is None:
-					break
-				header_size = IE.binary_read_int_varlen(summary_header_file)
-				summary_header_file.seek(header_size)
-				summary_headers.append(header_idx)
-			summary_header_file.close()
 	def add_summary_header(self, sequence_id, index, file):
 		# TODO: implement this
 		# This should write the contents of the header file to the accumulated
 		# header, and register in the database what was done.
 		# Then, if the accumulated header file is large enough, it should be
 		# uploaded to the storage location.
-		pass
+		cname = self.encode_container_name(sequence_id, index, HEADER_EXT)
+		file.seek(0)
+		file_contents = file.read()
+		self.summary_headers_db[cname] = file_contents
+		self.summary_headers_len += len(cname) + len(file_contents)
+		self.summary_headers_num += 1
+		if self.summary_headers_len >= self.container_size:
+			self.upload_file((*&(&^#@$#$#@)
 	def get_sequence_ids(self):
 		return self.sequences.keys()
 	def close(self):
@@ -431,22 +434,21 @@ class FTPStorage(Storage):
 		print "Uploading container", base64.urlsafe_b64encode(sequence_id), index
 		header_file_name_tmp = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
+		self.upload_file(header_file_name, header_file_name_tmp, header_file)
 		body_file_name_tmp = self.encode_container_name(sequence_id, index, BODY_EXT_TMP)
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
-		# Upload the files
-		header_file.seek(0)
-		self.get_fs_handler().upload(header_file, header_file_name_tmp)
-		header_file.seek(0)
+		self.upload_file(body_file_name, body_file_name_tmp, body_file)
+		
 		self.add_summary_header(sequence_id, index, header_file)
-		body_file.seek(0)
-		self.get_fs_handler().upload(body_file, body_file_name_tmp)
-		# Rename the tmp files to permanent ones
-		self.get_fs_handler().rename(header_file_name_tmp, header_file_name)
-		self.get_fs_handler().rename(body_file_name_tmp, body_file_name)
-		#TODO: return to using FileReader, FileWriter
-		# Remove the write permission off the permanent files
-		self.get_fs_handler().chmod(header_file_name, 0444)
-		self.get_fs_handler().chmod(body_file_name, 0444)
+
+	def upload_file(self, file_name, tmp_file_name, file_stream):
+		# We're FTP storage here, don't care about the tmp_file_name.
+		# Just read the file from the stream
+		file_stream.seek(0)
+		self.get_fs_handler().upload(header_file, tmp_file_name)
+		self.get_fs_handler().rename(tmp_file_name, file_name)
+		self.get_fs_handler().chmod(file_name, 0444)
+		# TODO: implement this
 	#def upload_container(self,index,header_file_name,body_file_name):
 		#remote_header_file_name = self.compute_header_filename(index)
 		#remote_body_file_name = self.compute_body_filename(index)
@@ -490,25 +492,40 @@ class DirectoryStorage(Storage):
 		print "Uploading container", base64.urlsafe_b64encode(sequence_id), index
 		header_file_name_tmp = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
+		self.upload_file(header_file_name, header_file_name_tmp, header_file)
 		body_file_name_tmp = self.encode_container_name(sequence_id, index, BODY_EXT_TMP)
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
-		header_file_path_tmp = os.path.join(self.get_path(), header_file_name_tmp)
-		header_file_path = os.path.join(self.get_path(), header_file_name)
-		body_file_path_tmp = os.path.join(self.get_path(), body_file_name_tmp)
-		body_file_path = os.path.join(self.get_path(), body_file_name)
+		self.upload_file(body_file_name, body_file_name_tmp, body_file)
+		
 		# Write the header file to summary header
-		header_file.seek(0)
 		self.add_summary_header(sequence_id, index, header_file)
-		# Close the file handles before doing operations on them since
-		# Windows doesn't permit renaming while open.
-		header_file.close()
-		body_file.close()
-		# Rename the tmp files to permanent ones
-		shutil.move(header_file_path_tmp, header_file_path)
-		shutil.move(body_file_path_tmp, body_file_path)
+	def upload_file(self, file_name, tmp_file_name, file_stream):
+		# We're FTP storage here, don't care about the tmp_file_name.
+		# Just read the file from the stream
+		tmp_file_path = os.path.join(self.get_path(), tmp_file_name)
+		file_path = os.path.join(self.get_path(), file_name)
+		if not os.path.isfile(tmp_file_path):
+			# If the temporary file does not exist, this is because it has not
+			# been created, and the data does not sit in the repository's fs.
+			# Copy the data to the temporary file, and then rename it to
+			# temporary one.
+			tmp_file_stream = open(tmp_file_path, "wb")
+			file_stream.seek(0)
+			while True:
+				block = file_stream.read(64 << 10)
+				if len(block) == 0: break
+				tmp_file_stream.write(block)
+			tmp_file_stream.close()
+			file_stream.close()
+		else:
+			# If the temporary file exists, then the data is just there
+			# Close the file handle before doing operations on it since
+			# Windows doesn't permit renaming while open.
+			file_stream.close()
+		# Rename the tmp file to permanent one
+		shutil.move(tmp_file_path, file_path)
 		# Remove the write permission off the permanent files
-		os.chmod(header_file_path, 0444)
-		os.chmod(body_file_path, 0444)
+		os.chmod(file_path, 0444)
 	def load_container_header(self, sequence_id, index):
 		print "Loading container header", base64.urlsafe_b64encode(sequence_id), index
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
