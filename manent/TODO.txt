@@ -6,6 +6,8 @@ CHANGELIST:
 
 FEATURES PLANNED FOR 1.0
 
+- Write more metadata to increment, such as backup name, machine name etc.
+
 - add option "compare=" to "Manent.py test"
 
 - Implement storage queueing. After that, make sure that if process crashes after uploading container, it still can continue.
@@ -15,7 +17,9 @@ FEATURES PLANNED FOR 1.0
 - Make sure several DB's can open in parallel (probably it's the DB_JOINENV flag).
   http://pybsddb.sourceforge.net/ref/env/faq.html
 
-- Implement summary headers
+- Implement summary headers.
+  First, we'll implement normal summary headers, i.e., created through non-failing execution.
+  Then, we'll consider creating summary headers over failed execution.
 
 - Make sure data reloads correctly on storage manager load
 

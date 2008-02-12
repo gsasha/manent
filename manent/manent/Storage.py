@@ -41,17 +41,18 @@ SUMMARY_HEADER_EXT_TMP = "mhs-tmp"
 # full body-size file, the existing headers are removed and a new header file
 # is pushed instead.
 
-def _instantiate(config_db, storage_type, index):
+def _instantiate(db_manager, txn_manager, storage_type, index):
+	params = StorageParams(index, db_manager, txn_manager)
 	if storage_type == "directory":
-		return DirectoryStorage(index, config_db)
+		return DirectoryStorage(params)
 	elif storage_type == "mail":
-		return MailStorage(index, config_db)
+		return MailStorage(params)
 	elif storage_type == "ftp":
-		return FTPStorage(index, config_db, RemoteFSHandler.FTPHandler)
+		return FTPStorage(params, RemoteFSHandler.FTPHandler)
 	elif storage_type == "sftp":
-		return FTPStorage(index, config_db, RemoteFSHandler.SFTPHandler)
+		return FTPStorage(params, RemoteFSHandler.SFTPHandler)
 	elif storage_type == "__mock__":
-		return MemoryStorage(index, config_db)
+		return MemoryStorage(params)
 	else:
 		raise Exception("Unknown storage_type type" + storage_type)
 	
@@ -72,14 +73,28 @@ def load_storage(db_manager, txn_manager, index, new_container_handler):
 	storage.load_configuration(new_container_handler)
 	return storage
 
-class Storage:
-	def __init__(self, index, config_db):
-		self.config_db = config_db
+# Configuration parameters for the Storage base class.
+# Designed to be passed to any descendant of Storage,
+# so that params can be changed orthogonally to the number of storages
+class StorageParams:
+	def __init__(self, index, db_manager, txn_manager):
 		self.index = index
+		self.db_manager = db_manager
+		self.txn_manager = txn_manager
+
+class Storage:
+	def __init__(self, params, txn_manager):
+		self.config_db = params.db_manager.get_database_btree("config.db",
+			"storage.%d" % index, params.txn_manager)
+		self.summary_headers_db = params.db_manager.get_database_btree(
+			"summary_headers.db", "headers.%d" % index, params, txn_manager)
+		self.index = params.index
 		self.sequences = {}
 		self.active_sequence_id = None
 		self.aside_header_file = None
 		self.aside_body_file = None
+		self.summary_first_header = None
+		self.summary_next_header = None
 	
 	# How do we know for a given storage if it is just created or rescanned?
 	# Ah well, each storage stores its data in the shared db!
@@ -190,6 +205,20 @@ class Storage:
 			self.active_sequence_id = self.config_db[self._key("active_sequence")]
 			NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
 			self.active_sequence_next_index = int(self.config_db[NEXT_INDEX_KEY])
+		# Reload summary header data
+		# TODO: pass backup name here so that we can read it
+		summary_header_file_name = os.path.join(Config.paths.backup_home_area())
+		summary_headers = []
+		if os.path.isfile(summary_header_file_name):
+			summary_header_file = open(summary_header_file_name, "rb")
+			while (True):
+				header_idx = IE.binary_read_int_varlen(summary_header_file)
+				if header_idx is None:
+					break
+				header_size = IE.binary_read_int_varlen(summary_header_file)
+				summary_header_file.seek(header_size)
+				summary_headers.append(header_idx)
+			summary_header_file.close()
 	def add_summary_header(self, sequence_id, index, file):
 		# TODO: implement this
 		# This should write the contents of the header file to the accumulated
@@ -303,8 +332,8 @@ class Storage:
 class MemoryStorage(Storage):
 	# NOTE: global var. It doesn't matter, since it's for testing only.
 	files = {}
-	def __init__(self, index, config_db):
-		Storage.__init__(self, index, config_db)
+	def __init__(self, params):
+		Storage.__init__(self, params)
 	def configure(self, params, new_container_handler):
 		Storage.configure(self, params, new_container_handler)
 	def load_configuration(self, new_container_handler):
@@ -337,8 +366,8 @@ class FTPStorage(Storage):
 	"""
 	Handler for a FTP site storage
 	"""
-	def __init__(self, index, config_db, RemoteHandlerClass):
-		Storage.__init__(self, index, config_db)
+	def __init__(self, params, RemoteHandlerClass):
+		Storage.__init__(self, params)
 		self.RemoteHandlerClass = RemoteHandlerClass
 		self.fs_handler = None
 		#self.up_bw_limiter = BandwidthLimiter(15.0E3)
@@ -432,8 +461,8 @@ class DirectoryStorage(Storage):
 	"""
 	Handler for a simple directory.
 	"""
-	def __init__(self, index, config_db):
-		Storage.__init__(self, index, config_db)
+	def __init__(self, params):
+		Storage.__init__(self, params)
 	def configure(self, params, new_container_handler):
 		print "Configuring directory storage with parameters", params
 		Storage.configure(self, params, new_container_handler)
@@ -508,14 +537,14 @@ class MailStorage(Storage):
 	def __init__(self):
 		Storage.__init__(self)
 		self.accounts = []
-	def init(self,backup,txn_handler,params):
-		Storage.init(self,backup,txn_handler)
+	def init(self, params):
+		Storage.init(self, params)
 		self.backup = backup
 		self.username = params[0]
 		self.password = params[1]
 		self.quota = int(params[2])
-	def configure(self,username,password,quota):
-		self.add_account(username,password,quota)
+	def configure(self, username, password, quota):
+		self.add_account(username, password, quota)
 	def load(self,filename):
 		file = open(filename, "rb")
 		Storage.load(self,file)
@@ -533,7 +562,7 @@ class MailStorage(Storage):
 			{"user":username, "pass":password, "quota":quota, "used":0})
 	def container_size(self):
 		return 2<<20
-	def save_container(self,container):
+	def save_container(self, container):
 		print "Saving container"
 
 		s = smtplib.SMTP()
@@ -558,7 +587,7 @@ class MailStorage(Storage):
 		header_attch = MIMEBase("application", "manent-container")
 		filename = container.filename()
 		header_file = open(os.path.join(
-			Config.paths.staging_area(),filename), "rb")
+			Config.paths.staging_area(), filename), "rb")
 		header_attch.set_payload(header_file.read())
 		header_file.close()
 		Encoders.encode_base64(header_attch)
@@ -601,11 +630,11 @@ class OpticalStorage(Storage):
 		"DVD-DL" : 8500<<20,
 		"BLURAY" : 26000<<20,
 		}
-	def __init__(self):
+	def __init__(self, params):
 		self.containerType = NONE
 		self.containers = []
 		raise "not implemented"
-	def configure(self,params):
+	def configure(self, params):
 		(containerType,) = params
 		self.containerType = containerType
 		if not CONTAINER_TYPES.has_key(self.containerType):
