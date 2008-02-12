@@ -88,6 +88,8 @@ class Storage:
 			"storage.%d" % index, params.txn_manager)
 		self.summary_headers_db = params.db_manager.get_database_btree(
 			"summary_headers.db", "headers.%d" % index, params, txn_manager)
+		self.loaded_headers_db = params.db_manager.get_scratch_database(
+			"loaded_headers.db", "headers.%d" % index, params)
 		self.index = params.index
 		self.sequences = {}
 		self.active_sequence_id = None
@@ -180,9 +182,47 @@ class Storage:
 				self.summary_headers_len += len(name) + len(contents)
 		# TODO(gsasha): here load the summary containers
 		# in the reverse order
+		for file in reversed(container_files):
+			seq_id, index, extension = self.decode_container_name(file)
+			if extension != SUMMARY_HEADER_EXT:
+				continue
+			if (self.sequences.has_key(seq_id) and
+				self.sequences[seq_id] >= index):
+				continue
+			# Ok, this header file tells us something new. Let's load it.
+			print "Loading summary header", file
+			stream = self.load_container_summary(seq_id, index)
+			last_seq_id = None
+			last_index = None
+			while True:
+				header_name_len = IE.binary_read_int_varlen(stream)
+				if header_name_len is None:
+					break
+				header_name = stream.read(header_name_len)
+				assert len(header_name) == header_name_len
+				header_data_len = IE.binary_read_int_varlen(stream)
+				assert header_data_len is not None
+				header_data = stream.read(header_data_len)
+				assert len(header_data) == header_data_len
+
+				seq_id, index, extension = self.decode_container_name(header_name)
+				assert extension == HEADER_EXT
+				# Check that the containers in the summary header progress
+				# correctly.
+				assert last_seq_id is None or last_seq_id == seq_id
+				assert last_index is None or last_index < index
+				last_seq_id = seq_id
+				last_index = index
+				# Write down the header
+				if (not self.sequences.has_key(seq_id) or
+					self.sequences[seq_id] < index):
+					print "Using the header"
+					self.loaded_headers_db[header_name] = header_data
+		# Scan container files to find the newly appeared ones
 		for file in container_files:
 			seq_id, index, extension = self.decode_container_name(file)
-			if not self.sequences.has_key(seq_id) or self.sequences[seq_id] < index:
+			if (not self.sequences.has_key(seq_id) or
+				self.sequences[seq_id] < index):
 				if extension == HEADER_EXT:
 					new_header_files[(seq_id, index)] = 1
 				elif extension == BODY_EXT:
@@ -191,8 +231,10 @@ class Storage:
 			seq_id, index, extension = self.decode_container_name(file)
 			if seq_id is None:
 				continue
-			if seq_id == self.active_sequence_id and index >= self.active_sequence_next_index:
-				raise Exception("Unexpected container: nobody else should be adding " +
+			if (seq_id == self.active_sequence_id and
+				index >= self.active_sequence_next_index):
+				raise Exception("Unexpected container: "
+				                "nobody else should be adding "
 			                    "containers to this sequence")
 			if self.sequences.has_key(seq_id):
 				self.sequences[seq_id] = max(self.sequences[seq_id], index)
@@ -287,7 +329,8 @@ class Storage:
 	# holder of non-data blocks
 	def create_aside_container(self):
 		if self.active_sequence_id is None:
-			raise Exception("Can't create a container for an inactive storage")
+			raise Exception("Can't create a container "
+		                    "for an inactive storage")
 		container = Container.Container(self)
 		index = None
 		container.start_dump(self.active_sequence_id, index)
@@ -296,7 +339,8 @@ class Storage:
 		index = self.get_next_index()
 		container.override_index(index)
 		self.sequences[self.active_sequence_id] = index
-		self.config_db[self._key(".sequences." + self.active_sequence_id)] = str(index)
+		self.config_db[self._key(".sequences." +
+		                         self.active_sequence_id)] = str(index)
 	def get_container(self, sequence_id, index):
 		container = Container.Container(self)
 		container.start_load(sequence_id, index)
@@ -328,6 +372,16 @@ class Storage:
 		file.seek(0)
 		self.aside_body_file = None
 		return file
+	def load_summary_container_header(self, sequence_id, index):
+		header_name = self.encode_container_name(sequence_id, index,
+		                                         HEADER_EXT)
+		if self.loaded_headers_db.has_key(header_name):
+			print "Found preloaded container header", header_name
+			stream = StringIO(self.loaded_headers_db[header_name])
+			del self.loaded_headers_db[stream]
+			return stream
+		return None
+
 	def load_container_header(self, sequence_id, index):
 		print "SELF:", self
 		raise Exception("load_container_header is abstract")
@@ -374,6 +428,9 @@ class MemoryStorage(Storage):
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
 		self.get_cur_files()[body_file_name] = body_file.getvalue()
 	def load_container_header(self, sequence_id, index):
+		stream = self.load_summary_container_header(sequence_id, index)
+		if stream is not None:
+			return stream
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		return StringIO.StringIO(self.get_cur_files()[header_file_name])
 	def load_container_body(self, sequence_id, index):
@@ -432,6 +489,9 @@ class FTPStorage(Storage):
 	
 	def load_container_header(self, sequence_id, index):
 		print "Loading container header", base64.urlsafe_b64encode(sequence_id), index
+		stream = self.load_summary_container_header(sequence_id, index)
+		if stream is not None:
+			return stream
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		filehandle = tempfile.TemporaryFile(dir=Config.paths.staging_area())
 		self.get_fs_handler().download(filehandle, header_file_name)
@@ -543,6 +603,9 @@ class DirectoryStorage(Storage):
 		os.chmod(file_path, 0444)
 	def load_container_header(self, sequence_id, index):
 		print "Loading container header", base64.urlsafe_b64encode(sequence_id), index
+		stream = self.load_summary_container_header(sequence_id, index)
+		if stream is not None:
+			return stream
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		header_file_path = os.path.join(self.get_path(), header_file_name)
 		return open(header_file_path, "rb")
