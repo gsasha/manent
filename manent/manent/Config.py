@@ -104,12 +104,16 @@ class Paths:
 		self.staging_area_exists = False
 		self.home_area_exists = False
 	def home_area(self):
-		if os.name == "nt":
+		if os.environ.has_key("MANENT_HOME_DIR"):
+			# Allow the user to override the placement of
+			# manent home, esp. for testing
+			path = os.environ["MANENT_HOME_DIR"]
+		elif os.name == "nt":
 			path = os.path.join(os.environ["APPDATA"], "manent1")
 		else:
 			path = os.path.join(os.environ["HOME"], ".manent1")
 		if not self.home_area_exists and not os.path.exists(path):
-			os.mkdir(path, 0700)
+			os.makedirs(path, 0700)
 			self.home_area_exists = True
 			rules_file_name = os.path.join(path, "exclusion_rules")
 			if not os.path.isfile(rules_file_name):
@@ -128,7 +132,7 @@ class Paths:
 		else:
 			path = "/tmp/manent.staging."+os.environ["USER"]
 		if not self.staging_area_exists and not os.path.exists(path):
-			os.mkdir(path, 0700)
+			os.makedirs(path, 0700)
 			self.staging_area_exists = True
 		return path
 
