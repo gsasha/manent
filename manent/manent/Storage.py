@@ -89,7 +89,7 @@ class Storage:
 		self.summary_headers_db = params.db_manager.get_database_btree(
 			"summary_headers.db", "headers.%d" % params.index, params.txn_manager)
 		self.loaded_headers_db = params.db_manager.get_scratch_database(
-			"loaded_headers.db", "headers.%d" % params.index)
+			"loaded_headers_%d.db" % params.index, None)
 		self.index = params.index
 		self.sequences = {}
 		self.active_sequence_id = None

@@ -113,6 +113,7 @@ class DatabaseManager:
 			db_type=db.DB_HASH)
 	def get_scratch_database(self, filename, tablename):
 		full_fname = self.__scratch_db_fname(filename)
+		print "Creating scratch database", filename, tablename, "in", full_fname
 		assert tablename is None
 		try:
 			os.unlink(full_fname)
@@ -167,6 +168,7 @@ class TransactionHandler:
 			self.txn = self.db_manager.txn_begin()
 		return self.txn
 	def commit(self):
+		print "Committing transaction", self.txn
 		if self.txn is not None:
 			self.txn.commit()
 		self.txn = None
