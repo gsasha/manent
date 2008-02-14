@@ -41,18 +41,17 @@ SUMMARY_HEADER_EXT_TMP = "mhs-tmp"
 # full body-size file, the existing headers are removed and a new header file
 # is pushed instead.
 
-def _instantiate(db_manager, txn_manager, storage_type, index):
-	params = StorageParams(index, db_manager, txn_manager)
+def _instantiate(storage_type, storage_params):
 	if storage_type == "directory":
-		return DirectoryStorage(params)
+		return DirectoryStorage(storage_params)
 	elif storage_type == "mail":
-		return MailStorage(params)
+		return MailStorage(storage_params)
 	elif storage_type == "ftp":
-		return FTPStorage(params, RemoteFSHandler.FTPHandler)
+		return FTPStorage(storage_params, RemoteFSHandler.FTPHandler)
 	elif storage_type == "sftp":
-		return FTPStorage(params, RemoteFSHandler.SFTPHandler)
+		return FTPStorage(storage_params, RemoteFSHandler.SFTPHandler)
 	elif storage_type == "__mock__":
-		return MemoryStorage(params)
+		return MemoryStorage(storage_params)
 	else:
 		raise Exception("Unknown storage_type type" + storage_type)
 	
@@ -61,7 +60,8 @@ def create_storage(db_manager, txn_manager, index, params, new_container_handler
 		"storage.%d" % index, txn_manager)
 	storage_type = params['type']
 	config_db["TYPE"] = storage_type
-	storage = _instantiate(db_manager, txn_manager, storage_type, index)
+ 	storage_params = StorageParams(index, db_manager, txn_manager, config_db)
+	storage = _instantiate(storage_type, storage_params)
 	storage.configure(params, new_container_handler)
 	return storage
 
@@ -69,7 +69,8 @@ def load_storage(db_manager, txn_manager, index, new_container_handler):
 	config_db = db_manager.get_database_btree("config.db",
 		"storage.%d" % index, txn_manager)
 	storage_type = config_db["TYPE"]
-	storage = _instantiate(db_manager, txn_manager, storage_type, index)
+	storage_params = StorageParams(index, db_manager, txn_manager, config_db)
+	storage = _instantiate(storage_type, storage_params)
 	storage.load_configuration(new_container_handler)
 	return storage
 
@@ -77,15 +78,17 @@ def load_storage(db_manager, txn_manager, index, new_container_handler):
 # Designed to be passed to any descendant of Storage,
 # so that params can be changed orthogonally to the number of storages
 class StorageParams:
-	def __init__(self, index, db_manager, txn_manager):
+	def __init__(self, index, db_manager, txn_manager, config_db):
 		self.index = index
 		self.db_manager = db_manager
 		self.txn_manager = txn_manager
+		self.config_db = config_db
 
 class Storage:
 	def __init__(self, params):
-		self.config_db = params.db_manager.get_database_btree("config.db",
-			"storage.%d" % params.index, params.txn_manager)
+		self.config_db = params.config_db
+		#self.config_db = params.db_manager.get_database_btree(
+			#"config.db", "storage.%d" % params.index, params.txn_manager)
 		self.summary_headers_db = params.db_manager.get_database_btree(
 			"summary_headers.db", "headers.%d" % params.index, params.txn_manager)
 		self.loaded_headers_db = params.db_manager.get_scratch_database(
@@ -118,7 +121,6 @@ class Storage:
 		self.load_sequences(new_container_handler)
 	def get_config(self):
 		PREFIX = self._key('CONFIG.')
-		print "Getting config, prefix=", PREFIX
 		PREFIX_len = len(PREFIX)
 		config = {}
 		for key, val in self.config_db.iteritems_prefix(PREFIX):
@@ -452,7 +454,7 @@ class FTPStorage(Storage):
 		Storage.configure(self, params, new_container_handler)
 	def load_configuration(self, new_container_handler):
 		Storage.load_configuration(self, new_container_handler)
-		print "Loaded directory storage configuration", self.config
+		#print "Loaded directory storage configuration", self.config
 
 	def get_fs_handler(self):
 		if self.fs_handler is None:
@@ -542,11 +544,11 @@ class DirectoryStorage(Storage):
 	def __init__(self, params):
 		Storage.__init__(self, params)
 	def configure(self, params, new_container_handler):
-		print "Configuring directory storage with parameters", params
+		#print "Configuring directory storage with parameters", params
 		Storage.configure(self, params, new_container_handler)
 	def load_configuration(self, new_container_handler):
 		Storage.load_configuration(self, new_container_handler)
-		print "Loaded directory storage configuration", self.config
+		#print "Loaded directory storage configuration", self.config
 	def get_path(self):
 		return self.config["path"]
 	def container_size(self):
