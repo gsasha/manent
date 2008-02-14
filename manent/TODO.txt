@@ -25,6 +25,8 @@ FEATURES PLANNED FOR 1.0
 
 FEATURES PLANNED FOR 1.X
 
+- Implement a "diff" command that tells what changed
+
 - Provide a more accurate estimate of progress
 
 - Add executable to create summary headers over existing backup
