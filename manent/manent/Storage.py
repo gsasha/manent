@@ -425,6 +425,8 @@ class MemoryStorage(Storage):
 	def open_body_file(self, sequence_id, index):
 		return StringIO.StringIO()
 	def upload_container(self, sequence_id, index, header_file, body_file):
+		self.add_summary_header(sequence_id, index, header_file)
+		
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		self.get_cur_files()[header_file_name] = header_file.getvalue()
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
@@ -509,6 +511,8 @@ class FTPStorage(Storage):
 		return filehandle
 	
 	def upload_container(self, sequence_id, index, header_file, body_file):
+		self.add_summary_header(sequence_id, index, header_file)
+		
 		print "Uploading container", base64.urlsafe_b64encode(sequence_id), index
 		header_file_name_tmp = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
@@ -516,8 +520,6 @@ class FTPStorage(Storage):
 		body_file_name_tmp = self.encode_container_name(sequence_id, index, BODY_EXT_TMP)
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
 		self.upload_file(body_file_name, body_file_name_tmp, body_file)
-		
-		self.add_summary_header(sequence_id, index, header_file)
 
 	def upload_file(self, file_name, tmp_file_name, file_stream):
 		# We're FTP storage here, don't care about the tmp_file_name.
@@ -567,6 +569,9 @@ class DirectoryStorage(Storage):
 		body_file_path = os.path.join(self.get_path(), body_file_name)
 		return open(body_file_path, "wb+")
 	def upload_container(self, sequence_id, index, header_file, body_file):
+		# Write the header file to summary header
+		self.add_summary_header(sequence_id, index, header_file)
+		
 		print "Uploading container", base64.urlsafe_b64encode(sequence_id), index
 		header_file_name_tmp = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
@@ -574,9 +579,6 @@ class DirectoryStorage(Storage):
 		body_file_name_tmp = self.encode_container_name(sequence_id, index, BODY_EXT_TMP)
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
 		self.upload_file(body_file_name, body_file_name_tmp, body_file)
-		
-		# Write the header file to summary header
-		self.add_summary_header(sequence_id, index, header_file)
 	def upload_file(self, file_name, tmp_file_name, file_stream):
 		# We're FTP storage here, don't care about the tmp_file_name.
 		# Just read the file from the stream
