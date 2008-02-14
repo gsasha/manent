@@ -61,7 +61,7 @@ def create_storage(db_manager, txn_manager, index, params, new_container_handler
 		"storage.%d" % index, txn_manager)
 	storage_type = params['type']
 	config_db["TYPE"] = storage_type
-	storage = _instantiate(config_db, storage_type, index)
+	storage = _instantiate(db_manager, txn_manager, storage_type, index)
 	storage.configure(params, new_container_handler)
 	return storage
 
@@ -69,7 +69,7 @@ def load_storage(db_manager, txn_manager, index, new_container_handler):
 	config_db = db_manager.get_database_btree("config.db",
 		"storage.%d" % index, txn_manager)
 	storage_type = config_db["TYPE"]
-	storage = _instantiate(config_db, storage_type, index)
+	storage = _instantiate(db_manager, txn_manager, storage_type, index)
 	storage.load_configuration(new_container_handler)
 	return storage
 
@@ -83,13 +83,13 @@ class StorageParams:
 		self.txn_manager = txn_manager
 
 class Storage:
-	def __init__(self, params, txn_manager):
+	def __init__(self, params):
 		self.config_db = params.db_manager.get_database_btree("config.db",
-			"storage.%d" % index, params.txn_manager)
+			"storage.%d" % params.index, params.txn_manager)
 		self.summary_headers_db = params.db_manager.get_database_btree(
-			"summary_headers.db", "headers.%d" % index, params, txn_manager)
+			"summary_headers.db", "headers.%d" % params.index, params.txn_manager)
 		self.loaded_headers_db = params.db_manager.get_scratch_database(
-			"loaded_headers.db", "headers.%d" % index, params)
+			"loaded_headers.db", "headers.%d" % params.index)
 		self.index = params.index
 		self.sequences = {}
 		self.active_sequence_id = None
@@ -177,7 +177,7 @@ class Storage:
 		self.summary_headers_len = 0
 		for name, contents in self.summary_headers_db.iteritems():
 			sequence, index, extension = self.decode_container_name(name)
-			if sequence = self.active_sequence_id:
+			if sequence == self.active_sequence_id:
 				self.summary_headers_num += 1
 				self.summary_headers_len += len(name) + len(contents)
 		# TODO(gsasha): here load the summary containers
@@ -274,7 +274,7 @@ class Storage:
 				sequence_id, index, SUMMARY_HEADER_EXT)
 			summary_file_name_tmp = self.encode_container_name(
 				sequence_id, index, SUMMARY_HEADER_EXT_TMP)
-			tmpfile = tempfile.open(, "wb")
+			tmpfile = tempfile.TemporaryFile()
 			keys = []
 			for key, value in self.summary_headers_db.iteritems():
 				keys.append(key)
