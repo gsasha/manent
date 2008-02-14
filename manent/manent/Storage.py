@@ -100,10 +100,7 @@ class Storage:
 		self.aside_body_file = None
 		self.summary_first_header = None
 		self.summary_next_header = None
-	
-	# How do we know for a given storage if it is just created or rescanned?
-	# Ah well, each storage stores its data in the shared db!
-	
+
 	def _key(self, suffix):
 		return "%s" % (suffix)
 	#
@@ -272,22 +269,31 @@ class Storage:
 		self.summary_headers_len += len(cname) + len(file_contents)
 		self.summary_headers_num += 1
 		if self.summary_headers_len >= self.container_size:
-			summary_file_name = self.encode_container_name(
-				sequence_id, index, SUMMARY_HEADER_EXT)
-			summary_file_name_tmp = self.encode_container_name(
-				sequence_id, index, SUMMARY_HEADER_EXT_TMP)
-			tmpfile = tempfile.TemporaryFile()
-			keys = []
-			for key, value in self.summary_headers_db.iteritems():
-				keys.append(key)
-				tmpfile.write(IE.binary_encode_int_varlen(len(key)))
-				tmpfile.write(key)
-				tmpfile.write(IE.binary_encode_int_varlen(len(value)))
-				tmpfile.write(value)
-			for key in keys:
-				del self.summary_headers_db[key]
-			self.upload_file(summary_file_name, summary_file_name_tmp, tmpfile)
-			tmpfile.close()
+			self.write_summary_header(sequence_id, index)
+	def write_summary_header(self, sequence_id, index):
+		if self.summary_headers_num <= 1:
+			print "Only one header in summary. Not writing summary header"
+			return
+		summary_file_name = self.encode_container_name(
+			sequence_id, index, SUMMARY_HEADER_EXT)
+		summary_file_name_tmp = self.encode_container_name(
+			sequence_id, index, SUMMARY_HEADER_EXT_TMP)
+		tmpfile = tempfile.TemporaryFile()
+		keys = []
+		for key, value in self.summary_headers_db.iteritems():
+			print "Writing summary header", key
+			keys.append(key)
+			tmpfile.write(IE.binary_encode_int_varlen(len(key)))
+			tmpfile.write(key)
+			tmpfile.write(IE.binary_encode_int_varlen(len(value)))
+			tmpfile.write(value)
+		for key in keys:
+			del self.summary_headers_db[key]
+		self.upload_file(summary_file_name, summary_file_name_tmp, tmpfile)
+		tmpfile.close()
+	def flush(self):
+		self.write_summary_header(self.active_sequence_id,
+			self.active_sequence_next_index - 1)
 	def get_sequence_ids(self):
 		return self.sequences.keys()
 	def close(self):

@@ -310,6 +310,7 @@ class StorageManager:
 			# TODO: what if the container is empty???
 			self._write_container(self.current_open_container)
 			self.current_open_container = None
+		storage.flush()
 	def _write_container(self, container):
 		print "Finalizing container", container.get_index()
 		container.finish_dump()
