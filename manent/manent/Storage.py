@@ -171,7 +171,7 @@ class Storage:
 		container_files = self.list_container_files()
 		new_header_files = {}
 		new_body_files = {}
-		# TODO(gsasha): scan saved summary headers
+		# Scan saved summary headers
 		self.summary_headers_num = 0
 		self.summary_headers_len = 0
 		for name, contents in self.summary_headers_db.iteritems():

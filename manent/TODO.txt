@@ -1,8 +1,22 @@
-CHANGELIST:
+CHANGELOG:
 
 0.9.7:
 
 - fix permissions for db files
+
+FEATURES PLANNED FOR 0.9.8:
+
+- Implement summary headers.
+  First, we'll implement normal summary headers, i.e., created through non-failing execution.
+  Then, we'll consider creating summary headers over failed execution.
+
+- Correctly decide which summary headers to load:
+  1. If the summary header index is less than the highest loaded header index, ignore it.
+  2. If the header contained in a summary is less than the highest loaded, or if it is already loaded, ignore it.
+
+- Perform better decisions on when to store summary headers:
+  1. Introduce threshold on the number of headers in summary before they are pushed as a result of increment finalizaiton.
+  2. Add summary headers (if asked for...) for foreign sequences.
 
 FEATURES PLANNED FOR 1.0
 
@@ -18,10 +32,6 @@ FEATURES PLANNED FOR 1.0
 
 - Make sure several DB's can open in parallel (probably it's the DB_JOINENV flag).
   http://pybsddb.sourceforge.net/ref/env/faq.html
-
-- Implement summary headers.
-  First, we'll implement normal summary headers, i.e., created through non-failing execution.
-  Then, we'll consider creating summary headers over failed execution.
 
 - Make sure data reloads correctly on storage manager load
 
