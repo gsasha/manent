@@ -179,8 +179,7 @@ class Storage:
 			if sequence == self.active_sequence_id:
 				self.summary_headers_num += 1
 				self.summary_headers_len += len(name) + len(contents)
-		# TODO(gsasha): here load the summary containers
-		# in the reverse order
+		# Load the summary containers in the reverse order
 		for file in reversed(container_files):
 			seq_id, index, extension = self.decode_container_name(file)
 			if extension != SUMMARY_HEADER_EXT:
@@ -189,8 +188,8 @@ class Storage:
 				self.sequences[seq_id] >= index):
 				continue
 			# Ok, this header file tells us something new. Let's load it.
-			print "Loading summary header", file
-			stream = self.load_container_summary(seq_id, index)
+			print "Loading container header", index, "from summary", file
+			stream = self.load_container_header_summary(seq_id, index)
 			last_seq_id = None
 			last_index = None
 			while True:
@@ -215,7 +214,7 @@ class Storage:
 				# Write down the header
 				if (not self.sequences.has_key(seq_id) or
 					self.sequences[seq_id] < index):
-					print "Using the header"
+					print "Importing header", index
 					self.loaded_headers_db[header_name] = header_data
 		# Scan container files to find the newly appeared ones
 		for file in container_files:
@@ -380,13 +379,13 @@ class Storage:
 		file.seek(0)
 		self.aside_body_file = None
 		return file
-	def load_summary_container_header(self, sequence_id, index):
+	def load_container_header_from_summary(self, sequence_id, index):
 		header_name = self.encode_container_name(sequence_id, index,
 		                                         HEADER_EXT)
 		if self.loaded_headers_db.has_key(header_name):
 			print "Found preloaded container header", header_name
-			stream = StringIO(self.loaded_headers_db[header_name])
-			del self.loaded_headers_db[stream]
+			stream = StringIO.StringIO(self.loaded_headers_db[header_name])
+			del self.loaded_headers_db[header_name]
 			return stream
 		return None
 
@@ -438,11 +437,15 @@ class MemoryStorage(Storage):
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
 		self.get_cur_files()[body_file_name] = body_file.getvalue()
 	def load_container_header(self, sequence_id, index):
-		stream = self.load_summary_container_header(sequence_id, index)
+		stream = self.load_container_header_from_summary(sequence_id, index)
 		if stream is not None:
 			return stream
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		return StringIO.StringIO(self.get_cur_files()[header_file_name])
+	def load_container_header_summary(self,sequence_id, index):
+		file_name = self.encode_container_name(
+			sequence_id, index, SUMMARY_HEADER_EXT)
+		return StringIO.StringIO(self.get_cur_files()[file_name])
 	def load_container_body(self, sequence_id, index):
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
 		return StringIO.StringIO(self.get_cur_files()[body_file_name])
@@ -506,6 +509,13 @@ class FTPStorage(Storage):
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		filehandle = tempfile.TemporaryFile(dir=Config.paths.staging_area())
 		self.get_fs_handler().download(filehandle, header_file_name)
+		filehandle.seek(0)
+		return filehandle
+	def load_container_summary_header(self, sequence_id, index):
+		file_name = self.encode_container_name(
+			sequence_id, index, SUMMARY_HEADER_EXT)
+		filehandle = tempfile.TemporaryFile(dir=Config.paths.staging_area())
+		self.get_fs_handler().download(filehandle, file_name)
 		filehandle.seek(0)
 		return filehandle
 	def load_container_body(self, sequence_id, index):
@@ -614,12 +624,17 @@ class DirectoryStorage(Storage):
 		os.chmod(file_path, 0444)
 	def load_container_header(self, sequence_id, index):
 		print "Loading container header", base64.urlsafe_b64encode(sequence_id), index
-		stream = self.load_summary_container_header(sequence_id, index)
+		stream = self.load_container_header_from_summary(sequence_id, index)
 		if stream is not None:
 			return stream
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		header_file_path = os.path.join(self.get_path(), header_file_name)
 		return open(header_file_path, "rb")
+	def load_container_header_summary(self, sequence_id, index):
+		print "Loading container header summary", base64.urlsafe_b64encode(sequence_id), index
+		file_name = self.encode_container_name(sequence_id, index, SUMMARY_HEADER_EXT)
+		file_path = os.path.join(self.get_path(), file_name)
+		return open(file_path, "rb")
 	def load_container_body(self, sequence_id, index):
 		print "Loading container body", base64.urlsafe_b64encode(sequence_id), index
 		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
