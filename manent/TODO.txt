@@ -68,7 +68,7 @@ FEATURES PLANNED FOR 2.0
 - Add automatic scheduling interface
 
 ------------------------------------
-DONE:
+CHANGELOG V0.9.7:
 
 - Check that name of backup does not collide with existing files
 

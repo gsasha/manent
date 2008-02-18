@@ -52,15 +52,15 @@ def _instantiate(storage_type, storage_params):
 		return FTPStorage(storage_params, RemoteFSHandler.SFTPHandler)
 	elif storage_type == "__mock__":
 		return MemoryStorage(storage_params)
-	else:
-		raise Exception("Unknown storage_type type" + storage_type)
-	
+	raise Exception("Unknown storage_type type" + storage_type)
+
+# Create a storage with given parameters
 def create_storage(db_manager, txn_manager, index, params, new_container_handler):
 	config_db = db_manager.get_database_btree("config.db",
 		"storage.%d" % index, txn_manager)
 	storage_type = params['type']
 	config_db["TYPE"] = storage_type
- 	storage_params = StorageParams(index, db_manager, txn_manager, config_db)
+	storage_params = StorageParams(index, db_manager, txn_manager, config_db)
 	storage = _instantiate(storage_type, storage_params)
 	storage.configure(params, new_container_handler)
 	return storage
@@ -213,9 +213,14 @@ class Storage:
 				last_index = index
 				# Write down the header
 				if (not self.sequences.has_key(seq_id) or
-					self.sequences[seq_id] < index):
-					print "Importing header", index
-					self.loaded_headers_db[header_name] = header_data
+					self.sequences[seq_id] >= index):
+					continue
+				# Test that we haven't loaded this container yet
+				if self.loaded_headers_db.has_key(header_name):
+					continue
+				# Ok, this header is really new. Keep it.
+				print "  importing header", index
+				self.loaded_headers_db[header_name] = header_data
 		# Scan container files to find the newly appeared ones
 		for file in container_files:
 			seq_id, index, extension = self.decode_container_name(file)
@@ -238,6 +243,10 @@ class Storage:
 				self.sequences[seq_id] = max(self.sequences[seq_id], index)
 			else:
 				self.sequences[seq_id] = index
+		# TODO: if we're generating summary, import all newly seen containers
+		# to the summary. To that end:
+		# 1. We need a new database that will just contain the new containers
+		# 2. We need to decide when to create summary containers.
 		# Update the sequences info in the database
 		for key, value in self.sequences.iteritems():
 			config_k = self._key(".sequences." + key)
@@ -451,6 +460,7 @@ class MemoryStorage(Storage):
 		return StringIO.StringIO(self.get_cur_files()[body_file_name])
 	def upload_file(self, file_name, tmp_file_name, file_stream):
 		self.get_cur_files()[file_name] = file_stream.read()
+
 class FTPStorage(Storage):
 	"""
 	Handler for a FTP site storage
