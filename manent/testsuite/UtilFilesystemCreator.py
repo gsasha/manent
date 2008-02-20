@@ -28,7 +28,7 @@ def supports_hard_links():
 		return True
 	elif os.name == 'nt':
 		return False
-	raise Exception("Unsupported OS")
+	raise Exception("Unsupported OS" + os.name)
 
 def supports_symbolic_links():
 	if os.name == 'Darwin':
@@ -37,7 +37,7 @@ def supports_symbolic_links():
 		return True
 	elif os.name == 'nt':
 		return False
-	raise Exception("Unsupported OS")
+	raise Exception("Unsupported OS" + os.name)
 
 class FilesystemCreator:
 	def __init__(self):
