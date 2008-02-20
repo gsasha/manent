@@ -21,6 +21,24 @@ class FSCFile:
 	def get_data(self):
 		return self.data
 
+def supports_hard_links():
+	if os.name == 'Darwin':
+		return True
+	elif os.name == 'posix':
+		return True
+	elif os.name == 'nt':
+		return False
+	raise Exception("Unsupported OS")
+
+def supports_symbolic_links():
+	if os.name == 'Darwin':
+		return True
+	elif os.name == 'posix':
+		return True
+	elif os.name == 'nt':
+		return False
+	raise Exception("Unsupported OS")
+
 class FilesystemCreator:
 	def __init__(self):
 		self.home = tempfile.mkdtemp("", "manent.test.scratch",

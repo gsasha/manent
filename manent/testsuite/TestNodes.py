@@ -41,13 +41,16 @@ class TestNodes(unittest.TestCase):
 		self.assertEquals(n3.path(), os.path.join("kuku", "bebe", "mumu.txt"))
 	def test_hlink(self):
 		"""Test that hard links are correctly identified and restored"""
+		if not FSC.supports_hard_links():
+			return
+
 		backup = Mock.MockBackup(self.fsc.get_home())
 		#
 		# Create two files linking to the same inode
 		#
 		ctx = backup.start_increment("")
-		self.fsc.add_files({"file1":""})
-		self.fsc.link("file1","file2")
+		self.fsc.add_files({"file1": ""})
+		self.fsc.link("file1", "file2")
 		
 		root_node = Nodes.Directory(backup, None, self.fsc.get_home())
 		file1_node = Nodes.File(backup, root_node, "file1")
@@ -135,6 +138,9 @@ class TestNodes(unittest.TestCase):
 	
 	def test_symlink(self):
 		"""Test that symlinks and hard links are scanned and restored correctly"""
+		if not FSC.supports_symbolic_links():
+			return
+
 		backup = Mock.MockBackup(self.fsc.get_home())
 		ctx = backup.start_increment("for restoring")
 
@@ -143,10 +149,9 @@ class TestNodes(unittest.TestCase):
 		#
 		f1 = FSC.FSCFile("kuku")
 		f2 = FSC.FSCSymlink("file1")
-		file_data = {"file1":f1, "file2":f2, "file3":f1, "file4":f2}
+		file_data = {"file1": f1, "file2": f2, "file3": f1, "file4": f2}
 		self.fsc.reset()
 		self.fsc.add_files(file_data)
-
 
 		# Scan the directory structure
 		basedir = Nodes.Directory(backup, None, self.fsc.get_home())
