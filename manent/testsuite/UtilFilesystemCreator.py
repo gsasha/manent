@@ -10,20 +10,20 @@ import tempfile
 import manent.Config as Config
 
 class FSCSymlink:
-	def __init__(self,link):
+	def __init__(self, link):
 		self.link = link
 	def get_link(self):
 		return self.link
 
 class FSCFile:
-	def __init__(self,data):
+	def __init__(self, data):
 		self.data = data
 	def get_data(self):
 		return self.data
 
 class FilesystemCreator:
 	def __init__(self):
-		self.home = tempfile.mkdtemp("","manent.test.scratch",
+		self.home = tempfile.mkdtemp("", "manent.test.scratch",
 			Config.paths.temp_area())
 		#print "*** Selected homedir %s " % self.home
 		try:
@@ -46,12 +46,12 @@ class FilesystemCreator:
 	def get_home(self):
 		return self.home
 	
-	def add_files(self,files):
+	def add_files(self, files):
 		self.hlink_dict = {}
-		self.__add_files(self.home,files)
-	def __add_files(self,prefix,files):
-		for name,contents in files.iteritems():
-			path = os.path.join(prefix,name)
+		self.__add_files(self.home, files)
+	def __add_files(self, prefix, files):
+		for name, contents in files.iteritems():
+			path = os.path.join(prefix, name)
 			#
 			# OK, it's no hardlink. Create it.
 			#
@@ -60,23 +60,27 @@ class FilesystemCreator:
 					os.mkdir(path)
 				except:
 					pass
-				self.__add_files(path,contents)
+				self.__add_files(path, contents)
 				continue
 
 			#
 			# Check if a hard link is due
 			#
 			if self.hlink_dict.has_key(contents):
-				os.link(self.hlink_dict[contents],path)
+				os.link(self.hlink_dict[contents], path)
 				continue
-			self.hlink_dict[contents] = path
+			if type(contents) != type(""):
+				# Strings might be re-used by python, so we allow
+				# hard link recognition only for files that are explicitly
+				# made as FSCFile
+				self.hlink_dict[contents] = path
 				
-			if isinstance(contents,FSCSymlink):
+			if isinstance(contents, FSCSymlink):
 				try:
-					os.symlink(contents.get_link(),path)
+					os.symlink(contents.get_link(), path)
 				except:
 					pass
-			elif isinstance(contents,FSCFile):
+			elif isinstance(contents, FSCFile):
 				try:
 					f = open(path,"w")
 					f.write(contents.get_data())
@@ -87,24 +91,24 @@ class FilesystemCreator:
 				f = open(path,"w")
 				f.write(contents)
 				f.close()
-	def remove_files(self,files):
-		self.__remove_files(self.home,files)
-	def __remove_files(self,prefix,files):
-		for name,contents in files.iteritems():
-			path = os.path.join(prefix,name)
+	def remove_files(self, files):
+		self.__remove_files(self.home, files)
+	def __remove_files(self, prefix, files):
+		for name, contents in files.iteritems():
+			path = os.path.join(prefix, name)
 			if type(contents) == type({}):
-				self.__add_files(path,contents)
+				self.__add_files(path, contents)
 				if len(os.listdir(path))==0:
 					os.rmdir(path)
 			else:
 				os.unlink(path)
-	def test_files(self,files):
+	def test_files(self, files):
 		self.hlink_dict = {}
-		return not self.__test_files(self.home,files)
-	def __test_files(self,prefix,files):
+		return not self.__test_files(self.home, files)
+	def __test_files(self, prefix, files):
 		failed = False
-		for name,contents in files.iteritems():
-			path = os.path.join(prefix,name)
+		for name, contents in files.iteritems():
+			path = os.path.join(prefix, name)
 			st = os.lstat(path)
 
 			#
@@ -143,7 +147,7 @@ class FilesystemCreator:
 			else:
 				self.hlink_dict[contents] = st[stat.ST_INO]
 			
-			if isinstance(contents,FSCSymlink):
+			if isinstance(contents, FSCSymlink):
 				try:
 					if not stat.S_ISLNK(st[stat.ST_MODE]):
 						failed = True
@@ -157,7 +161,7 @@ class FilesystemCreator:
 				except:
 					failed = True
 					print "***** Could not read symlink", path
-			elif isinstance(contents,FSCFile):
+			elif isinstance(contents, FSCFile):
 				try:
 					file = open(path, "r")
 					if file.read() != contents.get_data():
@@ -176,31 +180,35 @@ class FilesystemCreator:
 					failed = True
 					print "***** Could not read file", path
 		return failed
-	def link(self,file1,file2):
+	def link(self, file1, file2):
 		if file1.startswith("/"):
-			os.link(file1,os.path.join(self.home,file2))
+			os.link(file1, os.path.join(self.home, file2))
 		else:
-			os.link(os.path.join(self.home,file1),os.path.join(self.home,file2))
-	def test_link(self,file1,file2):
-		stat1 = os.lstat(os.path.join(self.home,file1))
-		stat2 = os.lstat(os.path.join(self.home,file2))
+			os.link(os.path.join(self.home, file1),
+			        os.path.join(self.home, file2))
+	def test_link(self, file1, file2):
+		stat1 = os.lstat(os.path.join(self.home, file1))
+		stat2 = os.lstat(os.path.join(self.home, file2))
 		return stat1[stat.ST_INO]==stat2[stat.ST_INO]
-	def symlink(self,file1,file2):
-		os.symlink(file1,os.path.join(self.home,file2))
-	def symlink_absolute(self,file1,file2):
+	def symlink(self, file1, file2):
+		os.symlink(file1, os.path.join(self.home, file2))
+	def symlink_absolute(self, file1, file2):
 		if file1.startswith("/"):
-			os.symlink(file1,os.path.join(self.home,file2))
+			os.symlink(file1, os.path.join(self.home, file2))
 		else:
-			os.symlink(os.path.join(self.home,file1),os.path.join(self.home,file2))
-	def lstat(self,file):
-		return os.lstat(os.path.join(self.home,file))
+			os.symlink(os.path.join(self.home, file1),
+			           os.path.join(self.home, file2))
+	def lstat(self, file):
+		return os.lstat(os.path.join(self.home, file))
 	def test_lstat(self,file,expected_stat):
 		failed = False
-		file_stat = os.lstat(os.path.join(self.home,file))
-		for idx in [stat.ST_MODE, stat.ST_UID, stat.ST_GID, stat.ST_SIZE, stat.ST_ATIME, stat.ST_MTIME]:
+		file_stat = os.lstat(os.path.join(self.home, file))
+		for idx in [stat.ST_MODE, stat.ST_UID, stat.ST_GID,
+		            stat.ST_SIZE, stat.ST_ATIME, stat.ST_MTIME]:
 			failed |= file_stat[idx] != expected_stat[idx]
 			if file_stat[idx] != expected_stat[idx]:
-				print 'Mismatch in idx=%d: %d != %d' %(idx, file_stat[idx], expected_stat[idx])
+				print 'Mismatch in idx=%d: %d != %d' % (
+				    idx, file_stat[idx], expected_stat[idx])
 		return not failed
-	def chmod(self,file,mod):
-		os.chmod(os.path.join(self.home,file),mod)
+	def chmod(self, file, mod):
+		os.chmod(os.path.join(self.home, file), mod)

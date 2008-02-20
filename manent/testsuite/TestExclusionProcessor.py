@@ -106,15 +106,16 @@ class TestExclusionProcessor(unittest.TestCase):
 
 	def test_rule_absolute(self):
 		"""Test that absolute path rules work"""
-		filesystem = {"a":{"b.txt":""},".manent":{"config":"a", "db":"b"}}
+		filesystem = {"a": {"b.txt": ""},
+		              ".manent": {"config": "a", "db": "b"}}
 		self.fsc.reset()
 		self.fsc.add_files(filesystem)
 		
 		ep = EP.ExclusionProcessor(self.fsc.get_home())
 		ep.add_absolute_rule(EP.RULE_EXCLUDE, os.path.join(
-			self.fsc.get_home(),".manent"))
+			self.fsc.get_home(), ".manent"))
 			
-		expected_fs = {"a":{"b.txt":""}}
+		expected_fs = {"a": {"b.txt": ""}}
 		driver = EPDriver(ep, self.fsc.get_home())
 		self.failUnless(driver.check(expected_fs))
 
@@ -127,8 +128,9 @@ class TestExclusionProcessor(unittest.TestCase):
 			{".manent-exclude":"exclude=b.txt\ninclude=a/d*"})
 		
 		ep = EP.ExclusionProcessor(self.fsc.get_home())
-			
-		expected_fs = {"a":{"c.txt":"", "d.txt":""}, ".manent-exclude":""}
+		
+		expected_fs = {"a":{"c.txt":"", "d.txt":""},
+		               ".manent-exclude":""}
 		driver = EPDriver(ep, self.fsc.get_home())
 		self.failUnless(driver.check(expected_fs))
 
@@ -137,13 +139,13 @@ class TestExclusionProcessor(unittest.TestCase):
 	def test_symlink_to_dir(self):
 		self.fsc.reset()
 		f2 = FSC.FSCSymlink("d")
-		fs = {"d":{"a":"", "b":""}, "f":f2}
+		fs = {"d": {"a": "", "b": ""}, "f": f2}
 		self.fsc.add_files(fs)
 		
 		ep = EP.ExclusionProcessor(self.fsc.get_home())
 		ep.add_rule(EP.RULE_EXCLUDE, "d/a")
 		ep.add_rule(EP.RULE_EXCLUDE, "f/b")
 		
-		expected_fs = {"d":{"b":""}, "f":""}
+		expected_fs = {"d": {"b": ""}, "f": ""}
 		driver = EPDriver(ep, self.fsc.get_home())
 		self.failUnless(driver.check(expected_fs))
