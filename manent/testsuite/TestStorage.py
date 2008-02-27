@@ -19,6 +19,8 @@ class TestStorage(unittest.TestCase):
 		self.env = Database.PrivateDatabaseManager()
 		self.txn = Database.TransactionHandler(self.env)
 		self.config_db = self.env.get_database_btree("a", None, None)
+		self.storage_params = Storage.StorageParams(0, self.env, self.txn,
+		                                            self.config_db)
 		self.scratch_path = tempfile.mkdtemp(".storage", "manent.",
 			Config.paths.temp_area())
 		self.CONFIGURATION = {"path": self.scratch_path, "encryption_key": "kuku"}
@@ -26,18 +28,18 @@ class TestStorage(unittest.TestCase):
 	def tearDown(self):
 		shutil.rmtree(self.scratch_path)
 	def test_params_stored(self):
-		storage = Storage.DirectoryStorage(0, self.config_db)
+		storage = Storage.DirectoryStorage(self.storage_params)
 		storage.configure(self.CONFIGURATION, None)
 		# Make sure that the configuration we put in is read back correctly
 		self.assertEqual(storage.get_config(), self.CONFIGURATION)
 		
 		# Recreate the storage from config_db and make sure its configuration
 		# returns back.
-		storage = Storage.DirectoryStorage(0, self.config_db)
+		storage = Storage.DirectoryStorage(self.storage_params)
 		storage.get_config()
 		self.assertEqual(storage.get_config(), self.CONFIGURATION)
 	def test_container_name(self):
-		storage = Storage.Storage(0, self.config_db)
+		storage = Storage.Storage(self.storage_params)
 		for container_idx in range(10000):
 			seq_id = os.urandom(12)
 			encoded = storage.encode_container_name(seq_id, container_idx, "data")
@@ -48,7 +50,7 @@ class TestStorage(unittest.TestCase):
 			self.assertEqual(dec_ext, "data")
 	def test_sequence_created(self):
 		"""Test that unique sequence ids are created"""
-		storage = Storage.DirectoryStorage(0, self.config_db)
+		storage = Storage.DirectoryStorage(self.storage_params)
 		storage.configure(self.CONFIGURATION, None)
 		storage.make_active()
 		seq_id1 = storage.create_sequence()
@@ -56,19 +58,19 @@ class TestStorage(unittest.TestCase):
 		self.failUnless(seq_id1 != seq_id2)
 	def test_active_sequence_reloaded(self):
 		"""Test that the active sequence is reloaded correctly"""
-		storage1 = Storage.DirectoryStorage(0, self.config_db)
+		storage1 = Storage.DirectoryStorage(self.storage_params)
 		storage1.configure(self.CONFIGURATION, None)
 		storage1.make_active()
 		seq_id1 = storage1.get_active_sequence_id()
 		
-		storage2 = Storage.DirectoryStorage(0, self.config_db)
+		storage2 = Storage.DirectoryStorage(self.storage_params)
 		storage2.load_configuration(None)
 		seq_id2 = storage2.get_active_sequence_id()
 		self.assertEqual(seq_id1, seq_id2)
 	def test_sequences_reloaded(self):
 		"""Test that all the sequences created get restored"""
 		# Create storage and a container
-		storage1 = Storage.DirectoryStorage(0, self.config_db)
+		storage1 = Storage.DirectoryStorage(self.storage_params)
 		storage1.configure(self.CONFIGURATION, None)
 		seq_id1 = storage1.create_sequence()
 		container = storage1.create_container()
@@ -80,7 +82,8 @@ class TestStorage(unittest.TestCase):
 		container.upload()
 		# Create a new db to simulate a different machine
 		config_db2 = self.env.get_database_btree("b", None, None)
-		storage2 = Storage.DirectoryStorage(0, config_db2)
+		self.storage_params.config_db = config_db2
+		storage2 = Storage.DirectoryStorage(self.storage_params)
 		class NopHandler:
 			def __init__(self):
 				pass
@@ -96,7 +99,7 @@ class TestStorage(unittest.TestCase):
 	def test_container_created(self):
 		"""Test that containers are created and restored correctly"""
 		# Create storage and a container
-		storage = Storage.DirectoryStorage(0, self.config_db)
+		storage = Storage.DirectoryStorage(self.storage_params)
 		storage.configure(self.CONFIGURATION, None)
 		storage.make_active()
 		seq_id = storage.get_active_sequence_id()
@@ -110,7 +113,7 @@ class TestStorage(unittest.TestCase):
 		self.assertEqual(seq_id, container.get_sequence_id())
 
 		# Reload the storage and read the container
-		storage = Storage.DirectoryStorage(0, self.config_db)
+		storage = Storage.DirectoryStorage(self.storage_params)
 		storage.load_configuration(None)
 		container = storage.get_container(seq_id, 0)
 		container.load_header()
@@ -120,12 +123,13 @@ class TestStorage(unittest.TestCase):
 	def test_new_containers_visible(self):
 		"""Test that the new containers appearing in all the sequences are visible"""
 		# Create two storages at the same place
-		storage1 = Storage.DirectoryStorage(0, self.config_db)
+		storage1 = Storage.DirectoryStorage(self.storage_params)
 		storage1.configure(self.CONFIGURATION, None)
 		storage1.make_active()
 		seq_id1 = storage1.get_active_sequence_id()
 		config_db2 = self.env.get_database_btree("b", None, None)
-		storage2 = Storage.DirectoryStorage(0, config_db2)
+		self.storage_params.config_db = config_db2
+		storage2 = Storage.DirectoryStorage(self.storage_params)
 		storage2.configure(self.CONFIGURATION, None)
 		storage2.make_active()
 		seq_id2 = storage2.get_active_sequence_id()
@@ -155,12 +159,13 @@ class TestStorage(unittest.TestCase):
 	def test_new_containers_in_active_sequence_caught(self):
 		"""Test that if new containers appear unexpectedly in the active sequence,
 		it is actually discovered"""
-		storage1 = Storage.DirectoryStorage(0, self.config_db)
+		storage1 = Storage.DirectoryStorage(self.storage_params)
 		storage1.configure(self.CONFIGURATION, None)
 		storage1.make_active()
 		seq_id1 = storage1.get_active_sequence_id()
 		config_db2 = self.env.get_database_btree("b", None, None)
-		storage2 = Storage.DirectoryStorage(0, config_db2)
+		self.storage_params.config_db = config_db2
+		storage2 = Storage.DirectoryStorage(self.storage_params)
 		storage2.configure(self.CONFIGURATION, None)
 		storage2.make_active()
 		storage2.active_sequence_id = seq_id1
