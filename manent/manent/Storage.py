@@ -215,7 +215,7 @@ class Storage:
 				if (not self.sequences.has_key(seq_id) or
 					self.sequences[seq_id] >= index):
 					continue
-				# Test that we haven't loaded this container yet
+				# Test that we haven't loaded this container yet..
 				if self.loaded_headers_db.has_key(header_name):
 					continue
 				# Ok, this header is really new. Keep it.
@@ -265,11 +265,6 @@ class Storage:
 			NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
 			self.active_sequence_next_index = int(self.config_db[NEXT_INDEX_KEY])
 	def add_summary_header(self, sequence_id, index, file):
-		# TODO: implement this
-		# This should write the contents of the header file to the accumulated
-		# header, and register in the database what was done.
-		# Then, if the accumulated header file is large enough, it should be
-		# uploaded to the storage location.
 		cname = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		file.seek(0)
 		file_contents = file.read()
@@ -554,7 +549,6 @@ class FTPStorage(Storage):
 		self.get_fs_handler().upload(header_file, tmp_file_name)
 		self.get_fs_handler().rename(tmp_file_name, file_name)
 		self.get_fs_handler().chmod(file_name, 0444)
-		# TODO: implement this
 	#def upload_container(self,index,header_file_name,body_file_name):
 		#remote_header_file_name = self.compute_header_filename(index)
 		#remote_body_file_name = self.compute_body_filename(index)
