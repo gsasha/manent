@@ -10,6 +10,8 @@ FEATURES PLANNED FOR 0.9.8:
   First, we'll implement normal summary headers, i.e., created through non-failing execution.
   Then, we'll consider creating summary headers over failed execution.
 
+  Add an executable to recreate summary headers for orphaned sequences.
+
 - Correctly decide which summary headers to load:
   1. If the summary header index is less than the highest loaded header index, ignore it.
   2. If the header contained in a summary is less than the highest loaded, or if it is already loaded, ignore it.

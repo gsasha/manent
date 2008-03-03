@@ -178,3 +178,31 @@ class TestStorage(unittest.TestCase):
 			pass
 		else:
 			self.fail("Expected load_sequences to discover the unexpected container")
+	def test_summary_containers(self):
+		"""Test that summary containers are created and later used"""
+		storage = Storage.MemoryStorage(self.storage_params)
+		storage.configure(self.CONFIGURATION, None)
+		storage.set_container_size(256)
+		storage.make_active()
+		start_summary_headers = storage.summary_headers_written
+		# Create a container with many entries, to make sure a summary container
+		# becomes due.
+		container = storage.make_container()
+		for i in range(10):
+			data = "block %d" % i
+			digest = Digest.dataDigest(data)
+			if container.can_add(data):
+				container.add_block(digest, Container.CODE_DATA, data)
+		end_summary_headers = storage.summary_headers_written
+
+		# Check that a summary header was indeed created
+		self.assertLT(start_summary_headers, end_summary_headers)
+		# TODO:
+		# Recreate the storage from containers to see that summary container
+		#    was created and loaded.
+		self.fail()
+	def test_summary_container_recreated(self):
+		"""Test that if we ask the storage to recreate summary containers,
+		and recreate it from containers where no summary containers actually existed,
+		then the summary containers actually get created for the old sequences"""
+		self.fail()

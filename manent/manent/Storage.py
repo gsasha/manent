@@ -100,6 +100,7 @@ class Storage:
 		self.aside_body_file = None
 		self.summary_first_header = None
 		self.summary_next_header = None
+		self.summary_headers_written = 0
 
 	def _key(self, suffix):
 		return "%s" % (suffix)
@@ -294,6 +295,7 @@ class Storage:
 			del self.summary_headers_db[key]
 		self.upload_file(summary_file_name, summary_file_name_tmp, tmpfile)
 		tmpfile.close()
+		self.summary_headers_written += 1
 	def flush(self):
 		self.write_summary_header(self.active_sequence_id,
 			self.active_sequence_next_index - 1)
@@ -417,6 +419,7 @@ class MemoryStorage(Storage):
 	files = {}
 	def __init__(self, params):
 		Storage.__init__(self, params)
+		self.containre_size = 1<<10
 	def configure(self, params, new_container_handler):
 		Storage.configure(self, params, new_container_handler)
 	def load_configuration(self, new_container_handler):
@@ -425,8 +428,10 @@ class MemoryStorage(Storage):
 		if not self.files.has_key(self.config['key']):
 			self.files[self.config['key']] = {}
 		return self.files[self.config['key']]
+	def set_container_size(self, container_size):
+		self.container_size = container_size
 	def container_size(self):
-		return 1<<10
+		return self.container_size
 	def list_container_files(self):
 		return self.get_cur_files().keys()
 	def open_header_file(self, sequence_id, index):
