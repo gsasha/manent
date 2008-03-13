@@ -272,7 +272,7 @@ class Storage:
 		self.summary_headers_db[cname] = file_contents
 		self.summary_headers_len += len(cname) + len(file_contents)
 		self.summary_headers_num += 1
-		if self.summary_headers_len >= self.container_size:
+		if self.summary_headers_len >= self.container_size():
 			self.write_summary_header(sequence_id, index)
 	def write_summary_header(self, sequence_id, index):
 		if self.summary_headers_num <= 1:
@@ -285,7 +285,7 @@ class Storage:
 		tmpfile = tempfile.TemporaryFile()
 		keys = []
 		for key, value in self.summary_headers_db.iteritems():
-			print "Writing summary header", key
+			#print "Writing summary header", key
 			keys.append(key)
 			tmpfile.write(IE.binary_encode_int_varlen(len(key)))
 			tmpfile.write(key)
