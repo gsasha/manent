@@ -180,14 +180,16 @@ class TestStorage(unittest.TestCase):
 			self.fail("Expected load_sequences to discover the unexpected container")
 	def test_summary_containers(self):
 		"""Test that summary containers are created and later used"""
-		storage = Storage.MemoryStorage(self.storage_params)
-		storage.configure(self.CONFIGURATION, None)
+		self.CONFIGURATION['key'] = ''
+		self.CONFIGURATION['type'] = '__mock__'
+		storage = Storage.create_storage(self.env, self.txn, 0,
+			self.CONFIGURATION, None)
 		storage.set_container_size(256)
 		storage.make_active()
 		start_summary_headers = storage.summary_headers_written
 		# Create a container with many entries, to make sure a summary container
 		# becomes due.
-		container = storage.make_container()
+		container = storage.create_container()
 		for i in range(10):
 			data = "block %d" % i
 			digest = Digest.dataDigest(data)
@@ -196,7 +198,7 @@ class TestStorage(unittest.TestCase):
 		end_summary_headers = storage.summary_headers_written
 
 		# Check that a summary header was indeed created
-		self.assertLT(start_summary_headers, end_summary_headers)
+		self.failUnless(start_summary_headers < end_summary_headers)
 		# TODO:
 		# Recreate the storage from containers to see that summary container
 		#    was created and loaded.

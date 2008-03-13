@@ -494,7 +494,7 @@ class Container:
 		# 64 is for the header of the header
 		current_size = self.body_dumper.total_size + self.header_dumper.total_size +\
 		               MAX_COMPRESSED_DATA + 64
-		return current_size <= self.storage.container_size()	
+		return current_size <= self.storage.container_size()
 	def add_block(self, digest, code, data):
 		if self.compression_active and self.compressed_data > MAX_COMPRESSED_DATA:
 			self.body_dumper.stop_compression()

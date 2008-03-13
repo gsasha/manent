@@ -109,7 +109,7 @@ class Storage:
 	#
 	def configure(self, config, new_container_handler):
 		for key, val in config.iteritems():
-			self.config_db[self._key('CONFIG.'+key)] = val
+			self.config_db[self._key('CONFIG.' + key)] = val
 			#print "setting config_db[%s]=%s" % (self._key('CONFIG.'+key), val)
 		
 		self.config = config
@@ -419,7 +419,7 @@ class MemoryStorage(Storage):
 	files = {}
 	def __init__(self, params):
 		Storage.__init__(self, params)
-		self.containre_size = 1<<10
+		self.container_size_ = 1<<10
 	def configure(self, params, new_container_handler):
 		Storage.configure(self, params, new_container_handler)
 	def load_configuration(self, new_container_handler):
@@ -429,9 +429,9 @@ class MemoryStorage(Storage):
 			self.files[self.config['key']] = {}
 		return self.files[self.config['key']]
 	def set_container_size(self, container_size):
-		self.container_size = container_size
+		self.container_size_ = container_size
 	def container_size(self):
-		return self.container_size
+		return self.container_size_
 	def list_container_files(self):
 		return self.get_cur_files().keys()
 	def open_header_file(self, sequence_id, index):
