@@ -202,10 +202,23 @@ class TestStorage(unittest.TestCase):
 
 		# Check that a summary header was indeed created
 		self.failUnless(start_summary_headers < end_summary_headers)
-		# TODO:
+		
 		# Recreate the storage from containers to see that summary container
 		#    was created and loaded.
-		self.fail()
+		self.CONFIGURATION['key'] = 'test_summary_containers'
+		class DummyHandler:
+			def report_new_container(self, container):
+				print "Reporting new container", container.index
+				container.load_header()
+		storage = Storage.create_storage(self.env, self.txn, 1,
+			self.CONFIGURATION, DummyHandler())
+		storage.set_container_size(256)
+		storage.make_active()
+		print "HEADERS LOADED",
+		print storage.headers_loaded_total,
+		print storage.headers_loaded_from_summary,
+		print storage.headers_loaded_from_storage
+		self.assert_(storage.headers_loaded_from_summary > 0)
 	def test_summary_container_recreated(self):
 		"""Test that if we ask the storage to recreate summary containers,
 		and recreate it from containers where no summary containers actually existed,

@@ -100,7 +100,11 @@ class Storage:
 		self.aside_body_file = None
 		self.summary_first_header = None
 		self.summary_next_header = None
+		# For statistics and testing
 		self.summary_headers_written = 0
+		self.headers_loaded_total = 0
+		self.headers_loaded_from_summary = 0
+		self.headers_loaded_from_storage = 0
 
 	def _key(self, suffix):
 		return "%s" % (suffix)
@@ -386,13 +390,16 @@ class Storage:
 		self.aside_body_file = None
 		return file
 	def load_container_header_from_summary(self, sequence_id, index):
+		self.headers_loaded_total += 1
 		header_name = self.encode_container_name(sequence_id, index,
 		                                         HEADER_EXT)
 		if self.loaded_headers_db.has_key(header_name):
 			print "Found preloaded container header", header_name
 			stream = StringIO.StringIO(self.loaded_headers_db[header_name])
 			del self.loaded_headers_db[header_name]
+			self.headers_loaded_from_summary += 1
 			return stream
+		self.headers_loaded_from_storage += 1
 		return None
 
 	def load_container_header(self, sequence_id, index):
