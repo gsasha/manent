@@ -6,7 +6,8 @@ import manent.utils.IntegerEncodings as IE
 
 class TestFormat(unittest.TestCase):
 	def setUp(self):
-		self.nums = range(-10000,10000) +range(100000,100100)+ range(-100100,-100100)+ range(100000000,100000100)
+		self.nums = (range(-10000, 10000) + range(100000, 100100) +
+			range(-100100, -100100) + range(100000000, 100000100))
 		random.shuffle(self.nums)
 
 	def test_ascii_encode(self):

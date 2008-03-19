@@ -174,6 +174,7 @@ class Storage:
 			self.sequences[seq_id] = int(value)
 		# Load the data from the storage location
 		container_files = self.list_container_files()
+		container_files.sort()
 		new_header_files = {}
 		new_body_files = {}
 		# Scan saved summary headers
@@ -191,6 +192,7 @@ class Storage:
 				continue
 			if (self.sequences.has_key(seq_id) and
 				self.sequences[seq_id] >= index):
+				print " but it says nothing new"
 				continue
 			# Ok, this header file tells us something new. Let's load it.
 			print "Loading container header", index, "from summary", file
@@ -202,6 +204,7 @@ class Storage:
 				if header_name_len is None:
 					break
 				header_name = stream.read(header_name_len)
+				print "  --> loading header", header_name
 				assert len(header_name) == header_name_len
 				header_data_len = IE.binary_read_int_varlen(stream)
 				assert header_data_len is not None
@@ -217,14 +220,17 @@ class Storage:
 				last_seq_id = seq_id
 				last_index = index
 				# Write down the header
-				if (not self.sequences.has_key(seq_id) or
+				if (self.sequences.has_key(seq_id) and
 					self.sequences[seq_id] >= index):
+					print "  --> But the header already known"
 					continue
 				# Test that we haven't loaded this container yet..
 				if self.loaded_headers_db.has_key(header_name):
+					print "  --> But the header is already loaded"
 					continue
 				# Ok, this header is really new. Keep it.
-				print "  importing header", index
+				#print "\n  *********** importing header", index
+				#print "  *********** setting loaded_headers_db[", header_name, "to", header_data
 				self.loaded_headers_db[header_name] = header_data
 		# Scan container files to find the newly appeared ones
 		for file in container_files:
@@ -274,6 +280,7 @@ class Storage:
 		file.seek(0)
 		file_contents = file.read()
 		self.summary_headers_db[cname] = file_contents
+		assert len(file_contents) > 0
 		self.summary_headers_len += len(cname) + len(file_contents)
 		self.summary_headers_num += 1
 		if self.summary_headers_len >= self.container_size():
@@ -286,20 +293,26 @@ class Storage:
 			sequence_id, index, SUMMARY_HEADER_EXT)
 		summary_file_name_tmp = self.encode_container_name(
 			sequence_id, index, SUMMARY_HEADER_EXT_TMP)
+		print "\nWriting summary header",
+		print base64.b64encode(sequence_id), index, "to file", summary_file_name
 		tmpfile = tempfile.TemporaryFile()
 		keys = []
 		for key, value in self.summary_headers_db.iteritems():
-			#print "Writing summary header", key
+			print "Adding header", key, len(key), len(value),
 			keys.append(key)
 			tmpfile.write(IE.binary_encode_int_varlen(len(key)))
+			print base64.b16encode(IE.binary_encode_int_varlen(len(key))),
+			print base64.b16encode(IE.binary_encode_int_varlen(len(value)))
 			tmpfile.write(key)
 			tmpfile.write(IE.binary_encode_int_varlen(len(value)))
 			tmpfile.write(value)
 		for key in keys:
 			del self.summary_headers_db[key]
+		tmpfile.seek(0)
 		self.upload_file(summary_file_name, summary_file_name_tmp, tmpfile)
 		tmpfile.close()
 		self.summary_headers_written += 1
+		self.summary_headers_num = 0
 	def flush(self):
 		self.write_summary_header(self.active_sequence_id,
 			self.active_sequence_next_index - 1)
@@ -394,7 +407,6 @@ class Storage:
 		header_name = self.encode_container_name(sequence_id, index,
 		                                         HEADER_EXT)
 		if self.loaded_headers_db.has_key(header_name):
-			print "Found preloaded container header", header_name
 			stream = StringIO.StringIO(self.loaded_headers_db[header_name])
 			del self.loaded_headers_db[header_name]
 			self.headers_loaded_from_summary += 1
@@ -458,7 +470,7 @@ class MemoryStorage(Storage):
 			return stream
 		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
 		return StringIO.StringIO(self.get_cur_files()[header_file_name])
-	def load_container_header_summary(self,sequence_id, index):
+	def load_container_header_summary(self, sequence_id, index):
 		file_name = self.encode_container_name(
 			sequence_id, index, SUMMARY_HEADER_EXT)
 		return StringIO.StringIO(self.get_cur_files()[file_name])

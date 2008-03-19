@@ -194,6 +194,7 @@ class TestStorage(unittest.TestCase):
 			data = "block %d" % i
 			digest = Digest.dataDigest(data)
 			if not container.can_add(data):
+				container.finish_dump()
 				container.upload()
 				self.txn.commit()
 				container = storage.create_container()
