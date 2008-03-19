@@ -224,4 +224,35 @@ class TestStorage(unittest.TestCase):
 		"""Test that if we ask the storage to recreate summary containers,
 		and recreate it from containers where no summary containers actually existed,
 		then the summary containers actually get created for the old sequences"""
+		self.CONFIGURATION['key'] = 'test_summary_container_recreated'
+		self.CONFIGURATION['type'] = '__mock__'
+		storage = Storage.create_storage(self.env, self.txn, 0,
+			self.CONFIGURATION, None)
+		# Set a large container size, to make sure summary container is not made.
+		storage.set_container_size(1 << 20)
+		storage.make_active()
+		start_summary_headers = storage.summary_headers_written
+		# Create a container with many entries, to make sure a summary container
+		# becomes due.
+		for i in range(10):
+			data = "block %d" % i
+			digest = Digest.dataDigest(data)
+			container = storage.create_container()
+			container.add_block(digest, Container.CODE_DATA, data)
+			container.finish_dump()
+			container.upload()
+			self.txn.commit()
+		end_summary_headers = storage.summary_headers_written
+		# No summary headers made yet...
+		self.assert_(start_summary_headers == end_summary_headers)
+
+		# Now create a new storage, while making a summary container
+		self.CONFIGURATION['generate_summary'] = 'true'
+		class DummyHandler:
+			def report_new_container(self, container):
+				print "Reporting new container", container.index
+				container.load_header()
+		storage = Storage.create_storage(self.env, self.txn, 1,
+			self.CONFIGURATION, DummyHandler())
+		self.assert_(1 == storage.summary_headers_written)
 		self.fail()
