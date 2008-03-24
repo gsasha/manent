@@ -204,8 +204,7 @@ class StorageManager:
 		if self.active_storage_idx is not None:
 			raise Exception("Switching active storage not supported yet")
 		storage = self.storages[storage_index]
-		storage.make_active()
-		seq_id = storage.get_active_sequence_id()
+		seq_id = storage.create_sequence()
 		self._register_sequence(storage_index, seq_id)
 		self.active_storage_idx = storage_index
 	def get_active_sequence_id(self):

@@ -19,6 +19,7 @@ class TestStorage(unittest.TestCase):
 		self.env = Database.PrivateDatabaseManager()
 		self.txn = Database.TransactionHandler(self.env)
 		self.config_db = self.env.get_database_btree("a", None, None)
+		self.config_db.truncate()
 		self.storage_params = Storage.StorageParams(0, self.env, self.txn,
 		                                            self.config_db)
 		self.scratch_path = tempfile.mkdtemp(".storage", "manent.",
@@ -42,9 +43,9 @@ class TestStorage(unittest.TestCase):
 		storage = Storage.Storage(self.storage_params)
 		for container_idx in range(10000):
 			seq_id = os.urandom(12)
-			encoded = storage.encode_container_name(seq_id, container_idx, "data")
+			encoded = Storage.encode_container_name(seq_id, container_idx, "data")
 			#print "encoded", encoded
-			dec_seq_id, dec_container_idx, dec_ext = storage.decode_container_name(encoded)
+			dec_seq_id, dec_container_idx, dec_ext = Storage.decode_container_name(encoded)
 			self.assertEqual(seq_id, dec_seq_id)
 			self.assertEqual(container_idx, dec_container_idx)
 			self.assertEqual(dec_ext, "data")
@@ -52,16 +53,17 @@ class TestStorage(unittest.TestCase):
 		"""Test that unique sequence ids are created"""
 		storage = Storage.DirectoryStorage(self.storage_params)
 		storage.configure(self.CONFIGURATION, None)
-		storage.make_active()
 		seq_id1 = storage.create_sequence()
+		self.storage_params.index += 1
+		storage = Storage.DirectoryStorage(self.storage_params)
+		storage.configure(self.CONFIGURATION, None)
 		seq_id2 = storage.create_sequence()
 		self.failUnless(seq_id1 != seq_id2)
 	def test_active_sequence_reloaded(self):
 		"""Test that the active sequence is reloaded correctly"""
 		storage1 = Storage.DirectoryStorage(self.storage_params)
 		storage1.configure(self.CONFIGURATION, None)
-		storage1.make_active()
-		seq_id1 = storage1.get_active_sequence_id()
+		seq_id1 = storage1.create_sequence()
 		
 		storage2 = Storage.DirectoryStorage(self.storage_params)
 		storage2.load_configuration(None)
@@ -101,8 +103,7 @@ class TestStorage(unittest.TestCase):
 		# Create storage and a container
 		storage = Storage.DirectoryStorage(self.storage_params)
 		storage.configure(self.CONFIGURATION, None)
-		storage.make_active()
-		seq_id = storage.get_active_sequence_id()
+		seq_id = storage.create_sequence()
 		container = storage.create_container()
 		block = "some strange text"
 		block_digest = Digest.dataDigest(block)
@@ -125,14 +126,12 @@ class TestStorage(unittest.TestCase):
 		# Create two storages at the same place
 		storage1 = Storage.DirectoryStorage(self.storage_params)
 		storage1.configure(self.CONFIGURATION, None)
-		storage1.make_active()
-		seq_id1 = storage1.get_active_sequence_id()
+		seq_id1 = storage1.create_sequence()
 		config_db2 = self.env.get_database_btree("b", None, None)
 		self.storage_params.config_db = config_db2
 		storage2 = Storage.DirectoryStorage(self.storage_params)
 		storage2.configure(self.CONFIGURATION, None)
-		storage2.make_active()
-		seq_id2 = storage2.get_active_sequence_id()
+		seq_id2 = storage2.create_sequence()
 		self.assert_(seq_id1 != seq_id2)
 		# Create a container in each storage, make sure the containers are mutually visible
 		c1 = storage1.create_container()
@@ -161,14 +160,12 @@ class TestStorage(unittest.TestCase):
 		it is actually discovered"""
 		storage1 = Storage.DirectoryStorage(self.storage_params)
 		storage1.configure(self.CONFIGURATION, None)
-		storage1.make_active()
-		seq_id1 = storage1.get_active_sequence_id()
+		seq_id1 = storage1.create_sequence()
 		config_db2 = self.env.get_database_btree("b", None, None)
 		self.storage_params.config_db = config_db2
 		storage2 = Storage.DirectoryStorage(self.storage_params)
 		storage2.configure(self.CONFIGURATION, None)
-		storage2.make_active()
-		storage2.active_sequence_id = seq_id1
+		storage2.create_sequence(test_override_sequence_id=seq_id1)
 		c = storage2.create_container()
 		c.finish_dump()
 		c.upload()
@@ -185,7 +182,7 @@ class TestStorage(unittest.TestCase):
 		storage = Storage.create_storage(self.env, self.txn, 0,
 			self.CONFIGURATION, None)
 		storage.set_container_size(256)
-		storage.make_active()
+		storage.create_sequence()
 		start_summary_headers = storage.summary_headers_written
 		# Create a container with many entries, to make sure a summary container
 		# becomes due.
@@ -214,7 +211,7 @@ class TestStorage(unittest.TestCase):
 		storage = Storage.create_storage(self.env, self.txn, 1,
 			self.CONFIGURATION, DummyHandler())
 		storage.set_container_size(256)
-		storage.make_active()
+		storage.create_sequence()
 		print "HEADERS LOADED",
 		print storage.headers_loaded_total,
 		print storage.headers_loaded_from_summary,
@@ -222,15 +219,17 @@ class TestStorage(unittest.TestCase):
 		self.assert_(storage.headers_loaded_from_summary > 0)
 	def test_summary_container_recreated(self):
 		"""Test that if we ask the storage to recreate summary containers,
-		and recreate it from containers where no summary containers actually existed,
-		then the summary containers actually get created for the old sequences"""
+		and recreate it from containers where no summary containers actually
+		existed, then the summary containers actually get created for the old
+		sequences"""
 		self.CONFIGURATION['key'] = 'test_summary_container_recreated'
 		self.CONFIGURATION['type'] = '__mock__'
 		storage = Storage.create_storage(self.env, self.txn, 0,
 			self.CONFIGURATION, None)
-		# Set a large container size, to make sure summary container is not made.
+		# Set a large container size, to make sure
+		# summary container is not made.
 		storage.set_container_size(1 << 20)
-		storage.make_active()
+		storage.create_sequence()
 		start_summary_headers = storage.summary_headers_written
 		# Create a container with many entries, to make sure a summary container
 		# becomes due.

@@ -26,6 +26,7 @@ import Config
 import Container
 import utils.IntegerEncodings as IE
 import utils.RemoteFSHandler as RemoteFSHandler
+import Sequence
 
 HEADER_EXT = "mhd"
 HEADER_EXT_TMP = "mhd-tmp"
@@ -55,7 +56,8 @@ def _instantiate(storage_type, storage_params):
 	raise Exception("Unknown storage_type type" + storage_type)
 
 # Create a storage with given parameters
-def create_storage(db_manager, txn_manager, index, params, new_container_handler):
+def create_storage(db_manager, txn_manager, index, params,
+				   new_container_handler):
 	config_db = db_manager.get_database_btree("config.db",
 		"storage.%d" % index, txn_manager)
 	storage_type = params['type']
@@ -64,7 +66,6 @@ def create_storage(db_manager, txn_manager, index, params, new_container_handler
 	storage = _instantiate(storage_type, storage_params)
 	storage.configure(params, new_container_handler)
 	return storage
-
 def load_storage(db_manager, txn_manager, index, new_container_handler):
 	config_db = db_manager.get_database_btree("config.db",
 		"storage.%d" % index, txn_manager)
@@ -73,6 +74,7 @@ def load_storage(db_manager, txn_manager, index, new_container_handler):
 	storage = _instantiate(storage_type, storage_params)
 	storage.load_configuration(new_container_handler)
 	return storage
+
 
 # Configuration parameters for the Storage base class.
 # Designed to be passed to any descendant of Storage,
@@ -84,13 +86,15 @@ class StorageParams:
 		self.txn_manager = txn_manager
 		self.config_db = config_db
 
+
 class Storage:
 	def __init__(self, params):
 		self.config_db = params.config_db
 		#self.config_db = params.db_manager.get_database_btree(
 			#"config.db", "storage.%d" % params.index, params.txn_manager)
 		self.summary_headers_db = params.db_manager.get_database_btree(
-			"summary_headers.db", "headers.%d" % params.index, params.txn_manager)
+			"summary_headers.db", "headers.%d" % params.index,
+			params.txn_manager)
 		self.loaded_headers_db = params.db_manager.get_scratch_database(
 			"loaded_headers_%d.db" % params.index, None)
 		self.index = params.index
@@ -139,210 +143,75 @@ class Storage:
 	# Data structure stored in a database for a specific storage:
 	# storage.%d.active_sequence - the sequence to which new containers
 	#                              are added
+	# TODO(gsasha): check if these comments are obsolete, and if so, delete them.
 	# storage.%d.$sequence.index  - the index of the sequence with the given
 	#     storage id. Used to determine if the sequence has been loaded already
 	# storage.%d.$sequence.next_container - the index of the last known
 	#     container in the given sequence. Used to determine which new
 	#     containers have appeared for the sequence
-	def make_active(self):
-		# If this storage is not active, create a sequence.
-		if self.active_sequence_id is None:
-			self.create_sequence()
+	def create_sequence(self, test_override_sequence_id=None):
+		assert self.active_sequence_id is None
+		#print "Creating sequence"
+		if test_override_sequence_id:
+			# This is used in testing only
+			self.active_sequence_id = test_override_sequence_id
+		else:
+			self.active_sequence_id = os.urandom(12)
+		# This is a newly created sequence. We definitely don't expect
+		# to make a summary of it.
+		self.sequences[self.active_sequence_id] = Sequence.Sequence(self,
+			self.active_sequence_id, generate_summary=False)
+		self.config_db[self._key("active_sequence")] = self.active_sequence_id
+		return self.active_sequence_id
 	def is_active(self):
 		return self.active_sequence_id is not None
-	def create_sequence(self):
-		#print "Creating sequence"
-		self.active_sequence_id = os.urandom(12)
-		self.active_sequence_next_index = 0
-		NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
-		self.config_db[self._key("active_sequence")] = self.active_sequence_id
-		self.config_db[NEXT_INDEX_KEY] = str(self.active_sequence_next_index)
-		return self.active_sequence_id
 	def get_active_sequence_id(self):
 		return self.active_sequence_id
 	def get_next_index(self):
-		index = self.active_sequence_next_index
-		self.active_sequence_next_index += 1
-		NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
-		self.config_db[NEXT_INDEX_KEY] = str(self.active_sequence_next_index)
-		return index
+		return self.sequences[self.active_sequence_id].get_next_index()
 	def load_sequences(self, new_container_handler):
+		# See if we're asked to write sequence summaries
+		# If this variable is None, we don't write out summary containers.
+		# TODO(gsasha): writing summary containers is almost omnipotent,
+		# but if several backups try to do that, concurrency issues may arise.
+		# Must change the upload code to make sure the tmp files never collide.
 		# Load previously known sequences
+		AS_KEY = self._key("active_sequence")
+		if self.config_db.has_key(AS_KEY):
+			self.active_sequence_id = self.config_db[AS_KEY]
+		
+		generate_summary = self.config.has_key("generate_summary")
 		SEQ_PREFIX = self._key(".sequences.")
 		for key, value in self.config_db.iteritems_prefix(SEQ_PREFIX):
 			seq_id = key[len(SEQ_PREFIX):]
-			self.sequences[seq_id] = int(value)
+			seq = Sequence(self, seq_id, generate_summary=generate_summary)
+			seq.set_active(seq_id == self.active_sequence_id)
+			self.sequences[seq_id] = seq
+
 		# Load the data from the storage location
 		container_files = self.list_container_files()
-		container_files.sort()
-		new_header_files = {}
-		new_body_files = {}
-		# Scan saved summary headers
-		self.summary_headers_num = 0
-		self.summary_headers_len = 0
-		for name, contents in self.summary_headers_db.iteritems():
-			sequence, index, extension = self.decode_container_name(name)
-			if sequence == self.active_sequence_id:
-				self.summary_headers_num += 1
-				self.summary_headers_len += len(name) + len(contents)
-		# Load the summary containers in the reverse order
-		for file in reversed(container_files):
-			seq_id, index, extension = self.decode_container_name(file)
-			if extension != SUMMARY_HEADER_EXT:
-				continue
-			if (self.sequences.has_key(seq_id) and
-				self.sequences[seq_id] >= index):
-				print " but it says nothing new"
-				continue
-			# Ok, this header file tells us something new. Let's load it.
-			print "Loading container header", index, "from summary", file
-			stream = self.load_container_header_summary(seq_id, index)
-			last_seq_id = None
-			last_index = None
-			while True:
-				header_name_len = IE.binary_read_int_varlen(stream)
-				if header_name_len is None:
-					break
-				header_name = stream.read(header_name_len)
-				print "  --> loading header", header_name
-				assert len(header_name) == header_name_len
-				header_data_len = IE.binary_read_int_varlen(stream)
-				assert header_data_len is not None
-				header_data = stream.read(header_data_len)
-				assert len(header_data) == header_data_len
+		for name in container_files:
+			sequence_id, index, extension = decode_container_name(name)
+			if not self.sequences.has_key(sequence_id):
+				print "Found new sequence", base64.b64encode(sequence_id)
+				self.sequences[sequence_id] = Sequence.Sequence(self,
+					sequence_id, generate_summary=generate_summary)
+			self.sequences[sequence_id].register_new_file(index, extension)
 
-				seq_id, index, extension = self.decode_container_name(header_name)
-				assert extension == HEADER_EXT
-				# Check that the containers in the summary header progress
-				# correctly.
-				assert last_seq_id is None or last_seq_id == seq_id
-				assert last_index is None or last_index < index
-				last_seq_id = seq_id
-				last_index = index
-				# Write down the header
-				if (self.sequences.has_key(seq_id) and
-					self.sequences[seq_id] >= index):
-					print "  --> But the header already known"
-					continue
-				# Test that we haven't loaded this container yet..
-				if self.loaded_headers_db.has_key(header_name):
-					print "  --> But the header is already loaded"
-					continue
-				# Ok, this header is really new. Keep it.
-				#print "\n  *********** importing header", index
-				#print "  *********** setting loaded_headers_db[", header_name, "to", header_data
-				self.loaded_headers_db[header_name] = header_data
-		# Scan container files to find the newly appeared ones
-		for file in container_files:
-			seq_id, index, extension = self.decode_container_name(file)
-			if (not self.sequences.has_key(seq_id) or
-				self.sequences[seq_id] < index):
-				if extension == HEADER_EXT:
-					new_header_files[(seq_id, index)] = 1
-				elif extension == BODY_EXT:
-					new_body_files[(seq_id, index)] = 1
-		for file in container_files:
-			seq_id, index, extension = self.decode_container_name(file)
-			if seq_id is None:
-				continue
-			if (seq_id == self.active_sequence_id and
-				index >= self.active_sequence_next_index):
-				raise Exception("Unexpected container: "
-				                "nobody else should be adding "
-			                    "containers to this sequence")
-			if self.sequences.has_key(seq_id):
-				self.sequences[seq_id] = max(self.sequences[seq_id], index)
-			else:
-				self.sequences[seq_id] = index
-		# TODO: if we're generating summary, import all newly seen containers
-		# to the summary. To that end:
-		# 1. We need a new database that will just contain the new containers
-		# 2. We need to decide when to create summary containers.
-		# Update the sequences info in the database
-		for key, value in self.sequences.iteritems():
-			config_k = self._key(".sequences." + key)
-			if self.config_db.has_key(config_k) and\
-			   self.config_db[config_k] == str(value):
-				continue
-			self.config_db[config_k] = str(value)
-		# Report the new containers found
-		for seq_id, index in sorted(new_header_files.iterkeys()):
-			if new_body_files.has_key((seq_id, index)):
-				container = self.get_container(seq_id, index)
-				new_container_handler.report_new_container(container)
-		# Reload the active sequence
-		if self.config_db.has_key(self._key("active_sequence")):
-			self.active_sequence_id = self.config_db[self._key("active_sequence")]
-			NEXT_INDEX_KEY = self._key(self.active_sequence_id+".next_index")
-			self.active_sequence_next_index = int(self.config_db[NEXT_INDEX_KEY])
-	def add_summary_header(self, sequence_id, index, file):
-		cname = self.encode_container_name(sequence_id, index, HEADER_EXT)
-		file.seek(0)
-		file_contents = file.read()
-		self.summary_headers_db[cname] = file_contents
-		assert len(file_contents) > 0
-		self.summary_headers_len += len(cname) + len(file_contents)
-		self.summary_headers_num += 1
-		if self.summary_headers_len >= self.container_size():
-			self.write_summary_header(sequence_id, index)
-	def write_summary_header(self, sequence_id, index):
-		if self.summary_headers_num <= 1:
-			print "Only one header in summary. Not writing summary header"
-			return
-		summary_file_name = self.encode_container_name(
-			sequence_id, index, SUMMARY_HEADER_EXT)
-		summary_file_name_tmp = self.encode_container_name(
-			sequence_id, index, SUMMARY_HEADER_EXT_TMP)
-		print "\nWriting summary header",
-		print base64.b64encode(sequence_id), index, "to file", summary_file_name
-		tmpfile = tempfile.TemporaryFile()
-		keys = []
-		for key, value in self.summary_headers_db.iteritems():
-			print "Adding header", key, len(key), len(value),
-			keys.append(key)
-			tmpfile.write(IE.binary_encode_int_varlen(len(key)))
-			print base64.b16encode(IE.binary_encode_int_varlen(len(key))),
-			print base64.b16encode(IE.binary_encode_int_varlen(len(value)))
-			tmpfile.write(key)
-			tmpfile.write(IE.binary_encode_int_varlen(len(value)))
-			tmpfile.write(value)
-		for key in keys:
-			del self.summary_headers_db[key]
-		tmpfile.seek(0)
-		self.upload_file(summary_file_name, summary_file_name_tmp, tmpfile)
-		tmpfile.close()
-		self.summary_headers_written += 1
-		self.summary_headers_num = 0
+		# Process the new containers
+		for sequence in self.sequences.itervalues():
+			sequence.process_new_files()
 	def flush(self):
-		self.write_summary_header(self.active_sequence_id,
-			self.active_sequence_next_index - 1)
+		self.get_active_sequence().flush_summary_header()
 	def get_sequence_ids(self):
 		return self.sequences.keys()
+	def get_active_sequence(self):
+		return self.sequences[self.active_sequence_id]
 	def close(self):
 		pass
 	def info(self):
 		pass
 
-	def encode_container_name(self, sequence_id, index, extension):
-		try:
-			return "manent.%s.%s.%s" % (base64.urlsafe_b64encode(sequence_id),
-				IE.ascii_encode_int_varlen(index), extension)
-		except:
-			traceback.print_exc()
-			raise
-	def decode_container_name(self, name):
-		name_re = re.compile("manent.([^.]+).([^.]+).([^.]+)")
-		match = name_re.match(name)
-		if not match:
-			return (None, None, None)
-		try:
-			sequence_id = base64.urlsafe_b64decode(match.groups()[0])
-			index = IE.ascii_decode_int_varlen(match.groups()[1])
-			extension = match.groups()[2]
-			return (sequence_id, index, extension)
-		except:
-			# File name unparseable. Can be junk coming from something else
-			return (None, None, None)
 	#
 	# Container management
 	#
@@ -350,10 +219,9 @@ class Storage:
 		if self.active_sequence_id is None:
 			raise Exception("Can't create a container for an inactive storage")
 		container = Container.Container(self)
-		index = self.get_next_index()
-		container.start_dump(self.active_sequence_id, index)
-		self.sequences[self.active_sequence_id] = index
-		self.config_db[self._key(".sequences." + self.active_sequence_id)] = str(index)
+		sequence = self.get_active_sequence()
+		container.start_dump(self.active_sequence_id,
+			sequence.get_next_index())
 		return container
 	# Creates a container that is used for aside purposes, i.e., a temporary
 	# holder of non-data blocks
@@ -366,11 +234,8 @@ class Storage:
 		container.start_dump(self.active_sequence_id, index)
 		return container
 	def import_aside_container(self, container):
-		index = self.get_next_index()
-		container.override_index(index)
-		self.sequences[self.active_sequence_id] = index
-		self.config_db[self._key(".sequences." +
-		                         self.active_sequence_id)] = str(index)
+		sequence = self.get_active_sequence()
+		container.override_index(sequence.get_next_index())
 	def get_container(self, sequence_id, index):
 		container = Container.Container(self)
 		container.start_load(sequence_id, index)
@@ -404,7 +269,7 @@ class Storage:
 		return file
 	def load_container_header_from_summary(self, sequence_id, index):
 		self.headers_loaded_total += 1
-		header_name = self.encode_container_name(sequence_id, index,
+		header_name = encode_container_name(sequence_id, index,
 		                                         HEADER_EXT)
 		if self.loaded_headers_db.has_key(header_name):
 			stream = StringIO.StringIO(self.loaded_headers_db[header_name])
@@ -458,24 +323,25 @@ class MemoryStorage(Storage):
 	def open_body_file(self, sequence_id, index):
 		return StringIO.StringIO()
 	def upload_container(self, sequence_id, index, header_file, body_file):
-		self.add_summary_header(sequence_id, index, header_file)
+		assert sequence_id == self.active_sequence_id
+		self.get_active_sequence().add_summary_header(index, header_file)
 		
-		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
+		header_file_name = encode_container_name(sequence_id, index, HEADER_EXT)
 		self.get_cur_files()[header_file_name] = header_file.getvalue()
-		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
+		body_file_name = encode_container_name(sequence_id, index, BODY_EXT)
 		self.get_cur_files()[body_file_name] = body_file.getvalue()
 	def load_container_header(self, sequence_id, index):
 		stream = self.load_container_header_from_summary(sequence_id, index)
 		if stream is not None:
 			return stream
-		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
+		header_file_name = encode_container_name(sequence_id, index, HEADER_EXT)
 		return StringIO.StringIO(self.get_cur_files()[header_file_name])
 	def load_container_header_summary(self, sequence_id, index):
-		file_name = self.encode_container_name(
+		file_name = encode_container_name(
 			sequence_id, index, SUMMARY_HEADER_EXT)
 		return StringIO.StringIO(self.get_cur_files()[file_name])
 	def load_container_body(self, sequence_id, index):
-		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
+		body_file_name = encode_container_name(sequence_id, index, BODY_EXT)
 		return StringIO.StringIO(self.get_cur_files()[body_file_name])
 	def upload_file(self, file_name, tmp_file_name, file_stream):
 		self.get_cur_files()[file_name] = file_stream.read()
@@ -535,13 +401,13 @@ class FTPStorage(Storage):
 		stream = self.load_summary_container_header(sequence_id, index)
 		if stream is not None:
 			return stream
-		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
+		header_file_name = encode_container_name(sequence_id, index, HEADER_EXT)
 		filehandle = tempfile.TemporaryFile(dir=Config.paths.staging_area())
 		self.get_fs_handler().download(filehandle, header_file_name)
 		filehandle.seek(0)
 		return filehandle
 	def load_container_summary_header(self, sequence_id, index):
-		file_name = self.encode_container_name(
+		file_name = encode_container_name(
 			sequence_id, index, SUMMARY_HEADER_EXT)
 		filehandle = tempfile.TemporaryFile(dir=Config.paths.staging_area())
 		self.get_fs_handler().download(filehandle, file_name)
@@ -549,21 +415,22 @@ class FTPStorage(Storage):
 		return filehandle
 	def load_container_body(self, sequence_id, index):
 		print "Loading container body", base64.urlsafe_b64encode(sequence_id), index
-		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
+		body_file_name = encode_container_name(sequence_id, index, BODY_EXT)
 		filehandle = tempfile.TemporaryFile(dir=Config.paths.staging_area())
 		self.get_fs_handler().download(filehandle, body_file_name)
 		filehandle.seek(0)
 		return filehandle
 	
 	def upload_container(self, sequence_id, index, header_file, body_file):
-		self.add_summary_header(sequence_id, index, header_file)
+		assert sequence_id == self.active_sequence_id
+		self.get_active_sequence().add_summary_header(index, header_file)
 		
 		print "Uploading container", base64.urlsafe_b64encode(sequence_id), index
-		header_file_name_tmp = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
-		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
+		header_file_name_tmp = encode_container_name(sequence_id, index, HEADER_EXT_TMP)
+		header_file_name = encode_container_name(sequence_id, index, HEADER_EXT)
 		self.upload_file(header_file_name, header_file_name_tmp, header_file)
-		body_file_name_tmp = self.encode_container_name(sequence_id, index, BODY_EXT_TMP)
-		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
+		body_file_name_tmp = encode_container_name(sequence_id, index, BODY_EXT_TMP)
+		body_file_name = encode_container_name(sequence_id, index, BODY_EXT)
 		self.upload_file(body_file_name, body_file_name_tmp, body_file)
 
 	def upload_file(self, file_name, tmp_file_name, file_stream):
@@ -604,24 +471,25 @@ class DirectoryStorage(Storage):
 		return os.listdir(self.get_path())
 	def open_header_file(self, sequence_id, index):
 		print "Starting container header", base64.urlsafe_b64encode(sequence_id), index
-		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
+		header_file_name = encode_container_name(sequence_id, index, HEADER_EXT_TMP)
 		header_file_path = os.path.join(self.get_path(), header_file_name)
 		return open(header_file_path, "wb+")
 	def open_body_file(self, sequence_id, index):
 		print "Starting container body", base64.urlsafe_b64encode(sequence_id), index
-		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT_TMP)
+		body_file_name = encode_container_name(sequence_id, index, BODY_EXT_TMP)
 		body_file_path = os.path.join(self.get_path(), body_file_name)
 		return open(body_file_path, "wb+")
 	def upload_container(self, sequence_id, index, header_file, body_file):
 		# Write the header file to summary header
-		self.add_summary_header(sequence_id, index, header_file)
+		assert sequence_id == self.active_sequence_id
+		self.get_active_sequence().add_summary_header(index, header_file)
 		
 		print "Uploading container", base64.urlsafe_b64encode(sequence_id), index
-		header_file_name_tmp = self.encode_container_name(sequence_id, index, HEADER_EXT_TMP)
-		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
+		header_file_name_tmp = encode_container_name(sequence_id, index, HEADER_EXT_TMP)
+		header_file_name = encode_container_name(sequence_id, index, HEADER_EXT)
 		self.upload_file(header_file_name, header_file_name_tmp, header_file)
-		body_file_name_tmp = self.encode_container_name(sequence_id, index, BODY_EXT_TMP)
-		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
+		body_file_name_tmp = encode_container_name(sequence_id, index, BODY_EXT_TMP)
+		body_file_name = encode_container_name(sequence_id, index, BODY_EXT)
 		self.upload_file(body_file_name, body_file_name_tmp, body_file)
 	def upload_file(self, file_name, tmp_file_name, file_stream):
 		# We're FTP storage here, don't care about the tmp_file_name.
@@ -655,17 +523,17 @@ class DirectoryStorage(Storage):
 		stream = self.load_container_header_from_summary(sequence_id, index)
 		if stream is not None:
 			return stream
-		header_file_name = self.encode_container_name(sequence_id, index, HEADER_EXT)
+		header_file_name = encode_container_name(sequence_id, index, HEADER_EXT)
 		header_file_path = os.path.join(self.get_path(), header_file_name)
 		return open(header_file_path, "rb")
 	def load_container_header_summary(self, sequence_id, index):
 		print "Loading container header summary", base64.urlsafe_b64encode(sequence_id), index
-		file_name = self.encode_container_name(sequence_id, index, SUMMARY_HEADER_EXT)
+		file_name = encode_container_name(sequence_id, index, SUMMARY_HEADER_EXT)
 		file_path = os.path.join(self.get_path(), file_name)
 		return open(file_path, "rb")
 	def load_container_body(self, sequence_id, index):
 		print "Loading container body", base64.urlsafe_b64encode(sequence_id), index
-		body_file_name = self.encode_container_name(sequence_id, index, BODY_EXT)
+		body_file_name = encode_container_name(sequence_id, index, BODY_EXT)
 		body_file_path = os.path.join(self.get_path(), body_file_name)
 		return open(body_file_path, "rb")
 
@@ -804,3 +672,25 @@ class OpticalStorage(Storage):
 	def container_size(self):
 		return CONTAINER_TYPES[self.containerType]
 
+# Utility functions
+def encode_container_name(sequence_id, index, extension):
+	try:
+		return "manent.%s.%s.%s" % (base64.urlsafe_b64encode(sequence_id),
+			IE.ascii_encode_int_varlen(index), extension)
+	except:
+		traceback.print_exc()
+		raise
+
+def decode_container_name(name):
+	name_re = re.compile("manent.([^.]+).([^.]+).([^.]+)")
+	match = name_re.match(name)
+	if not match:
+		return (None, None, None)
+	try:
+		sequence_id = base64.urlsafe_b64decode(match.groups()[0])
+		index = IE.ascii_decode_int_varlen(match.groups()[1])
+		extension = match.groups()[2]
+		return (sequence_id, index, extension)
+	except:
+		# File name unparseable. Can be junk coming from something else
+		return (None, None, None)
