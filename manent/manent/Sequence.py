@@ -37,6 +37,7 @@ class Sequence:
 		self.new_container_bodies = []
 		self.summary_headers_num = 0
 		self.summary_headers_len = 0
+		self.summary_header_last_idx = None
 	def set_active(self, active):
 		self.is_active = active
 	def get_next_index(self):
@@ -182,23 +183,25 @@ class Sequence:
 		assert len(file_contents) > 0
 		self.summary_headers_len += len(str(index)) + len(file_contents)
 		self.summary_headers_num += 1
+		self.summary_header_last_idx = index
 		if self.summary_headers_len >= self._get_container_size():
 			self.write_summary_header(index)
 	def flush_summary_header(self):
-		self.write_summary_header(self.next_container_idx - 1)
+		self.write_summary_header(self.summary_header_last_idx)
 	def write_summary_header(self, index):
 		if self.summary_headers_num <= 1:
 			print "Only one header in summary. Not writing summary header"
 			return
 		summary_file_name = Storage.encode_container_name(
-			sequence_id, index, Storage.SUMMARY_HEADER_EXT)
+			self.sequence_id, index, Storage.SUMMARY_HEADER_EXT)
 		summary_file_name_tmp = Storage.encode_container_name(
-			sequence_id, index, Storage.SUMMARY_HEADER_EXT_TMP)
+			self.sequence_id, index, Storage.SUMMARY_HEADER_EXT_TMP)
 		print "\nWriting summary header",
-		print base64.b64encode(sequence_id), index, "to file", summary_file_name
+		print base64.b64encode(self.sequence_id), index,
+		print "to file", summary_file_name
 		tmpfile = tempfile.TemporaryFile()
 		keys = []
-		for key, value in self.summary_headers_db.iteritems():
+		for key, value in self._get_summary_headers_db().iteritems():
 			print "Adding header", key, len(key), len(value),
 			keys.append(key)
 			tmpfile.write(IE.binary_encode_int_varlen(len(key)))
@@ -208,7 +211,7 @@ class Sequence:
 			tmpfile.write(IE.binary_encode_int_varlen(len(value)))
 			tmpfile.write(value)
 		for key in keys:
-			del self.summary_headers_db[key]
+			del self._get_summary_headers_db()[key]
 		tmpfile.seek(0)
 		self.upload_file(summary_file_name, summary_file_name_tmp, tmpfile)
 		tmpfile.close()
