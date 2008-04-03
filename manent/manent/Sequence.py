@@ -186,9 +186,9 @@ class Sequence:
 		self.summary_header_last_idx = index
 		if self.summary_headers_len >= self._get_container_size():
 			self.write_summary_header(index)
-	def flush_summary_header(self):
-		self.write_summary_header(self.summary_header_last_idx)
-	def write_summary_header(self, index):
+	def flush_summary(self):
+		self.write_summary(self.summary_header_last_idx)
+	def write_summary(self, index):
 		if self.summary_headers_num <= 1:
 			print "Only one header in summary. Not writing summary header"
 			return

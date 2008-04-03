@@ -48,6 +48,11 @@ class TestSequence(unittest.TestCase):
 	def test_summary_containers_load_one(self):
 		# Test that we can create one summary container for headers 0, 1, 2, 3
 		# and after we reload it, the headers are read from summary
+		sequence = Sequence.Sequence(self.storage, "sequence_a", False)
+		for i in range(4):
+			sequence.add_summary_header(i, StringIO.StrinIO("Summary%d" % i)
+		sequence.flush_summary()
+		# TODO: reload and check
 		self.fail()
 	def test_summary_containers_load_two(self):
 		# Test that we can create two summary containers:
