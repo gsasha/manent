@@ -4,6 +4,41 @@ CHANGELOG:
 
 - fix permissions for db files
 
+FEATURES PLANNED FOR 0.10.8:
+
+- Switch to new container format that unifies headers with data files,
+  and stores summary headers inside data files as blocks of a special type.
+
+  The summary headers are generated in the following way:
+  Container 0 has header 0.
+  Container 1 has header 1 and 0
+  Container 2 has header 2.
+  Container 3 has header 3, 2, 1, 0.
+  In general, for container i, if k is the maximal s.t. 2^k divides i+1,
+  2^k previous headers are allowed to be stored.
+  A limit to that is that the summary headers are not allowed to take more
+  than 2^k * <standard header size> (standard header size is a heuristic
+  constant, currently <container size>/1024).
+
+  Container reading algorithm proceeds as follows:
+  k = <last container's index>
+  while (not all containers are read) {
+    read all headers from k
+    k = <index of last unread header>
+  }
+
+  This process is guaranteed to converge to reading headers from containers
+  that have a large number of them, therefore obviating the need for separate
+  summary files.
+
+- Change the implementation of aside container to avoid actually using a
+  container. Since the blocks stored in aside container are usually not
+  compressible, we can safely assume that the size of the blocks we have
+  accumulated is about the same size that they will take in the container.
+
+- Make sure the container reports its size accurately during construction
+  (including data that is to be compressed).
+
 FEATURES PLANNED FOR 0.9.8:
 
 - Implement summary headers.

@@ -23,21 +23,22 @@ import manent.utils.FileIO as FileIO
 #---------------------------------------------------
 # Container file format:
 #
-# Each container consists of two files, the header and the body.
-# The header contains its own header and blocks that encode metadata
+# Each container consists of two kinds of data, the header and the body.
+# The header contains its own header and blocks that encode metadata.
 # One of the blocks is the BLOCK_TABLE that describes the blocks stored
-# in the body
+# in the body.
 #
 # Header file format:
 # 1. magic number "MNNT"
 # 2. version number
-# 3. digest of the header's header
+# 3. header index.
 # 4. header table length
-# 5. header table entries in format:
-#    5.1 entry size
-#    5.2 entry code
-#    5.3 entry digest
-# 6. entries, encoded according to the header table
+# 5. digest of the header's header
+# 6. header table entries in format:
+#    7.1 entry size
+#    7.2 entry code
+#    7.3 entry digest
+# 7. entries, encoded according to the header table
 #
 # Body file format:
 # 1. entries, encoding according to the body table
@@ -55,7 +56,8 @@ import manent.utils.FileIO as FileIO
 #      - digest is unused
 #    Compression blocks should not be nested
 # 2. Encryption control
-#    We assume that the encryption does not change the size of the encrypted data.
+#    We assume that the encryption does not change the size of the encrypted
+#    data.
 #    ENCRYPTION_START_<ALGORITHM>
 #     The following entries are encrypted by the given algorithm.
 #      - size field is the starting offset of the data
@@ -100,6 +102,11 @@ CODE_DIR_PACKER            =  3
 CODE_CONTAINER_DESCRIPTOR  = 16
 CODE_INCREMENT_DESCRIPTOR  = 17
 CODE_BLOCK_TABLE           = 18
+
+#
+# Code for another header stored in the body
+#
+CODE_HEADER                = 19
 
 CODE_CONTROL_START         = 48
 #
@@ -214,14 +221,14 @@ class DataDumper:
 	#
 	# Compression support
 	#
-	def start_compression(self,algorithm_code):
+	def start_compression(self, algorithm_code):
 		"""
 		Compression can be started under encryption
 		"""
 		assert self.compressor is None
 
 		digest = Digest.dataDigest(str(len(self.blocks)))
-		self.blocks.append((digest,0,algorithm_code))
+		self.blocks.append((digest, 0, algorithm_code))
 		if algorithm_code == CODE_COMPRESSION_BZ2:
 			self.compressor = bz2.BZ2Compressor(9)
 		elif algorithm_code == CODE_COMPRESSION_GZIP:
@@ -240,7 +247,8 @@ class DataDumper:
 			tail = self.__encrypt(tail)
 		self.file.write(tail)
 		self.total_size += len(tail)
-		self.blocks.append((Digest.dataDigest(""),self.compressed_size,CODE_COMPRESSION_END))
+		self.blocks.append((Digest.dataDigest(""), self.compressed_size,
+		                    CODE_COMPRESSION_END))
 		self.compressor = None
 	def __compress(self,data):
 		self.uncompressed_size += len(data)
@@ -288,15 +296,18 @@ class DataDumpLoader:
 					(s_digest, s_size, s_code) = self.blocks[j]
 					if s_code == CODE_ENCRYPTION_END:
 						break
-					if is_user_code(s_code) and handler.is_requested(s_digest, s_code):
+					if is_user_code(s_code) and handler.is_requested(s_digest,
+						                                             s_code):
 						requested = True
 				else:
-					raise Exception("Block table error: encryption start without end")
+					raise Exception("Block table error: encryption start "
+				                    "without end")
 
 				if not requested:
 					skip_until = CODE_ENCRYPTION_END
 
-				# We always perform decryption, even when it's needed only for checking
+				# We always perform decryption, even when it's needed
+				# only for checking.
 				key = Digest.dataDigest(digest + self.password)
 				self.decryptor = Crypto.Cipher.ARC4.new(key)
 				self.decryptor_data_digest = Digest.DataDigestAccumulator()
@@ -330,10 +341,12 @@ class DataDumpLoader:
 					if s_code == CODE_COMPRESSION_END:
 						self.uncompress_bytes = s_size
 						break
-					if is_user_code(s_code) and handler.is_requested(s_digest, s_code):
+					if is_user_code(s_code) and handler.is_requested(s_digest,
+						                                             s_code):
 						requested = True
 				else:
-					raise Exception("Block table error: compression start without end")
+					raise Exception("Block table error: compression start "
+				                    "without end")
 
 				if requested:
 					self.uncompressor = bz2.BZ2Decompressor()
@@ -347,8 +360,8 @@ class DataDumpLoader:
 				# find out if any of the blocks contained within
 				# the section is actually needed
 				requested = False
-				for j in range(i+1,len(self.blocks)):
-					s_digest,s_size,s_code = self.blocks[j]
+				for j in range(i+1, len(self.blocks)):
+					s_digest, s_size, s_code = self.blocks[j]
 					if s_code == CODE_COMPRESSION_END:
 						self.uncompress_bytes = s_size
 						break
@@ -395,7 +408,8 @@ class DataDumpLoader:
 					data = ""
 					while len(data) < size:
 						if len(self.uncompressed_buf) > 0:
-							portion = min(size-len(data),len(self.uncompressed_buf))
+							portion = min(size-len(data),
+							              len(self.uncompressed_buf))
 							data += self.uncompressed_buf[:portion]
 							self.uncompressed_buf = self.uncompressed_buf[portion:]
 						else:
@@ -407,7 +421,8 @@ class DataDumpLoader:
 								self.decryptor_data_digest.update(chunk)
 								self.decrypted_bytes += len(data)
 							if len(chunk) < toread:
-								raise Exception("Cannot read data expected in the container")
+								raise Exception("Cannot read data expected "
+							                    "in the container")
 							self.uncompressed_buf = self.uncompressor.decompress(chunk)
 				else:
 					data = self.file.read(size)
@@ -478,7 +493,7 @@ class Container:
 
 		self.body_dumper.start_compression(CODE_COMPRESSION_BZ2)
 		self.compression_active = True
-		self.compressed_data = 0	
+		self.compressed_data = 0
 	def enable_compression(self):
 		if not self.compression_active:
 			self.body_dumper.start_compression(CODE_COMPRESSION_BZ2)
@@ -627,8 +642,11 @@ class Container:
 		if self.index is None:
 			self.body_file = self.storage.load_aside_container_body()
 		else:
-			self.body_file = self.storage.load_container_body(self.sequence_id, self.index)
-		self.body_dump_loader = DataDumpLoader(self.body_file, self.body_blocks,
+			self.body_file = self.storage.load_container_body(self.sequence_id,
+			                                                  self.index)
+		self.body_dump_loader = DataDumpLoader(
+		    self.body_file,
+		    self.body_blocks,
 			password=self.storage.get_encryption_key())
 		self.body_file = None
 	def info(self):
