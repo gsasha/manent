@@ -86,6 +86,9 @@ import manent.utils.FileIO as FileIO
 #       and for verification
 #---------------------------------------------------
 
+MAGIC = "MNNT"
+VERSION = 2
+
 MAX_COMPRESSED_DATA = 256*1024
 
 #
@@ -473,12 +476,10 @@ class Container:
 		self.mode = "DUMP"
 		self.sequence_id = sequence_id
 		self.index = index
-		if self.index is None:
-			self.header_file = self.storage.open_aside_container_header()
-			self.body_file = self.storage.open_aside_container_body()
-		else:
-			self.header_file = self.storage.open_header_file(self.sequence_id, self.index)
-			self.body_file = self.storage.open_body_file(self.sequence_id, self.index)
+		self.header_file = self.storage.open_header_file(
+			self.sequence_id, self.index)
+		self.body_file = self.storage.open_body_file(
+			self.sequence_id, self.index)
 
 		self.body_dumper = DataDumper(self.body_file)
 		self.header_dump_os = StringIO.StringIO()
@@ -527,15 +528,12 @@ class Container:
 		if self.encryption_active:
 			self.body_dumper.stop_encryption()
 
-		# index can be none for an aside container
-		if self.index is None:
-			self.index = -1
 		#
 		# Serialize the body block table
 		#
 		body_table_io = StringIO.StringIO()
 		body_blocks = self.body_dumper.get_blocks()
-		serialize_blocks(body_table_io,body_blocks)
+		serialize_blocks(body_table_io, body_blocks)
 		body_table_str = body_table_io.getvalue()
 
 		#
@@ -554,15 +552,13 @@ class Container:
 
 		header_blocks = self.header_dumper.get_blocks()
 		header_table_io = StringIO.StringIO()
-		serialize_blocks(header_table_io,header_blocks)
+		serialize_blocks(header_table_io, header_blocks)
 		header_table_str = header_table_io.getvalue()
 		
 		#
 		# Write the header
 		#
 		
-		MAGIC = "MNNT"
-		VERSION = 2
 		self.header_file.write(MAGIC)
 		Format.write_int(self.header_file, VERSION)
 		Format.write_int(self.header_file, self.index)
@@ -570,6 +566,7 @@ class Container:
 		self.header_file.write(Digest.dataDigest(header_table_str))
 		self.header_file.write(header_table_str)
 		header_dump_str = self.header_dump_os.getvalue()
+		Format.write_int(self.header_file, len(header_dump_str))
 		self.header_file.write(header_dump_str)
 
 	def upload(self):
@@ -585,35 +582,83 @@ class Container:
 		self.mode = "LOAD"
 		self.sequence_id = sequence_id
 		self.index = index
-	def load_header(self):
-		if self.index is None:
-			self.header_file = self.storage.load_aside_container_header()
-		else:
-			self.header_file = self.storage.load_container_header(self.sequence_id, self.index)
+	def list_blocks(self):
+		return self.body_blocks
+	def info(self):
+		print "Manent container #%d of storage %s" % (
+			self.index, self.storage.get_label())
+	def print_blocks(self):
+		class PrintHandler:
+			def is_requested(self, digest, code):
+				return True
+			def loaded(self, digest, code, data):
+				print base64.b64encode(digest), CODE_NAME_TABLE[code], len(data)
+		self.load_blocks(PrintHandler())
+	def test_blocks(self, filename=None):
+		class TestingBlockCache:
+			def __init__(self):
+				pass
+			def block_needed(self, digest):
+				return True
+			def block_loaded(self, digest, block):
+				new_digest = Digest.dataDigest(block)
+				if new_digest != digest:
+					raise Exception("Critical error: Bad digest in container!")
+		bc = TestingBlockCache()
+		self.read_blocks(bc, filename)
+	def load_blocks(self, handler):
+		# Header could be already available without reading the container file,
+		# if it was piggybacked in another container that was already read.
+		# In such case, it will be supplied in header_file. If the header was
+		# not piggybacked, header_file is None.
+		# Since it might be unnecessary to load any blocks from the container,
+		# we don't touch the body file before we know we need blocks from it.
+		header_file = self.storage.load_header_file(
+			self.sequence_id, self.index)
+		body_file = None
+		if header_file is None:
+			body_file = self.storage.load_body_file(
+				self.sequence_id, self.index)
+			header_file = body_file
+		self.blocks = self._load_header(header_file)
 		
-		MAGIC = self.header_file.read(4)
-		if MAGIC != "MNNT":
+		body_needed = False
+		for (digest, size, code) in body_blocks:
+			if is_user_code(code) and handler.is_requested(digest, code):
+				body_needed = True
+				break
+
+		if not body_needed:
+			return
+		
+		if body_file is None:
+			body_file = self.storage.load_body_file(
+				self.sequence_id, self.index)
+			body_file.seek(header_file.tell())
+
+		body_dump_loader = DataDumpLoader(body_file, self.blocks,
+			password=self.storage.get_encryption_key())
+		body_dump_loader.load_blocks(handler)
+	def _load_header(self, header_file):
+		magic = header_file.read(len(MAGIC)
+		if MAGIC != magic:
 			raise Exception("Manent: magic number not found")
-		version = Format.read_int(self.header_file)
-		if version != 2:
+		version = Format.read_int(header_file)
+		if version != VERSION:
 			raise Exception("Container %d has unsupported version" % self.index)
-		index = Format.read_int(self.header_file)
-		if index == -1:
-			# This container was an aside one
-			index = None
+		index = Format.read_int(header_file)
 		if index != self.index:
 			raise Exception(
 				"Manent: wrong container file index. Expected %s, found %s"
-				% (str(self.index),str(index)))
+				% (str(self.index), str(index)))
 		
-		header_table_size = Format.read_int(self.header_file)
-		header_table_digest = self.header_file.read(Digest.dataDigestSize())
-		header_table_str = self.header_file.read(header_table_size)
+		header_table_size = Format.read_int(header_file)
+		header_table_digest = header_file.read(Digest.dataDigestSize())
+		header_table_str = header_file.read(header_table_size)
 		if Digest.dataDigest(header_table_str) != header_table_digest:
 			raise Exception("Manent: header of container file corrupted")
-		# TODO: read only as much as necessary
-		header_dump_str = self.header_file.read()
-		self.header_file.close()
+		header_dump_len = Format.read_int(header_file)
+		header_dump_str = header_file.read(header_dump_len)
 		
 		header_table_io = StringIO.StringIO(header_table_str)
 		header_blocks = unserialize_blocks(header_table_io)
@@ -635,46 +680,5 @@ class Container:
 		header_dump_loader.load_blocks(handler)
 
 		body_table_io = StringIO.StringIO(handler.body_table_str)
-		self.body_blocks = unserialize_blocks(body_table_io)
-	def list_blocks(self):
-		return self.body_blocks
-	def load_body(self):
-		if self.index is None:
-			self.body_file = self.storage.load_aside_container_body()
-		else:
-			self.body_file = self.storage.load_container_body(self.sequence_id,
-			                                                  self.index)
-		self.body_dump_loader = DataDumpLoader(
-		    self.body_file,
-		    self.body_blocks,
-			password=self.storage.get_encryption_key())
-		self.body_file = None
-	def info(self):
-		print "Manent container #%d of storage %s" % (
-			self.index, self.storage.get_label())
-	def print_blocks(self):
-		class PrintHandler:
-			def is_requested(self, digest, code):
-				return True
-			def loaded(self, digest, code, data):
-				print base64.b64encode(digest), CODE_NAME_TABLE[code], len(data)
-		self.load_blocks(PrintHandler())
-	def test_blocks(self,filename=None):
-		class TestingBlockCache:
-			def __init__(self):
-				pass
-			def block_needed(self, digest):
-				return True
-			def block_loaded(self, digest, block):
-				new_digest = Digest.dataDigest(block)
-				if new_digest != digest:
-					raise Exception("Critical error: Bad digest in container!")
-		bc = TestingBlockCache()
-		self.read_blocks(bc, filename)
-	def load_blocks(self, handler):
-		for (digest, size, code) in self.body_blocks:
-			if is_user_code(code) and handler.is_requested(digest, code):
-				self.load_body()
-				self.body_dump_loader.load_blocks(handler)
-				break
-		self.body_dump_loader = None
+		blocks = unserialize_blocks(body_table_io)
+		return blocks
