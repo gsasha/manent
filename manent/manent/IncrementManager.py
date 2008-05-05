@@ -4,6 +4,7 @@
 #
 
 import base64
+import logging
 import re
 
 import Increment
@@ -54,7 +55,8 @@ class IncrementManager:
 			last_index = None
 			next_index = 0
 
-		self.active_increment = Increment.Increment(self.storage_manager, self.config_db)
+		self.active_increment = Increment.Increment(self.storage_manager,
+        self.config_db)
 		self.active_increment.start(storage_index, next_index, comment)
 
 		if last_index is None:
@@ -72,7 +74,8 @@ class IncrementManager:
 	def finalize_increment(self, digest, level):
 		assert self.active_increment is not None
 
-		print "Finalizing increment", self.active_increment.index, "to", base64.b64encode(digest)
+		logging.info("Finalizing increment %d to %s" %
+        (self.active_increment.index, base64.b64encode(digest)))
 		inc_digest = self.active_increment.finalize(digest, level)
 		self.active_increment = None
 		return inc_digest

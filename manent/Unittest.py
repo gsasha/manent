@@ -51,4 +51,6 @@ suite = unittest.TestSuite([
 	suite_StorageManager,
 	suite_BlockManager,
 	])
-unittest.TextTestRunner(verbosity=2).run(suite)
+
+if __name__ == "__main__":
+  unittest.TextTestRunner(verbosity=2).run(suite)

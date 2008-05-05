@@ -60,15 +60,16 @@ class BlockManager:
 		# It is important to use block_codes here, since they are filled up
 		# only when the block is saved (which is not immediate for aside
 		# blocks).
-		return self.block_codes.has_key(digest) or\
-			self.loaded_blocks.has_key(digest)
+		return (self.block_codes.has_key(digest) or
+        self.loaded_blocks.has_key(digest))
 	def load_block(self, digest):
 		"""
 		Actually perform loading of the block. Assumes that the block
 		was reported by request_block, and was loaded not more times than
 		it was requested.
 		"""
-		#print "BM Loading block", base64.b64encode(digest), Container.code_name(self.get_block_code(digest))
+		logging.debug("BM Loading block " + base64.b64encode(digest) +
+        " " + Container.code_name(self.get_block_code(digest)))
 		if self.cached_blocks.has_key(digest):
 			#
 			# Blocks that sit in self.cached_blocks are never unloaded
@@ -82,7 +83,8 @@ class BlockManager:
 			if self.requested_blocks.has_key(digest):
 				refcount = int(self.requested_blocks[digest]) - 1
 				if refcount == 0:
-					#print "Removing block from loaded", base64.b64encode(digest)
+					logging.debug("Removing block from loaded " +
+              base64.b64encode(digest))
 					del self.requested_blocks[digest]
 					del self.loaded_blocks[digest]
 				else:
@@ -107,20 +109,17 @@ class BlockLoadHandler:
 			#Container.code_name(code),
 		if code != Container.CODE_DATA:
 			# Other kinds of blocks are cached always
-			#print ": Yes"
 			return True
 		if self.block_manager.requested_blocks.has_key(digest):
 			# Data blocks must be specifically requested
-			#print ": Yes"
 			return True
-		#print ": No"
 		return False
 	def loaded(self, digest, code, data):
 		# All non-DATA blocks go to cache. These blocks are identified
 		# by having their code in the block_codes database
 		if self.block_manager.block_codes.has_key(digest):
-			#print "Caching block", base64.b64encode(digest), "code", Container.code_name(self.block_manager.get_block_code(digest))
+			#print "Caching block", base64.b64encode(digest), "code",
+      #print Container.code_name(self.block_manager.get_block_code(digest))
 			self.block_manager.cached_blocks[digest] = data
 		else:
 			self.block_manager.loaded_blocks[digest] = data
-			#print "Putting block into loaded", base64.b64encode(digest)

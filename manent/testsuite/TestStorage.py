@@ -117,7 +117,6 @@ class TestStorage(unittest.TestCase):
 		storage = Storage.DirectoryStorage(self.storage_params)
 		storage.load_configuration(None)
 		container = storage.get_container(seq_id, 0)
-		container.load_header()
 		blocks = container.list_blocks()
 		data_blocks = [b for b in blocks if b[2] == Container.CODE_DATA]
 		self.assertEqual(block_digest, data_blocks[0][0])

@@ -29,7 +29,8 @@ class PackerOStream(StreamAdapter.OStreamAdapter):
 			self.rec_ostream.write(digest)
 		else:
 			self.digests.append(digest)
-			if Digest.dataDigestSize()*len(self.digests) > self.backup.get_block_size():
+			if (Digest.dataDigestSize()*len(self.digests) >
+          self.backup.get_block_size()):
 				self.rec_ostream = PackerOStream(self.backup, self.code_packer,
 					self.level + 1)
 				for digest in self.digests:

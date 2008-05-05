@@ -5,15 +5,61 @@
 
 import logging
 import os
+import os.path
 import shutil
+import sys
 import tempfile
 import unittest
 
+# Point to the code location so that it is found when unit tests
+# are executed. We assume that sys.path[0] is the path to the module
+# itself. This allows the test to be executed directly by testoob.
+sys.path.append(os.path.join(sys.path[0], ".."))
+
+import manent.BlockManager as BlockManager
 import manent.Container as Container
 import manent.Database as Database
 import manent.Storage as Storage
 import manent.StorageManager as StorageManager
 import manent.utils.Digest as Digest
+
+class AsideContainerTest(unittest.TestCase):
+	def setUp(self):
+		self.env = Database.PrivateDatabaseManager()
+		self.txn = Database.TransactionHandler(self.env)
+	def tearDown(self):
+		pass
+	def test_add_block(self):
+		# See that if we add a block, we retrieve it back.
+		aside_db = self.env.get_database_btree("testdb", "test_add_block",
+			self.txn)
+		block_manager = BlockManager.BlockManager(
+			self.env, self.txn, None)
+		ac = StorageManager.AsideContainer(aside_db, block_manager, 100)
+		#
+		data = "aaaa"
+		digest = Digest.dataDigest(data)
+		code = Container.CODE_COMPRESSION_END
+		block_manager.add_block(digest, code, data)
+		ac.add_block(digest, code, data)
+	def test_retrieved_block_gone(self):
+		# See that if we retrieve a block, we don't get it back.
+		#self.fail()
+		pass
+	def test_add_block_resumes(self):
+		# See if we continue adding blocks with a new AsideContainer,
+		# they are added correctly.
+		#self.fail()
+		pass
+	def test_retrieve_block_resumes(self):
+		# See that if we retrieve blocks in several installments,
+		# we still get everything back.
+		#self.fail()
+		pass
+	def test_is_full(self):
+		# See that is_full is computed correctly.
+		#self.fail()
+		pass
 
 class TestStorageManager(unittest.TestCase):
 	def setUp(self):
@@ -143,3 +189,9 @@ class TestStorageManager(unittest.TestCase):
 		"""Test that containers are created when necessary"""
 		# TODO: consider doing this test
 		pass
+
+suite_StorageManager = unittest.TestLoader().loadTestsFromTestCase(TestStorageManager)
+suite_AsideContainerTest = unittest.TestLoader().loadTestsFromTestCase(AsideContainerTest)
+if __name__ == "__main__":
+	unittest.TextTestRunner(verbosity=2).run(suite_StorageManager)
+	unittest.TextTestRunner(verbosity=2).run(suite_AsideContainerTest)

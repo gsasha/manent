@@ -3,10 +3,14 @@
 #    License: see LICENSE.txt
 #
 
-import os, os.path, sys
-import re, fnmatch
-import ConfigParser
+import fnmatch
+import logging
+import os
+import os.path
+import re
+import sys
 
+import ConfigParser
 import Backup
 import Container
 import manent.utils.IntegerEncodings as IntegerEncodings
@@ -146,6 +150,33 @@ class Paths:
 			return "/tmp"
 
 paths = Paths()
+
+def init_logging():
+	import logging.config
+	try:
+		logging.config.fileConfig(os.path.join(paths.home_area(),
+			"manent_logging_config"))
+	except:
+		pass
+	try:
+		logging.config.fileConfig("./.manent_logging_config")
+	except:
+		pass
+	print "Logging initialized"
+	if os.environ.has_key("MANENT_LOGGING_LEVEL"):
+		level = os.environ["MANENT_LOGGING_LEVEL"]
+		LEVELS = { "NOTSET": logging.NOTSET,
+				   "DEBUG": logging.DEBUG,
+				   "INFO": logging.INFO,
+				   "ERROR": logging.ERROR,
+				   "CRITICAL": logging.CRITICAL }
+		if LEVELS.has_key(level):
+			logging.getLogger("").setLevel(LEVELS[level])
+			logging.info("Setting logging level to", level)
+		else:
+			print "Bad logging level env: MANENT_LOGGING_LEVEL=%s", level
+
+init_logging()
 
 class GlobalConfig:
 	def __init__(self):

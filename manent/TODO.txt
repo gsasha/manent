@@ -6,6 +6,9 @@ CHANGELOG:
 
 FEATURES PLANNED FOR 0.10.8:
 
+- Storage creation and loading now receives a list into which it should
+  put the list of new containers.
+
 - Switch to new container format that unifies headers with data files,
   and stores summary headers inside data files as blocks of a special type.
 
