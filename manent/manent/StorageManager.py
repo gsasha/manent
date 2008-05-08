@@ -50,7 +50,8 @@ class StorageManager:
       "blocks", txn_manager)
     self.aside_block_db = db_manager.get_database_btree("storage-aside.db",
       "blocks", txn_manager)
-    self.num_aside_blocks = 0
+    self.aside_block_manager = AsideBlockManager(self.aside_block_db,
+        self.block_manager)
     self.current_open_container = None
 
     # Mapping of storage sequences to indices and vice versa
@@ -302,6 +303,44 @@ class StorageManager:
     seq_idx = IE.binary_read_int_varlen(io)
     container_idx = IE.binary_read_int_varlen(io)
     return (seq_idx, container_idx)
+
+class BlockSaver:
+  """Class that receives new blocks and arranges them into containers"""
+  def __init__(self, aside_db):
+    self.aside_db = aside_db
+    self.current_open_container = None
+  def add_block(self, digest, code, data):
+    # Adds a block to the current open container. Starts a new container
+    # and fills it in if necessary.
+    storage = self.storages[self.active_storage_idx]
+    #
+    # Make sure we have a container that can take this block
+    #
+    if self.is_cached(code):
+      key =
+    if code == Container.CODE_DATA:
+      #print "Block", base64.b64encode(digest),\
+        #Container.code_name(code), "sent to normal container"
+      # Put the data to a normal container
+      # 1. Make sure the current container can take the block.
+      if not self.current_open_container.can_add(data):
+        self._write_container(self.current_open_container)
+        self.current_open_container = None
+        if self.aside_blocks_size() >= self.container_size():
+          self._write_aside_blocks(flush=False)
+      if self.current_open_container is None:
+        self.current_open_container = storage.create_container()
+      # 2. Proceed to add the block
+      self.current_open_container.add_block(digest, code, data)
+    else:
+      #print "Block", base64.b64encode(digest),\
+        #Container.code_name(code), "sent to aside container"
+      key = IE.binary_encode_int_varlen(self.num_aside_blocks)
+      self.num_aside_blocks += 1
+      self.aside_block_db[key] = digest
+  def flush(self):
+    # Flush all the data stored inside
+    pass
 
 class AsideBlockManager:
   """Persistently stores the blocks put aside by storage manager.

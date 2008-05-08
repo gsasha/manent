@@ -6,6 +6,7 @@
 import logging
 import os
 import shutil
+import sys
 import cStringIO as StringIO
 import tempfile
 import unittest
