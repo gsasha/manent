@@ -79,9 +79,9 @@ import manent.utils.FileIO as FileIO
 #    Data blocks can have different codes, which are irrelevant here but have
 #    a meaning for the application.
 #     - size field is the starting offset of the data.
-#       If the block is nested in a Compression block, then the offset is within
-#       the uncompressed data (but of course! There is no meaning to offset within
-#       the compressed data).
+#       If the block is nested in a Compression block, then the offset is
+#       within the uncompressed data (but of course! There is no meaning to
+#       offset within the compressed data).
 #     - digest field gives the digest of the data, for use by the application
 #       and for verification
 #---------------------------------------------------
@@ -582,6 +582,11 @@ class Container:
     header_dump_str = self.header_dump_os.getvalue()
     Format.write_int(self.header_file, len(header_dump_str))
     self.header_file.write(header_dump_str)
+  def get_header_contents(self):
+    # Returns the contents of the header. Should be called only after
+    # finish_dump has been executed
+    self.header_file.seek(0)
+    return self.header_file.read()
   def upload(self):
     self.storage.upload_container(self.sequence_id, self.index,
       self.header_file, self.body_file)
@@ -720,4 +725,3 @@ class AggregateBlockHandler:
   def loaded(self, digest, code, data):
     for handler in self.handlers:
       handler.loaded(digest, code, data)
-

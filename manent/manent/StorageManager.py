@@ -8,6 +8,7 @@ import logging
 import cStringIO as StringIO
 
 import BlockManager
+import BlockSequencer
 import Container
 import Storage
 import utils.Digest as Digest
@@ -41,18 +42,15 @@ class StorageManager:
   def __init__(self, db_manager, txn_manager):
     self.db_manager = db_manager
     self.txn_manager = txn_manager
-    self.block_manager = BlockManager.BlockManager(self.db_manager,
-      self.txn_manager, self)
+    self.block_manager = BlockManager.BlockManager(
+        self.db_manager, self.txn_manager, self)
+    self.block_sequencer = BlockSequencer(
+        self.db_manager, self.txn_manager, self)
 
     self.config_db = db_manager.get_database_btree("config.db", "storage",
       txn_manager)
     self.block_container_db = db_manager.get_database_hash("storage.db",
       "blocks", txn_manager)
-    self.aside_block_db = db_manager.get_database_btree("storage-aside.db",
-      "blocks", txn_manager)
-    self.aside_block_manager = AsideBlockManager(self.aside_block_db,
-        self.block_manager)
-    self.current_open_container = None
 
     # Mapping of storage sequences to indices and vice versa
     # The storage sequence data consists of storage index and sequence
@@ -76,12 +74,13 @@ class StorageManager:
       self.seq_to_index[sequence_id] = (storage_idx, sequence_idx)
       self.index_to_seq[sequence_idx] = (storage_idx, sequence_id)
   def close(self):
-    self.aside_block_db.close()
     self.block_container_db.close()
     self.config_db.close()
+    self.block_sequencer.close()
     self.block_manager.close()
   def _key(self, suffix):
     return PREFIX + suffix
+
   def _register_sequence(self, storage_idx, sequence_id):
     # Generate new index for this sequence
     logger_sm.debug("new sequence detected in storage %d: %s" %
@@ -270,26 +269,16 @@ class StorageManager:
       self._write_container(self.current_open_container)
       self.current_open_container = None
     storage.flush()
-  def _write_container(self, container):
-    logging.info("Finalizing container %d" % container.get_index())
-    container.finish_dump()
-    container.upload()
-    #
-    # Now we have container idx, update it in the blocks db
-    #
+  def container_written(self, container):
+    # Update the container in the blocks db
     container_idx = container.get_index()
     storage_idx, seq_idx = self.seq_to_index[container.get_sequence_id()]
     encoded = self._encode_block_info(seq_idx, container_idx)
     logging.info("Encoding block info seq=%s container=%d" %
       (seq_idx, container_idx))
     for digest, code in container.list_blocks():
-      #print "   ", base64.b64encode(digest)
       self.block_container_db[digest] = encoded
     self.txn_manager.commit()
-  def _write_aside_container(self, flush):
-     # For every aside block:
-     # 1. Try to add block, starting a new container if necessary.
-     pass
   #--------------------------------------------------------
   # Utility methods
   #--------------------------------------------------------
@@ -382,4 +371,3 @@ class AsideBlockManager:
     self.aside_db["NEXT_BLOCK_IDX"] = str(self.next_block_idx)
   def can_fill(self, container):
     return container.can_fill(self.num_blocks, self.size_blocks)
-
