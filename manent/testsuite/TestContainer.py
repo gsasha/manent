@@ -4,9 +4,10 @@
 #
 
 import base64
-import random
-import os
 import cStringIO as StringIO
+import logging
+import os
+import random
 import sys
 import tempfile
 import unittest
@@ -120,6 +121,9 @@ class MockStorage:
     self.container_file.write(self.header_file.read())
     self.body_file.seek(0)
     self.container_file.write(self.body_file.read())
+
+  def container_size(self):
+    return 1024
 
 DATA = [
   "",
@@ -322,6 +326,32 @@ class TestContainer(unittest.TestCase):
     
     storage.cleanup()
 
-  def test_piggyback_headers(self):
-    # Test that piggyback headers are handled correctly
-    self.fail()
+  def test_piggyback_headers_small_headers(self):
+    # Test that if we are piggybacking small headers, all of them will be
+    # inserted into the container.
+    storage = MockStorage(password="kakamaika")
+    handler = MockHandler()
+
+    # Test that:
+    # 1. Container 
+    EXPECTED_HEADER_COUNTS = {
+        0: 0,
+        4: 4,
+        8: 4,
+        15: 0,
+        16: 16,
+        17: 0,
+        1024: 1024}
+    header_contents = "header"
+    for index in range(10000):
+      container = storage.create_container()
+      if EXPECTED_HEADER_COUNTS.has_key(container.get_index()):
+        exp_headers = EXPECTED_HEADER_COUNTS[container.get_index()]
+        for i in range(exp_headers):
+          logging.debug("Adding piggyback header %d to container %d" %
+              (i, container.get_index()))
+          self.assert_(container.can_add_piggyback_header(header_contents))
+          container.add_piggyback_header(exp_headers - i, header_contents)
+        self.failIf(container.can_add_piggyback_header(header_contents))
+      storage.finalize_container(container)
+      # TODO(gsasha): Read the container to see that we get the headers back.
