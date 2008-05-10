@@ -91,9 +91,12 @@ import manent.utils.FileIO as FileIO
 MAGIC = "MNNT"
 VERSION = 2
 
-MAX_COMPRESSED_DATA = 256*1024
+MAX_COMPRESSED_DATA = 256 * 1024
 
-EXPECTED_NUM_PIGGYBACK_HEADERS = 1024
+# Estimated ratio between sizes of a container and its header.
+PIGGYBACK_HEADER_RATIO = 1000
+def _last_set_bit(num):
+  return num & ~(num - 1)
 
 #
 # Codes for blocks stored in the body
@@ -482,8 +485,10 @@ class Container:
     self.index = index
     self.header_file = self.storage.open_header_file(
       self.sequence_id, self.index)
+    assert self.header_file.tell() == 0
     self.body_file = self.storage.open_body_file(
       self.sequence_id, self.index)
+    assert self.body_file.tell() == 0
     self.piggyback_headers_num = 0
     self.piggyback_headers_size = 0
 
@@ -532,6 +537,8 @@ class Container:
   def can_add(self, data):
     return self._can_add_bytes(len(data))
   def add_block(self, digest, code, data):
+    logging.debug("Container %d :adding block %s, %s, size:%d" % (
+      self.index, base64.b64encode(digest), code_name(code), len(data)))
     if self.compression_active and self.compressed_data > MAX_COMPRESSED_DATA:
       self.body_dumper.stop_compression()
       self.body_dumper.start_compression(CODE_COMPRESSION_BZ2)
@@ -546,13 +553,24 @@ class Container:
   #
   def can_add_piggyback_header(self, header_data):
     if not self.can_add(header_data):
+      logging.debug("No space to add the piggyback header (%d bytes)" %
+          len(header_data))
       return False
     max_num_piggyback_headers = self._num_piggyback_headers()
-    if self.piggyback_headers_num > max_num_piggyback_headers:
+    if self.piggyback_headers_num >= max_num_piggyback_headers:
+      logging.debug("Container already has %d piggyback headers and can"
+          " accept only %d" % (self.piggyback_headers_num,
+                               max_num_piggyback_headers))
       return False
     max_size_piggyback_headers = (max_num_piggyback_headers *
-        self.storage.container_size() / MAX_PIGGYBACK_HEADERS)
-    return (header_data + size_piggyback_headers < max_size_piggyback_headers)
+        self.storage.container_size() / PIGGYBACK_HEADER_RATIO)
+    logging.debug("Container %d can accept %d piggyback headers, has: %d" %
+        (self.index, max_num_piggyback_headers, self.piggyback_headers_num))
+    logging.debug(
+        "Container %d can accept %d bytes of piggyback headers, has: %d" %
+        (self.index, max_size_piggyback_headers, self.piggyback_headers_size))
+    return (len(header_data) + self.piggyback_headers_size <
+        max_size_piggyback_headers)
   def _num_piggyback_headers(self):
     # Compute the number of piggybacking headers that can be
     # inserted in container of a given index.
@@ -568,6 +586,8 @@ class Container:
     extra_chars = Digest.dataDigestSize() - len(header_index_str)
     header_index_str = header_index_str + (" " * extra_chars)
     self.add_block(header_index_str, CODE_HEADER, header_data)
+    self.piggyback_headers_num += 1
+    self.piggyback_headers_size += len(header_data)
   def finish_dump(self):
     if self.compression_active:
       self.body_dumper.stop_compression()
@@ -605,6 +625,7 @@ class Container:
     #
     # Write the header
     #
+    assert self.header_file.tell() == 0
     self.header_file.write(MAGIC)
     Format.write_int(self.header_file, VERSION)
     Format.write_int(self.header_file, self.index)

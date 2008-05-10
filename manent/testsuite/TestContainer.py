@@ -73,6 +73,9 @@ class MockStorage:
     self.header_file = open(self.header_file_name, "r+w") 
     self.body_file = open(self.body_file_name, "r+w")
     self.container_file = open(self.container_file_name, "r+w")
+    os.unlink(self.header_file_name)
+    os.unlink(self.body_file_name)
+    os.unlink(self.container_file_name)
 
     self.env = Database.PrivateDatabaseManager()
     self.txn = Database.TransactionHandler(self.env)
@@ -81,9 +84,9 @@ class MockStorage:
     self.cur_index = 0
 
   def cleanup(self):
-    os.unlink(self.header_file_name)
-    os.unlink(self.body_file_name)
-    os.unlink(self.container_file_name)
+    for f in [self.header_file, self.body_file, self.container_file]:
+      f.truncate()
+      f.seek(0)
 
   def get_container(self,index):
     container = Container.Container(self)
@@ -123,7 +126,7 @@ class MockStorage:
     self.container_file.write(self.body_file.read())
 
   def container_size(self):
-    return 1024
+    return Container.MAX_COMPRESSED_DATA + 1024
 
 DATA = [
   "",
@@ -341,9 +344,9 @@ class TestContainer(unittest.TestCase):
         15: 0,
         16: 16,
         17: 0,
-        1024: 1024}
+        64: 64}
     header_contents = "header"
-    for index in range(10000):
+    for index in range(120):
       container = storage.create_container()
       if EXPECTED_HEADER_COUNTS.has_key(container.get_index()):
         exp_headers = EXPECTED_HEADER_COUNTS[container.get_index()]
@@ -354,4 +357,5 @@ class TestContainer(unittest.TestCase):
           container.add_piggyback_header(exp_headers - i, header_contents)
         self.failIf(container.can_add_piggyback_header(header_contents))
       storage.finalize_container(container)
+      storage.cleanup()
       # TODO(gsasha): Read the container to see that we get the headers back.
