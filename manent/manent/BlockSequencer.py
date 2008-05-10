@@ -103,7 +103,7 @@ class BlockSequencer:
       header_data = self.piggyback_headers_db[str(header)]
       if not container.can_add_piggyback_header(header_data):
         break
-      container.add_piggyback_header(header_data)
+      container.add_piggyback_header(header, header_data)
     # Clean up old piggyback headers
     for header in range(self.piggyback_first_header,
                         self.piggyback_last_header -

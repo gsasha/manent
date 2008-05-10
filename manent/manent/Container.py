@@ -4,13 +4,15 @@
 #
 
 import base64
-import bz2, zlib
+import bz2
 import Crypto.Cipher.ARC4
+import logging
 import os, os.path, shutil
 import re
 import cStringIO as StringIO
 import sys
 import traceback
+import zlib
 
 import manent.utils.Digest as Digest
 import manent.utils.Format as Format
@@ -90,6 +92,8 @@ MAGIC = "MNNT"
 VERSION = 2
 
 MAX_COMPRESSED_DATA = 256*1024
+
+EXPECTED_NUM_PIGGYBACK_HEADERS = 1024
 
 #
 # Codes for blocks stored in the body
@@ -480,6 +484,8 @@ class Container:
       self.sequence_id, self.index)
     self.body_file = self.storage.open_body_file(
       self.sequence_id, self.index)
+    self.piggyback_headers_num = 0
+    self.piggyback_headers_size = 0
 
     self.body_dumper = DataDumper(self.body_file)
     self.header_dump_os = StringIO.StringIO()
@@ -518,13 +524,13 @@ class Container:
         self.header_dumper.total_size +
         MAX_COMPRESSED_DATA + 64)
     return current_size + len(data) <= self.storage.container_size()
-  def can_add(self, data):
-    return self._can_add_bytes(len(data))
   def can_fill(self, num_blocks, size_blocks):
     """Test if the given number of blocks with given size
     will fill the container. Assume that the blocks are not compressible"""
     return self.can_add_bytes(num_blocks * (8 + Digest.dataDigestSize()) + 
         size_blocks)
+  def can_add(self, data):
+    return self._can_add_bytes(len(data))
   def add_block(self, digest, code, data):
     if self.compression_active and self.compressed_data > MAX_COMPRESSED_DATA:
       self.body_dumper.stop_compression()
@@ -535,6 +541,33 @@ class Container:
     self.compressed_data += len(data)
     
     self.body_blocks.append((digest, code))
+  #
+  # Support for adding piggyback headers.
+  #
+  def can_add_piggyback_header(self, header_data):
+    if not self.can_add(header_data):
+      return False
+    max_num_piggyback_headers = self._num_piggyback_headers()
+    if self.piggyback_headers_num > max_num_piggyback_headers:
+      return False
+    max_size_piggyback_headers = (max_num_piggyback_headers *
+        self.storage.container_size() / MAX_PIGGYBACK_HEADERS)
+    return (header_data + size_piggyback_headers < max_size_piggyback_headers)
+  def _num_piggyback_headers(self):
+    # Compute the number of piggybacking headers that can be
+    # inserted in container of a given index.
+    # The following numbers are reasonable:
+    # 0: 0, 1:0, ..., 4:4, ..., 8:4, ..., 16: 16, 20:4
+    filtered = _last_set_bit(self.index)
+    return (filtered | (filtered >> 1)) & 0x55555554
+  def add_piggyback_header(self, header_index, header_data):
+    # A piggyback header is not accessed by address, so we don't need its
+    # digest. We thus use the digest field to store its index.
+    # We encode the index as a decimal integer string, padded with spaces.
+    header_index_str = str(header_index)
+    extra_chars = Digest.dataDigestSize() - len(header_index_str)
+    header_index_str = header_index_str + (" " * extra_chars)
+    self.add_block(header_index_str, CODE_HEADER, header_data)
   def finish_dump(self):
     if self.compression_active:
       self.body_dumper.stop_compression()
@@ -572,7 +605,6 @@ class Container:
     #
     # Write the header
     #
-    
     self.header_file.write(MAGIC)
     Format.write_int(self.header_file, VERSION)
     Format.write_int(self.header_file, self.index)
@@ -582,6 +614,8 @@ class Container:
     header_dump_str = self.header_dump_os.getvalue()
     Format.write_int(self.header_file, len(header_dump_str))
     self.header_file.write(header_dump_str)
+    logging.debug("Container %d has header of size %d" %
+        (self.index, self.header_file.tell()))
   def get_header_contents(self):
     # Returns the contents of the header. Should be called only after
     # finish_dump has been executed
@@ -642,8 +676,8 @@ class Container:
       self.sequence_id, self.index)
     body_file = None
     if header_file is None:
-      body_file = self.storage.load_body_file(
-        self.sequence_id, self.index)
+      logging.debug("Header file not ready. Reading it from body file")
+      body_file = self.storage.load_body_file(self.sequence_id, self.index)
       header_file = body_file
     body_blocks = self._load_header(header_file)
     
@@ -657,8 +691,9 @@ class Container:
       return
     
     if body_file is None:
-      body_file = self.storage.load_body_file(
-        self.sequence_id, self.index)
+      logging.debug("Loading body file and skipping header of size %d" %
+          header_file.tell())
+      body_file = self.storage.load_body_file(self.sequence_id, self.index)
       body_file.seek(header_file.tell())
 
     body_dump_loader = DataDumpLoader(body_file, body_blocks,

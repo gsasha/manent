@@ -65,19 +65,24 @@ class MockStorage:
     self.password = password
     dummy, self.header_file_name = tempfile.mkstemp(
       ".header","manent.test_container", Config.paths.temp_area())
-    self.header_file = open(self.header_file_name, "r+w") 
     dummy, self.body_file_name = tempfile.mkstemp(
       ".body", "manent.test_container", Config.paths.temp_area())
+    dummy, self.container_file_name = tempfile.mkstemp(
+      ".container", "manent.test_container", Config.paths.temp_area())
+    self.header_file = open(self.header_file_name, "r+w") 
+    self.body_file = open(self.body_file_name, "r+w")
+    self.container_file = open(self.container_file_name, "r+w")
+
     self.env = Database.PrivateDatabaseManager()
     self.txn = Database.TransactionHandler(self.env)
     self.summary_headers_db = self.env.get_database_btree("summary_headers_db",
         None, None)
-    self.body_file = open(self.body_file_name, "r+w")
     self.cur_index = 0
 
   def cleanup(self):
     os.unlink(self.header_file_name)
     os.unlink(self.body_file_name)
+    os.unlink(self.container_file_name)
 
   def get_container(self,index):
     container = Container.Container(self)
@@ -94,8 +99,8 @@ class MockStorage:
     self.header_file.seek(0)
     return self.header_file
   def load_body_file(self, sequence_id, index):
-    self.body_file.seek(0)
-    return self.body_file
+    self.container_file.seek(0)
+    return self.container_file
   def get_label(self):
     return "mukakaka"
   
@@ -110,9 +115,11 @@ class MockStorage:
     container.upload()
 
   def upload_container(self, sequence_id, index, header_file, body_file):
-    # We know (in this test) that header file and body file are the same,
-    # so there's nothing to do
-    pass
+    # To upload the container, we first write its header and then its body.
+    self.header_file.seek(0)
+    self.container_file.write(self.header_file.read())
+    self.body_file.seek(0)
+    self.container_file.write(self.body_file.read())
 
 DATA = [
   "",
@@ -129,7 +136,7 @@ DATA = [
 class TestContainer(unittest.TestCase):
 
   def test_data_dumper(self):
-    """Basic test of data dumper: data in, data out"""
+    # Basic test of data dumper: data in, data out
     handler = MockHandler()
     outfile = StringIO.StringIO()
     dumper = Container.DataDumper(outfile)
@@ -148,7 +155,7 @@ class TestContainer(unittest.TestCase):
     self.failUnless(handler.check())
   
   def test_data_dumper_compress(self):
-    """Test data dumper when compression is enabled"""
+    # Test data dumper when compression is enabled
     handler = MockHandler()
     outfile = StringIO.StringIO()
     dumper = Container.DataDumper(outfile)
@@ -169,7 +176,7 @@ class TestContainer(unittest.TestCase):
     self.failUnless(handler.check())
 
   def test_data_dumper_encrypt(self):
-    """Test data dumper when encryption is enabled"""
+    # Test data dumper when encryption is enabled
     handler = MockHandler()
     outfile = StringIO.StringIO()
     dumper = Container.DataDumper(outfile)
@@ -193,7 +200,7 @@ class TestContainer(unittest.TestCase):
     self.failUnless(handler.check())
 
   def test_data_dumper_stress(self):
-    """Test with really lots of randomly generated data"""
+    # Test with really lots of randomly generated data
     handler = MockHandler()
     outfile = StringIO.StringIO()
     dumper = Container.DataDumper(outfile)
@@ -296,9 +303,9 @@ class TestContainer(unittest.TestCase):
     self.failUnless(handler.check())
 
   def test_container(self):
-    """Test that container is created correctly.
-    See that the container is created, stored and reloaded back,
-    and that all blocks get restored"""
+    # Test that container is created correctly.
+    # See that the container is created, stored and reloaded back,
+    # and that all blocks get restored
     storage = MockStorage(password="kakamaika")
     handler = MockHandler()
 
@@ -315,3 +322,6 @@ class TestContainer(unittest.TestCase):
     
     storage.cleanup()
 
+  def test_piggyback_headers(self):
+    # Test that piggyback headers are handled correctly
+    self.fail()
