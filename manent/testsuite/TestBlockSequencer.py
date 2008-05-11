@@ -87,7 +87,7 @@ class TestBlockSequencer(unittest.TestCase):
         self.env, self.txn, self.storage_manager, self.block_manager)
     self.assertEquals(0, bs.num_containers_created)
     for i in range(5000):
-      block = "A" * 100 + str(i)
+      block = os.urandom(500) + str(i)
       logging.debug("Adding block %d: %s" % (i, block))
       bs.add_block(Digest.dataDigest(block), Container.CODE_DATA, block)
     # First container is created on the first block, so we need at least another
@@ -97,12 +97,13 @@ class TestBlockSequencer(unittest.TestCase):
   def test_add_many_aside_blocks(self):
     # Check that if aside blocks are added sufficiently many times, they will
     # eventually be written to a container.
+    self.storage_manager.storage.max_container_size = 512 * 1024
     bs = BlockSequencer.BlockSequencer(
         self.env, self.txn, self.storage_manager, self.block_manager)
     # All these blocks sit aside, and are not inserted into a container until a
     # normal block is inserted.
     for i in range(2000):
-      block = "A" * 250 + str(i)
+      block = os.urandom(1024)
       digest = Digest.dataDigest(block)
       logging.debug("Adding aside block %d: %d" % (i, len(block)))
       self.block_manager.add_block(digest, Container.CODE_DIR, block)
@@ -112,7 +113,9 @@ class TestBlockSequencer(unittest.TestCase):
     # created - this is because the aside blocks have been pushed.
     # Dummy block must be larger than the aside block, otherwise it might fit
     # in the container which refused the aside block.
-    bs.add_block(Digest.dataDigest("d" * 500), Container.CODE_DATA, "d" * 500)
+    block = os.urandom(2048)
+    digest = Digest.dataDigest(block)
+    bs.add_block(digest, Container.CODE_DATA, block)
     self.assert_(1 < bs.num_containers_created)
 
   def test_flush_empty(self):
