@@ -1,6 +1,17 @@
-import random
+#
+#    Copyright (C) 2008 Alex Gontmakher <gsasha@gmail.com>
+#    License: see LICENSE.txt
+#
+
 import cStringIO as StringIO
+import os
+import random
 import unittest
+
+# Point to the code location so that it is found when unit tests
+# are executed. We assume that sys.path[0] is the path to the module
+# itself. This allows the test to be executed directly by testoob.
+sys.path.append(os.path.join(sys.path[0], ".."))
 
 import manent.utils.IntegerEncodings as IE
 
@@ -12,9 +23,11 @@ class TestFormat(unittest.TestCase):
 
 	def test_ascii_encode(self):
 		for i in self.nums:
-			self.assertEqual(i, IE.ascii_decode_int_varlen(IE.ascii_encode_int_varlen(i)))
+			self.assertEqual(i,
+          IE.ascii_decode_int_varlen(IE.ascii_encode_int_varlen(i)))
 			num = random.randint(-abs(i),abs(i))
-			self.assertEqual(num, IE.ascii_decode_int_varlen(IE.ascii_encode_int_varlen(num)))
+			self.assertEqual(num,
+          IE.ascii_decode_int_varlen(IE.ascii_encode_int_varlen(num)))
 
 	def test_ascii_stream_encode(self):
 		ostream = StringIO.StringIO()
