@@ -269,6 +269,9 @@ class StorageManager:
       self._write_container(self.current_open_container)
       self.current_open_container = None
     storage.flush()
+  def create_container(self):
+    storage = self.storages[get_active_storage_index]
+    return storage.create_container()
   def container_written(self, container):
     # Update the container in the blocks db
     container_idx = container.get_index()

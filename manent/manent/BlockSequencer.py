@@ -108,7 +108,7 @@ class BlockSequencer:
   def open_container(self):
     self.num_containers_created += 1
     # 1. Ask the storage to create a new empty container.
-    container = self.storage_manager.get_active_storage().create_container()
+    container = self.storage_manager.create_container()
     # 2. Push into the container as many piggybacking blocks as it's willing to
     # accept.
     for header in range(self.piggyback_last_header,

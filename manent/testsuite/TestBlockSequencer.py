@@ -35,6 +35,11 @@ class MockStorageManager:
         (base64.b64encode(digest), Container.code_name(code), data))
     self.block_manager.add_block(digest, code, data)
     self.blocks.append((digest, code, data, self.container))
+  def create_container(self):
+    index = self.container
+    self.container += 1
+    container = Container.Container(self)
+    container.start_dump("NOSEQUENCE", index)
   def load_blocks_for(self, digest, handler):
     self.num_load_block_requests += 1
     found_container = None

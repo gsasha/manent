@@ -22,6 +22,7 @@ import manent.Container as Container
 import manent.Database as Database
 import manent.Storage as Storage
 import manent.utils.Digest as Digest
+import Mock
 
 #random.seed(23423)
 
@@ -62,99 +63,6 @@ class MockHandler:
         return False
     return True
 
-class MockStorage:
-  def __init__(self, password):
-    self.password = password
-    self.containers = {}
-    self.container_sizes = {}
-    self.piggybacking_headers = True
-    self.tempdir = tempfile.mkdtemp()
-
-    self.cur_index = 0
-
-  def set_piggybacking_headers(self, h):
-    self.piggybacking_headers = h
-
-  def get_container(self, index):
-    # We can load header file or body file only after it was written, i.e.,
-    # after open_header_file() and upload() were done.
-    container = Container.Container(self)
-    container.start_load("sequence_a", index)
-    return container
-
-  def get_encryption_key(self):
-    return self.password
-
-  def load_header_file(self, sequence_id, index):
-    if self.piggybacking_headers:
-      header, body, container = self.containers[index]
-      container.seek(0)
-      logging.debug("Container %d file has size %d" %
-          (index, len(container.getvalue())))
-      return container
-    else:
-      return None
-  def load_body_file(self, sequence_id, index):
-    header, body, container = self.containers[index]
-    container.seek(0)
-    logging.debug("Container %d file has size %d" %
-        (index, len(container.getvalue())))
-    hs, bs = self.container_sizes[index]
-    logging.debug("Container %d file has header %s" %
-        (index, base64.b16encode(container.getvalue()[:hs])))
-    logging.debug("Container %d file has body %s" %
-        (index, base64.b16encode(container.getvalue()[hs:])))
-
-    assert hs + bs == len(container.getvalue())
-    return container
-  def get_label(self):
-    return "mukakaka"
-  
-  def create_container(self):
-    self._open_container_files(self.cur_index)
-    container = Container.Container(self)
-    container.start_dump("sequence_a", self.cur_index)
-    self.cur_index += 1
-    return container
-
-  def open_header_file(self, sequence_id, index):
-    header, body, container = self.containers[index]
-    return header
-  def open_body_file(self, sequence_id, index):
-    header, body, container = self.containers[index]
-    return body
-
-  def finalize_container(self, container):
-    container.finish_dump()
-    container.upload()
-
-  def upload_container(self, sequence_id, index, header_file, body_file):
-    # To upload the container, we first write its header and then its body.
-    header, body, container = self.containers[index]
-    header.seek(0)
-    header_contents = header.read()
-    container.write(header_contents)
-    body.seek(0)
-    body_contents = body.read()
-    container.write(body_contents)
-    logging.debug("Uploaded container %d: header size=%d, body size=%d"
-        % (index, len(header_contents), len(body_contents)))
-    logging.debug("Container body %s" % base64.b16encode(body_contents))
-    # header and body should not be used anymore after container was uploaded.
-    self.containers[index] = (None, None, container)
-    self.container_sizes[index] = (len(header_contents),
-        len(body_contents))
-
-  def container_size(self):
-    return Container.MAX_COMPRESSED_DATA + 1024
-
-  def _open_container_files(self, index):
-    if self.containers.has_key(index):
-      raise Exception("Container %d already created" % index)
-    header_file = StringIO.StringIO()
-    body_file = StringIO.StringIO()
-    container_file = StringIO.StringIO()
-    self.containers[index] = (header_file, body_file, container_file)
 
 DATA = [
   "",
@@ -171,7 +79,7 @@ DATA = [
 class TestContainer(unittest.TestCase):
 
   def setUp(self):
-    self.storage = MockStorage("kakamaika")
+    self.storage = Mock.MockStorage("kakamaika")
   def tearDown(self):
     self.storage = None
   def test_data_dumper(self):
