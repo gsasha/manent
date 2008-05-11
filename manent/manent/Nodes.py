@@ -172,7 +172,8 @@ class Node:
     if prev_type != self.get_type():
       logging.info("node type differs in the db")
       changed = True
-    #elif stat.S_IFMT(self.stats[stat.ST_MODE]) != stat.S_IFMT(prev_stat[stat.ST_MODE]):
+    #elif (stat.S_IFMT(self.stats[stat.ST_MODE]) !=
+           #stat.S_IFMT(prev_stat[stat.ST_MODE])):
       #print "  Node type differs in the fs"
       #changed = True
     elif prev_stat is None:
@@ -189,7 +190,8 @@ class Node:
     elif time.time() - self.stats[stat.ST_MTIME] <= 1.0:
       # The time from the last change is less than the resolution
       # of time() functions
-      logging.info("File too recent", prev_stat[stat.ST_MTIME], time.time())
+      logging.info("File too recent %d : %d" %
+          (prev_stat[stat.ST_MTIME], time.time()))
       changed = True
     else:
       #
@@ -261,7 +263,7 @@ class File(Node):
     """
     Test that loading the data from the storages is successful
     """
-    logging.info("Testing", self.path())
+    logging.info("Testing " + self.path())
     packer = PackerStream.PackerIStream(self.backup, self.digest,
       self.level)
     for data in FileIO.read_blocks(packer, Digest.dataDigestSize()):
@@ -385,7 +387,7 @@ class Directory(Node):
   def scan(self, ctx, prev_num, exclusion_processor):
     """Scan the node, considering data in all the previous increments
     """
-    logging.info("Scanning directory", self.path())
+    logging.info("Scanning directory " + self.path())
     #
     # Process data from previous increments.
     #
@@ -525,8 +527,10 @@ class Directory(Node):
     Write the info of the current dir to database
     """
     packer = PackerStream.PackerOStream(self.backup, Container.CODE_DIR)
-    # sorting is an optimization to make everybody access files in the same order,
-    # TODO: measure if this really makes things faster (probably will with a btree db)
+    # sorting is an optimization to make everybody access files in the same
+    # order.
+    # TODO: measure if this really makes things faster
+    # (probably will with a btree db)
     for child in self.children:
       Format.write_int(packer, child.get_type())
       Format.write_string(packer, child.get_name())
@@ -539,7 +543,7 @@ class Directory(Node):
     self.level = packer.get_level()
     
   def test(self, ctx):
-    logging.info("Testing", self.path())
+    logging.info("Testing " + self.path())
 
     packer = PackerStream.PackerIStream(self.backup, self.get_digest(),
       self.get_level())
@@ -559,7 +563,7 @@ class Directory(Node):
       node.test(ctx)
   
   def restore(self, ctx):
-    logging.info("Restoring", self.path())
+    logging.info("Restoring " + self.path())
     if self.parent != None:
       os.mkdir(self.path())
 
