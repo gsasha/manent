@@ -540,10 +540,10 @@ class Container:
         self.header_dumper.total_size +
         MAX_COMPRESSED_DATA + 64)
     return current_size + data_size <= self.storage.container_size()
-  def can_fill(self, num_blocks, size_blocks):
+  def is_filled_by(self, num_blocks, size_blocks):
     """Test if the given number of blocks with given size
     will fill the container. Assume that the blocks are not compressible"""
-    return not self.can_add_bytes(num_blocks * (8 + Digest.dataDigestSize()) + 
+    return not self._can_add_bytes(num_blocks * (8 + Digest.dataDigestSize()) + 
         size_blocks)
   def can_add(self, data):
     return self._can_add_bytes(len(data))

@@ -9,6 +9,7 @@ import os
 import sys
 
 import BlockManager
+import Container
 
 class BlockSequencer:
   def __init__(self, db_manager, txn_manager, storage_manager):
@@ -77,11 +78,14 @@ class BlockSequencer:
     # We're writing this block. Make sure we have a container that can accept
     # it.
     if self.current_open_container is None:
+      logging.debug("Creating a container for the first time")
       self.current_open_container = self.open_container()
     else:
       # The container can be filled by aside data, so we might need several
       # attempts of container creation.
       while not self.current_open_container.can_add(data):
+        logging.debug("Container %d can't add data '%s'"
+            % (self.current_open_container.get_index(), data))
         self.write_container(self.current_open_container)
         self.current_open_container = self.open_container()
     # Ok, a container is ready.
@@ -108,21 +112,25 @@ class BlockSequencer:
   def open_container(self):
     self.num_containers_created += 1
     # 1. Ask the storage to create a new empty container.
+    logging.debug("BlockSequencer: creating a new container")
     container = self.storage_manager.create_container()
     # 2. Push into the container as many piggybacking blocks as it's willing to
     # accept.
-    for header in range(self.piggyback_last_header,
-                        self.piggyback_first_header - 1, -1):
+    rejected_header = None
+    for header in range(self.piggyback_header_last,
+                        self.piggyback_header_first - 1, -1):
       header_data = self.piggyback_headers_db[str(header)]
       if not container.can_add_piggyback_header(header_data):
+        rejected_header = header
         break
+      logging.debug("Adding piggyback header %d to container %d"
+          % (header, container.get_index()))
       container.add_piggyback_header(header, header_data)
-    # Clean up old piggyback headers
-    for header in range(self.piggyback_first_header,
-                        self.piggyback_last_header -
-                        Container.MAX_PIGGYBACK_HEADERS):
-      del self.piggyback_headers_db[str(header)]
-    self.piggyback_first_header = header
+    # Clean up piggyback headers that cannot be inserted anymore.
+    if rejected_header is not None:
+      for header in range(self.piggyback_header_first, rejected_header + 1):
+        del self.piggyback_headers_db[str(header)]
+      self.piggyback_first_header = rejected_header + 1
     # 3. If the container can be filled by currently collected aside blocks,
     # write them out to the container, write the container out and open a new
     # one again.
@@ -132,8 +140,11 @@ class BlockSequencer:
         code, data = self.block_manager.load_block(digest)
         if not container.can_add(data):
           break
+        logging.debug("Adding aside block %d to container %d"
+            % (block_idx, container.get_index()))
         container.add_block(digest, code, data)
         self.aside_block_num -= 1
         self.aside_block_size -= len(data)
       self.aside_block_first = block_idx
+    return container
 

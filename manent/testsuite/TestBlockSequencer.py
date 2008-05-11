@@ -17,6 +17,7 @@ import manent.BlockSequencer as BlockSequencer
 import manent.Container as Container
 import manent.Database as Database
 import manent.utils.Digest as Digest
+import Mock
 
 # For the purposes of this testing, we don't care that storage manager
 # has smart restoring and multi-sequence, multi-storage capabilities.
@@ -28,33 +29,18 @@ class MockStorageManager:
     self.container = 0
     self.num_load_block_requests = 0
     self.num_blocks_loaded = 0
-  def new_container(self):
-    self.container += 1
+    self.storage = Mock.MockStorage(password="kakamaika")
   def add_block(self, digest, code, data):
     logging.debug("adding block %s %s %s" %
         (base64.b64encode(digest), Container.code_name(code), data))
     self.block_manager.add_block(digest, code, data)
     self.blocks.append((digest, code, data, self.container))
   def create_container(self):
-    index = self.container
-    self.container += 1
-    container = Container.Container(self)
-    container.start_dump("NOSEQUENCE", index)
-  def load_blocks_for(self, digest, handler):
-    self.num_load_block_requests += 1
-    found_container = None
-    for b_digest, b_code, b_data, b_container in self.blocks:
-      if digest == b_digest:
-        found_container = b_container
-    for b_digest, b_code, b_data, b_container in self.blocks:
-      if handler.is_requested(b_digest, b_code):
-        logging.debug("block requested: %s %s" %
-            (base64.b64encode(b_digest), Container.code_name(b_code)))
-        handler.loaded(b_digest, b_code, b_data)
-        self.num_blocks_loaded += 1
-      else:
-        logging.debug("block not requested: %s %s" %
-            (base64.b64encode(b_digest), Container.code_name(b_code)))
+    return self.storage.create_container()
+  def container_written(self, container):
+    # Do nothing - unlike real StorageManager, we don't register the blocks
+    # anywhere.
+    pass
 
 class TestBlockSequencer(unittest.TestCase):
   def setUp(self):
@@ -75,7 +61,7 @@ class TestBlockSequencer(unittest.TestCase):
     self.assertEquals(len(block), bs.get_aside_blocks_size())
     bs.close()
 
-    # Chech taht if BlockSequencer is started the second time, all the state is
+    # Check that if BlockSequencer is started the second time, all the state is
     # preserved.
     bs = BlockSequencer.BlockSequencer(self.env, self.txn, self.storage_manager)
     self.assertEquals(1, bs.get_aside_blocks_num())
@@ -86,10 +72,14 @@ class TestBlockSequencer(unittest.TestCase):
     # Check that if blocks are added sufficiently many times, a new container
     # will be created.
     bs = BlockSequencer.BlockSequencer(self.env, self.txn, self.storage_manager)
-    for i in range(10000):
+    self.assertEquals(0, bs.num_containers_created)
+    for i in range(5000):
       block = "A" * 100 + str(i)
+      logging.debug("Adding block %d: %s" % (i, block))
       bs.add_block(Digest.dataDigest(block), Container.CODE_DATA, block)
-    self.assert_(0 < bs.num_containers_created)
+    # First container is created on the first block, so we need at least another
+    # one to be created to know that the first one was closed.
+    self.assert_(1 < bs.num_containers_created)
 
   def test_add_aside_block(self):
     # Check that if we add an aside block, it is not written immediately.

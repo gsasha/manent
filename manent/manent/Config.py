@@ -104,136 +104,138 @@ BACKUP_EXCLUSION_RULES_TEMPLATE = """
 #
 # The lists of names are stored as arrays of strings.
 class Paths:
-	def __init__(self):
-		self.staging_area_exists = False
-		self.home_area_exists = False
-	def home_area(self):
-		if os.environ.has_key("MANENT_HOME_DIR"):
-			# Allow the user to override the placement of
-			# manent home, esp. for testing
-			path = os.environ["MANENT_HOME_DIR"]
-		elif os.name == "nt":
-			path = os.path.join(os.environ["APPDATA"], "manent1")
-		else:
-			path = os.path.join(os.environ["HOME"], ".manent1")
-		if not self.home_area_exists and not os.path.exists(path):
-			os.makedirs(path, 0700)
-			self.home_area_exists = True
-			rules_file_name = os.path.join(path, "exclusion_rules")
-			if not os.path.isfile(rules_file_name):
-				print "Creating default rules file"
-				rules_file = open(rules_file_name, "w")
-				rules_file.write(EXCLUSION_RULES_TEMPLATE)
-				rules_file.close()
-		return path
+  def __init__(self):
+    self.staging_area_exists = False
+    self.home_area_exists = False
+  def home_area(self):
+    if os.environ.has_key("MANENT_HOME_DIR"):
+      # Allow the user to override the placement of
+      # manent home, esp. for testing
+      path = os.environ["MANENT_HOME_DIR"]
+    elif os.name == "nt":
+      path = os.path.join(os.environ["APPDATA"], "manent1")
+    else:
+      path = os.path.join(os.environ["HOME"], ".manent1")
+    if not self.home_area_exists and not os.path.exists(path):
+      os.makedirs(path, 0700)
+      self.home_area_exists = True
+      rules_file_name = os.path.join(path, "exclusion_rules")
+      if not os.path.isfile(rules_file_name):
+        print "Creating default rules file"
+        rules_file = open(rules_file_name, "w")
+        rules_file.write(EXCLUSION_RULES_TEMPLATE)
+        rules_file.close()
+    return path
 
-	def backup_home_area(self, label):
-		return os.path.join(self.home_area(), "BACKUP." + label)
+  def backup_home_area(self, label):
+    return os.path.join(self.home_area(), "BACKUP." + label)
 
-	def staging_area(self):
-		if os.name == "nt":
-			path = os.path.join(os.environ["TEMP"], "manent.staging")
-		else:
-			path = "/tmp/manent.staging."+os.environ["USER"]
-		if not self.staging_area_exists and not os.path.exists(path):
-			os.makedirs(path, 0700)
-			self.staging_area_exists = True
-		return path
+  def staging_area(self):
+    if os.name == "nt":
+      path = os.path.join(os.environ["TEMP"], "manent.staging")
+    else:
+      path = "/tmp/manent.staging."+os.environ["USER"]
+    if not self.staging_area_exists and not os.path.exists(path):
+      os.makedirs(path, 0700)
+      self.staging_area_exists = True
+    return path
 
-	def backup_staging_area(self, label):
-		return os.path.join(self.staging_area(), "BACKUP." + label)
+  def backup_staging_area(self, label):
+    return os.path.join(self.staging_area(), "BACKUP." + label)
 
-	def temp_area(self):
-		if os.name == "nt":
-			return os.environ["TEMP"]
-		else:
-			return "/tmp"
+  def temp_area(self):
+    if os.name == "nt":
+      return os.environ["TEMP"]
+    else:
+      return "/tmp"
 
 paths = Paths()
 
 def init_logging():
-	import logging.config
-	try:
-		logging.config.fileConfig(os.path.join(paths.home_area(),
-			"manent_logging_config"))
-	except:
-		pass
-	try:
-		logging.config.fileConfig("./.manent_logging_config")
-	except:
-		pass
-	print "Logging initialized"
-	if os.environ.has_key("MANENT_LOGGING_LEVEL"):
-		level = os.environ["MANENT_LOGGING_LEVEL"]
-		LEVELS = { "NOTSET": logging.NOTSET,
-				   "DEBUG": logging.DEBUG,
-				   "INFO": logging.INFO,
-				   "ERROR": logging.ERROR,
-				   "CRITICAL": logging.CRITICAL }
-		if LEVELS.has_key(level):
-			logging.getLogger("").setLevel(LEVELS[level])
-			logging.info("Setting logging level to " + level)
-		else:
-			print "Bad logging level env: MANENT_LOGGING_LEVEL=%s", level
+  import logging.config
+  logging.basicConfig(
+      format="%(relativeCreated)d:%(levelname)-8s:%(message)s")
+  try:
+    logging.config.fileConfig(os.path.join(paths.home_area(),
+      "manent_logging_config"))
+  except:
+    pass
+  try:
+    logging.config.fileConfig("./.manent_logging_config")
+  except:
+    pass
+  print "Logging initialized"
+  if os.environ.has_key("MANENT_LOGGING_LEVEL"):
+    level = os.environ["MANENT_LOGGING_LEVEL"]
+    LEVELS = { "NOTSET": logging.NOTSET,
+           "DEBUG": logging.DEBUG,
+           "INFO": logging.INFO,
+           "ERROR": logging.ERROR,
+           "CRITICAL": logging.CRITICAL }
+    if LEVELS.has_key(level):
+      logging.getLogger("").setLevel(LEVELS[level])
+      logging.info("Setting logging level to " + level)
+    else:
+      print "Bad logging level env: MANENT_LOGGING_LEVEL=%s", level
 
 init_logging()
 
 class GlobalConfig:
-	def __init__(self):
-		self.config_parser = ConfigParser.ConfigParser()
-		self.open_backups = []
+  def __init__(self):
+    self.config_parser = ConfigParser.ConfigParser()
+    self.open_backups = []
 
-	#
-	# Configuration persistence
-	#
-	def load(self):
-		self.config_parser.read(os.path.join(paths.home_area(),
-			"config.ini"))
-	def save(self):
-		self.config_parser.write(open(os.path.join(paths.home_area(),
-			"config.ini"), "w"))
-		for backup in self.open_backups:
-			# Save the data for the backup
-			pass
-	def close(self):
-		#for backup in self.open_backups:
-		#	backup.close()
-		pass
-	
-	def create_backup(self, label):
-		if self.has_backup(label):
-			raise "Backup %s already exists"%label
+  #
+  # Configuration persistence
+  #
+  def load(self):
+    self.config_parser.read(os.path.join(paths.home_area(),
+      "config.ini"))
+  def save(self):
+    self.config_parser.write(open(os.path.join(paths.home_area(),
+      "config.ini"), "w"))
+    for backup in self.open_backups:
+      # Save the data for the backup
+      pass
+  def close(self):
+    #for backup in self.open_backups:
+    # backup.close()
+    pass
+  
+  def create_backup(self, label):
+    if self.has_backup(label):
+      raise "Backup %s already exists"%label
 
-		print "Creating backup label[%s]"%(label)
-		backup = Backup.Backup(self, label)
-		self.open_backups.append(backup)
-		self.config_parser.add_section("backups/" + label)
-		
-		return backup
-	def load_backup(self, label):
-		if not self.has_backup(label):
-			raise "Backup %s does not exist"%label
-		
-		backup = Backup.Backup(self, label)
-		self.open_backups.append(backup)
-		
-		return backup
-	def remove_backup(self, label):
-		if not self.has_backup(label):
-			raise "Backup %s does not exist"%label
-		backup = Backup.Backup(self, label)
-		backup.remove()
-		
-	def has_backup(self,label):
-		return self.config_parser.has_section("backups/"+label)
-	def list_backups(self):
-		result = []
-		for key in self.config_parser.sections():
-			match = re.match("backups/([^/]+)", key)
-			if match:
-				result.append(match.group(1))
-		return result
-	def get_backup(self, label):
-		return self.backups[label]
+    print "Creating backup label[%s]"%(label)
+    backup = Backup.Backup(self, label)
+    self.open_backups.append(backup)
+    self.config_parser.add_section("backups/" + label)
+    
+    return backup
+  def load_backup(self, label):
+    if not self.has_backup(label):
+      raise "Backup %s does not exist"%label
+    
+    backup = Backup.Backup(self, label)
+    self.open_backups.append(backup)
+    
+    return backup
+  def remove_backup(self, label):
+    if not self.has_backup(label):
+      raise "Backup %s does not exist"%label
+    backup = Backup.Backup(self, label)
+    backup.remove()
+    
+  def has_backup(self,label):
+    return self.config_parser.has_section("backups/"+label)
+  def list_backups(self):
+    result = []
+    for key in self.config_parser.sections():
+      match = re.match("backups/([^/]+)", key)
+      if match:
+        result.append(match.group(1))
+    return result
+  def get_backup(self, label):
+    return self.backups[label]
 
 
