@@ -426,7 +426,7 @@ class TestContainer(unittest.TestCase):
           assert self.headers.has_key(pb_header_index)
           expected_header = "header-%d" % pb_header_index
           received_header = self.headers[pb_header_index]
-          logging.info("Header: expected = '%s', got='%s'" %
+          logging.debug("Header: expected = '%s', got='%s'" %
               (expected_header, received_header))
           assert expected_header == received_header
     for index in range(120):
@@ -441,4 +441,8 @@ class TestContainer(unittest.TestCase):
   def test_piggyback_headers_large_headers(self):
     # Test that if we are trying to piggyback large headers, they would be
     # refused by the container.
-    self.fail()
+    for i in range(65):
+      container = self.storage.create_container()
+    self.assertEquals(64, container.get_index())
+    self.assert_(container.can_add_piggyback_header("h" * 100))
+    self.failIf(container.can_add_piggyback_header("h" * 1000000))
