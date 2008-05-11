@@ -68,11 +68,15 @@ class TestBlockSequencer(unittest.TestCase):
     bs.add_block(Digest.dataDigest(block), Container.CODE_DIR, block)
     self.assertEquals(1, bs.get_aside_blocks_num())
     self.assertEquals(len(block), bs.get_aside_blocks_size())
-  def test_load(self):
-    # Check that if BlockSequencer is started the second time, all its status is
+    bs.close()
+
+    # Chech taht if BlockSequencer is started the second time, all the state is
     # preserved.
-    self.fail()
-    
+    bs = BlockSequencer.BlockSequencer(self.env, self.txn, self.storage_manager)
+    self.assertEquals(1, bs.get_aside_blocks_num())
+    self.assertEquals(len(block), bs.get_aside_blocks_size())
+    bs.close()
+
   def test_container_created(self):
     # Check that if blocks are added sufficiently many times, a new container
     # will be created.
