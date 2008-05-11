@@ -3,8 +3,15 @@
 #    License: see LICENSE.txt
 #
 
+import logging
+import os
+import os.path
 import unittest
-import os, os.path
+
+# Point to the code location so that it is found when unit tests
+# are executed. We assume that sys.path[0] is the path to the module
+# itself. This allows the test to be executed directly by testoob.
+sys.path.append(os.path.join(sys.path[0], ".."))
 
 import manent.ExclusionProcessor as EP
 import UtilFilesystemCreator as FSC
