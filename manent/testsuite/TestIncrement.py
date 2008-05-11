@@ -3,7 +3,14 @@
 #    License: see LICENSE.txt
 #
 
+import logging
+import os
 import unittest
+
+# Point to the code location so that it is found when unit tests
+# are executed. We assume that sys.path[0] is the path to the module
+# itself. This allows the test to be executed directly by testoob.
+sys.path.append(os.path.join(sys.path[0], ".."))
 
 import manent.Database as Database
 import manent.Increment as Increment
