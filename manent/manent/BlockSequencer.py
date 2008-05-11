@@ -27,6 +27,8 @@ class BlockSequencer:
 
     self._read_vars()
     self.current_open_container = None
+    # Statistics kept to support testing.
+    self.num_containers_created = 0
   def get_aside_blocks_num(self):
     return self.aside_block_num
   def get_aside_blocks_size(self):
@@ -104,6 +106,7 @@ class BlockSequencer:
     self.storage_manager.container_written(container)
     self._write_vars()
   def open_container(self):
+    self.num_containers_created += 1
     # 1. Ask the storage to create a new empty container.
     container = self.storage_manager.get_active_storage().create_container()
     # 2. Push into the container as many piggybacking blocks as it's willing to

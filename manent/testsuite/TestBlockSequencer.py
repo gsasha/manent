@@ -80,7 +80,11 @@ class TestBlockSequencer(unittest.TestCase):
   def test_container_created(self):
     # Check that if blocks are added sufficiently many times, a new container
     # will be created.
-    self.fail()
+    bs = BlockSequencer.BlockSequencer(self.env, self.txn, self.storage_manager)
+    for i in range(10000):
+      block = "A" * 100 + str(i)
+      bs.add_block(Digest.dataDigest(block), Container.CODE_DATA, block)
+    self.assert_(0 < bs.num_containers_created)
 
   def test_add_aside_block(self):
     # Check that if we add an aside block, it is not written immediately.
