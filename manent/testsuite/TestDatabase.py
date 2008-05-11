@@ -4,11 +4,18 @@
 #
 
 import exceptions
-import os, os.path
+import logging
+import os
+import os.path
 import random
 import shutil
 import traceback
 import unittest
+
+# Point to the code location so that it is found when unit tests
+# are executed. We assume that sys.path[0] is the path to the module
+# itself. This allows the test to be executed directly by testoob.
+sys.path.append(os.path.join(sys.path[0], ".."))
 
 import manent.Config as Config
 import manent.Database as DB
