@@ -14,9 +14,9 @@ import unittest
 sys.path.append(os.path.join(sys.path[0], ".."))
 
 class TestBlockManager(unittest.TestCase):
-	def setUp(self):
-		self.env = Database.PrivateDatabaseManager()
-		self.storage_manager = MockStorageManager()
+  def setUp(self):
+    self.env = Database.PrivateDatabaseManager()
+    self.storage_manager = MockStorageManager()
   def test1(self):
     pass
 
