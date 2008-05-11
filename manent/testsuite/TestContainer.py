@@ -20,6 +20,7 @@ sys.path.append(os.path.join(sys.path[0], ".."))
 import manent.Config as Config
 import manent.Container as Container
 import manent.Database as Database
+import manent.Storage as Storage
 import manent.utils.Digest as Digest
 
 #random.seed(23423)
@@ -64,55 +65,61 @@ class MockHandler:
 class MockStorage:
   def __init__(self, password):
     self.password = password
-    dummy, self.header_file_name = tempfile.mkstemp(
-      ".header","manent.test_container", Config.paths.temp_area())
-    dummy, self.body_file_name = tempfile.mkstemp(
-      ".body", "manent.test_container", Config.paths.temp_area())
-    dummy, self.container_file_name = tempfile.mkstemp(
-      ".container", "manent.test_container", Config.paths.temp_area())
-    self.header_file = open(self.header_file_name, "r+w") 
-    self.body_file = open(self.body_file_name, "r+w")
-    self.container_file = open(self.container_file_name, "r+w")
-    os.unlink(self.header_file_name)
-    os.unlink(self.body_file_name)
-    os.unlink(self.container_file_name)
+    self.containers = {}
+    self.container_sizes = {}
+    self.tempdir = tempfile.mkdtemp()
 
-    self.env = Database.PrivateDatabaseManager()
-    self.txn = Database.TransactionHandler(self.env)
-    self.summary_headers_db = self.env.get_database_btree("summary_headers_db",
-        None, None)
     self.cur_index = 0
 
   def cleanup(self):
-    for f in [self.header_file, self.body_file, self.container_file]:
-      f.truncate()
-      f.seek(0)
+    # Nothing to do on cleanup: everything is stored in memory.
+    pass
 
-  def get_container(self,index):
+  def get_container(self, index):
+    # We can load header file or body file only after it was written, i.e.,
+    # after open_header_file() and upload() were done.
     container = Container.Container(self)
     container.start_load("sequence_a", index)
     return container
 
   def get_encryption_key(self):
     return self.password
-  def open_header_file(self, sequence_id, index):
-    return self.header_file
-  def open_body_file(self, sequence_id, index):
-    return self.body_file
+
   def load_header_file(self, sequence_id, index):
-    self.header_file.seek(0)
-    return self.header_file
+    header, body, container = self.containers[index]
+    container.seek(0)
+    logging.debug("Container %d file has size %d" %
+        (index, len(container.getvalue())))
+    return container
   def load_body_file(self, sequence_id, index):
-    self.container_file.seek(0)
-    return self.container_file
+    header, body, container = self.containers[index]
+    container.seek(0)
+    logging.debug("Container %d file has size %d" %
+        (index, len(container.getvalue())))
+    hs, bs = self.container_sizes[index]
+    logging.debug("Container %d file has header %s" %
+        (index, base64.b16encode(container.getvalue()[:hs])))
+    logging.debug("Container %d file has body %s" %
+        (index, base64.b16encode(container.getvalue()[hs:])))
+
+    assert hs + bs == len(container.getvalue())
+    return container
   def get_label(self):
     return "mukakaka"
   
   def create_container(self):
+    self._open_container_files(self.cur_index)
     container = Container.Container(self)
     container.start_dump("sequence_a", self.cur_index)
     self.cur_index += 1
     return container
+
+  def open_header_file(self, sequence_id, index):
+    header, body, container = self.containers[index]
+    return header
+  def open_body_file(self, sequence_id, index):
+    header, body, container = self.containers[index]
+    return body
 
   def finalize_container(self, container):
     container.finish_dump()
@@ -120,13 +127,31 @@ class MockStorage:
 
   def upload_container(self, sequence_id, index, header_file, body_file):
     # To upload the container, we first write its header and then its body.
-    self.header_file.seek(0)
-    self.container_file.write(self.header_file.read())
-    self.body_file.seek(0)
-    self.container_file.write(self.body_file.read())
+    header, body, container = self.containers[index]
+    header.seek(0)
+    header_contents = header.read()
+    container.write(header_contents)
+    body.seek(0)
+    body_contents = body.read()
+    container.write(body_contents)
+    logging.debug("Uploaded container %d: header size=%d, body size=%d"
+        % (index, len(header_contents), len(body_contents)))
+    logging.debug("Container body %s" % base64.b16encode(body_contents))
+    # header and body should not be used anymore after container was uploaded.
+    self.containers[index] = (None, None, container)
+    self.container_sizes[index] = (len(header_contents),
+        len(body_contents))
 
   def container_size(self):
     return Container.MAX_COMPRESSED_DATA + 1024
+
+  def _open_container_files(self, index):
+    if self.containers.has_key(index):
+      raise Exception("Container %d already created" % index)
+    header_file = StringIO.StringIO()
+    body_file = StringIO.StringIO()
+    container_file = StringIO.StringIO()
+    self.containers[index] = (header_file, body_file, container_file)
 
 DATA = [
   "",
@@ -142,6 +167,16 @@ DATA = [
 
 class TestContainer(unittest.TestCase):
 
+  def setUp(self):
+    #self.env = Database.PrivateDatabaseManager()
+    #self.txn = Database.TransactionHandler(self.env)
+    #self.storage = Storage.create_storage(self.env, self.txn, 0,
+    #    {'type': "__mock__", 'key': '1'}, MockHandler())
+    self.storage = MockStorage("kakamaika")
+  def tearDown(self):
+    # Clean up the state, to make sure tests don't
+    # interfere.
+    Storage.MemoryStorage.files = {}
   def test_data_dumper(self):
     # Basic test of data dumper: data in, data out
     handler = MockHandler()
@@ -313,22 +348,18 @@ class TestContainer(unittest.TestCase):
     # Test that container is created correctly.
     # See that the container is created, stored and reloaded back,
     # and that all blocks get restored
-    storage = MockStorage(password="kakamaika")
     handler = MockHandler()
-
-    container = storage.create_container()
+    container = self.storage.create_container()
     for d in DATA:
       container.add_block(Digest.dataDigest(d), Container.CODE_DATA, d)
       handler.add_expected(Digest.dataDigest(d), Container.CODE_DATA, d)
-    storage.finalize_container(container)
+    self.storage.finalize_container(container)
     index = container.index
 
-    container = storage.get_container(index)
+    container = self.storage.get_container(index)
     container.load_blocks(handler)
     self.failUnless(handler.check())
     
-    storage.cleanup()
-
   def test_piggyback_headers_small_headers(self):
     # Test that if we are piggybacking small headers, all of them will be
     # inserted into the container.
@@ -359,3 +390,8 @@ class TestContainer(unittest.TestCase):
       storage.finalize_container(container)
       storage.cleanup()
       # TODO(gsasha): Read the container to see that we get the headers back.
+      self.fail()
+  def test_piggyback_headers_large_headers(self):
+    # Test that if we are trying to piggyback large headers, they would be
+    # refused by the container.
+    self.fail()

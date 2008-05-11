@@ -428,7 +428,10 @@ class DataDumpLoader:
             else:
               toread = min(8192, self.uncompress_bytes)
               self.uncompress_bytes -= toread
+              logging.debug("Reading chunk to uncompress at offset %d",
+                  self.file.tell())
               chunk = self.file.read(toread)
+              logging.debug("Uncompressing chunk %s", base64.b16encode(chunk))
               if self.decryptor is not None:
                 chunk = self.decryptor.decrypt(chunk)
                 self.decryptor_data_digest.update(chunk)
@@ -693,8 +696,9 @@ class Container:
     # not piggybacked, header_file is None.
     # Since it might be unnecessary to load any blocks from the container,
     # we don't touch the body file before we know we need blocks from it.
-    header_file = self.storage.load_header_file(
-      self.sequence_id, self.index)
+    logging.debug("Container %d loading blocks", self.index)
+
+    header_file = self.storage.load_header_file(self.sequence_id, self.index)
     body_file = None
     if header_file is None:
       logging.debug("Header file not ready. Reading it from body file")
@@ -706,16 +710,18 @@ class Container:
     for (digest, size, code) in body_blocks:
       if is_user_code(code) and handler.is_requested(digest, code):
         body_needed = True
+        logging.debug("Container %d requests block %s:%s. Body is needed" %
+            (self.index, base64.b64encode(digest), code_name(code)))
         break
 
     if not body_needed:
+      logging.debug("Container %d does not need to load body" % self.index)
       return
     
     if body_file is None:
-      logging.debug("Loading body file and skipping header of size %d" %
-          header_file.tell())
+      header_size = header_file.tell()
       body_file = self.storage.load_body_file(self.sequence_id, self.index)
-      body_file.seek(header_file.tell())
+      body_file.seek(header_size)
 
     body_dump_loader = DataDumpLoader(body_file, body_blocks,
       password=self.storage.get_encryption_key())
