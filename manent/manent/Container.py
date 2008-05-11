@@ -98,6 +98,14 @@ PIGGYBACK_HEADER_RATIO = 1000
 def _last_set_bit(num):
   return num & ~(num - 1)
 
+def encode_piggyback_container_index(index):
+  index_str = str(index)
+  extra_chars = Digest.dataDigestSize() - len(index_str)
+  index_str = index_str + (" " * extra_chars)
+  return index_str
+def decode_piggyback_container_index(digest):
+  return int(digest)
+
 #
 # Codes for blocks stored in the body
 #
@@ -585,9 +593,7 @@ class Container:
     # A piggyback header is not accessed by address, so we don't need its
     # digest. We thus use the digest field to store its index.
     # We encode the index as a decimal integer string, padded with spaces.
-    header_index_str = str(header_index)
-    extra_chars = Digest.dataDigestSize() - len(header_index_str)
-    header_index_str = header_index_str + (" " * extra_chars)
+    header_index_str = encode_piggyback_container_index(header_index)
     self.add_block(header_index_str, CODE_HEADER, header_data)
     self.piggyback_headers_num += 1
     self.piggyback_headers_size += len(header_data)

@@ -75,10 +75,6 @@ class MockStorage:
   def set_piggybacking_headers(self, h):
     self.piggybacking_headers = h
 
-  def cleanup(self):
-    # Nothing to do on cleanup: everything is stored in memory.
-    pass
-
   def get_container(self, index):
     # We can load header file or body file only after it was written, i.e.,
     # after open_header_file() and upload() were done.
@@ -384,7 +380,6 @@ class TestContainer(unittest.TestCase):
   def test_piggyback_headers_small_headers(self):
     # Test that if we are piggybacking small headers, all of them will be
     # inserted into the container.
-    storage = MockStorage(password="kakamaika")
     handler = MockHandler()
 
     # Test that:
@@ -397,21 +392,52 @@ class TestContainer(unittest.TestCase):
         16: 16,
         17: 0,
         64: 64}
-    header_contents = "header"
     for index in range(120):
-      container = storage.create_container()
+      container = self.storage.create_container()
       if EXPECTED_HEADER_COUNTS.has_key(container.get_index()):
         exp_headers = EXPECTED_HEADER_COUNTS[container.get_index()]
         for i in range(exp_headers):
+          header_index = index - 1 - i
+          header_contents = "header-%d" % header_index
           logging.debug("Adding piggyback header %d to container %d" %
-              (i, container.get_index()))
+              (header_index, container.get_index()))
           self.assert_(container.can_add_piggyback_header(header_contents))
-          container.add_piggyback_header(exp_headers - i, header_contents)
-        self.failIf(container.can_add_piggyback_header(header_contents))
-      storage.finalize_container(container)
-      storage.cleanup()
-      # TODO(gsasha): Read the container to see that we get the headers back.
-      self.fail()
+          container.add_piggyback_header(header_index, header_contents)
+        self.failIf(container.can_add_piggyback_header("HEADER_ONE_TOO_MANY"))
+      # Add some data and metadata blocks to the container to check that
+      # we're not confused by them.
+      container.add_block(
+          Digest.dataDigest("kuku"), Container.CODE_DATA, "kuku")
+      container.add_block(
+          Digest.dataDigest("kaka"), Container.CODE_DIR, "kaka")
+      self.storage.finalize_container(container)
+    class PiggybackLoadHandler:
+      def __init__(self):
+        self.headers = {}
+      def is_requested(self, digest, code):
+        return code == Container.CODE_HEADER
+      def loaded(self, digest, code, data):
+        assert code == Container.CODE_HEADER
+        container_index = Container.decode_piggyback_container_index(digest)
+        self.headers[container_index] = data
+      def check(self, container_index, num_headers):
+        for i in range(num_headers):
+          pb_header_index = container_index - 1 - i
+          assert self.headers.has_key(pb_header_index)
+          expected_header = "header-%d" % pb_header_index
+          received_header = self.headers[pb_header_index]
+          logging.info("Header: expected = '%s', got='%s'" %
+              (expected_header, received_header))
+          assert expected_header == received_header
+    for index in range(120):
+      if EXPECTED_HEADER_COUNTS.has_key(index):
+        num_piggyback_headers = EXPECTED_HEADER_COUNTS[index]
+      else:
+        num_piggyback_headers = 0
+      container = self.storage.get_container(index)
+      handler = PiggybackLoadHandler()
+      container.load_blocks(handler)
+      handler.check(container_index=index, num_headers=num_piggyback_headers)
   def test_piggyback_headers_large_headers(self):
     # Test that if we are trying to piggyback large headers, they would be
     # refused by the container.
