@@ -8,6 +8,8 @@ import logging
 import os
 import sys
 
+import BlockManager
+
 class BlockSequencer:
   def __init__(self, db_manager, txn_manager, storage_manager):
     self.db_manager = db_manager
@@ -83,12 +85,12 @@ class BlockSequencer:
     # Ok, a container is ready.
     self.current_open_container.add_block(digest, code, data)
   def add_aside_block(self, digest, code, data):
-    key = str(self.next_put_aside_block_idx)
-    self.next_put_aside_block_idx += 1
+    key = str(self.aside_block_last + 1)
+    self.aside_block_last += 1
     self.aside_block_db[key] = digest
 
     self.aside_block_num += 1
-    self.aside_blocks_size += len(data)
+    self.aside_block_size += len(data)
   def write_container(self, container):
     logging.info("Finalizing container %d" % container.get_index())
     container.finish_dump()

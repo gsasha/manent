@@ -14,7 +14,9 @@ import unittest
 sys.path.append(os.path.join(sys.path[0], ".."))
 
 import manent.BlockSequencer as BlockSequencer
+import manent.Container as Container
 import manent.Database as Database
+import manent.utils.Digest as Digest
 
 # For the purposes of this testing, we don't care that storage manager
 # has smart restoring and multi-sequence, multi-storage capabilities.
@@ -63,7 +65,7 @@ class TestBlockSequencer(unittest.TestCase):
     self.assertEquals(0, bs.get_piggyback_headers_num())
 
     block = "kukumuku"
-    bs.add_block(digest.dataDigest(block), Container.CODE_DIR, block)
+    bs.add_block(Digest.dataDigest(block), Container.CODE_DIR, block)
     self.assertEquals(1, bs.get_aside_blocks_num())
     self.assertEquals(len(block), bs.get_aside_blocks_size())
   def test_load(self):

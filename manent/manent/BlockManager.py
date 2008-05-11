@@ -10,6 +10,10 @@ import sys
 
 import Container
 
+def is_cached(code):
+  return (code != Container.CODE_DATA and
+      code != Container.CODE_HEADER)
+
 class BlockManager:
 	def __init__(self, db_manager, txn_handler, storage_manager):
 		self.db_manager = db_manager
