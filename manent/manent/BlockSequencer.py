@@ -98,6 +98,23 @@ class BlockSequencer:
 
     self.aside_block_num += 1
     self.aside_block_size += len(data)
+  def flush(self):
+    # Write out all the aside blocks we have and clean out the last container.
+    for block_idx in range(self.aside_block_first, self.aside_block_last + 1):
+      digest = self.aside_block_db[str(block_idx)]
+      code = self.block_manager.get_block_code(digest)
+      data = self.block_manager.load_block(digest)
+      if self.current_open_container is None:
+        self.current_open_container = self.storage_manager.create_container()
+        self.num_containers_created += 1
+      while not self.current_open_container.can_add(data):
+        self.write_container(self.current_open_container)
+        self.current_open_container = self.storage_manager.create_container()
+        self.num_containers_created += 1
+      self.current_open_container.add_block(digest, code, data)
+    if self.current_open_container is not None:
+      self.write_container(self.current_open_container)
+      self.current_open_container = None
   def write_container(self, container):
     logging.info("Finalizing container %d" % container.get_index())
     container.finish_dump()
@@ -111,10 +128,10 @@ class BlockSequencer:
     self.storage_manager.container_written(container)
     self._write_vars()
   def open_container(self):
-    self.num_containers_created += 1
     # 1. Ask the storage to create a new empty container.
     logging.debug("BlockSequencer: creating a new container")
     container = self.storage_manager.create_container()
+    self.num_containers_created += 1
     # 2. Push into the container as many piggybacking blocks as it's willing to
     # accept.
     rejected_header = None
@@ -136,7 +153,7 @@ class BlockSequencer:
     # write them out to the container, write the container out and open a new
     # one again.
     if container.is_filled_by(self.aside_block_num, self.aside_block_size):
-      for block_idx in range(self.aside_block_first, self.aside_block_last):
+      for block_idx in range(self.aside_block_first, self.aside_block_last + 1):
         digest = self.aside_block_db[str(block_idx)]
         code = self.block_manager.get_block_code(digest)
         data = self.block_manager.load_block(digest)

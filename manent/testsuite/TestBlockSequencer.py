@@ -110,14 +110,27 @@ class TestBlockSequencer(unittest.TestCase):
     # created - this is because the aside blocks have been pushed.
     # Dummy block must be larger than the aside block, otherwise it might fit
     # in the container which refused the aside block.
-    bs.add_block(
-        Digest.dataDigest("d" * 500), Container.CODE_DATA, "d" * 500)
+    bs.add_block(Digest.dataDigest("d" * 500), Container.CODE_DATA, "d" * 500)
     self.assert_(1 < bs.num_containers_created)
+
+  def test_flush_empty(self):
+    # Check that we can call flush() when nothing was added.
+    bs = BlockSequencer.BlockSequencer(
+        self.env, self.txn, self.storage_manager, self.block_manager)
+    bs.flush()
+    self.assertEquals(0, bs.num_containers_created)
 
   def test_flush(self):
     # Check that if flush() is called, all the current aside blocks are written
     # out (but not piggybacking blocks!)
-    self.fail()
+    bs = BlockSequencer.BlockSequencer(
+        self.env, self.txn, self.storage_manager, self.block_manager)
+    block = "d" * 500
+    digest = Digest.dataDigest(block)
+    self.block_manager.add_block(digest, Container.CODE_DIR, block)
+    bs.add_block(digest, Container.CODE_DIR, block)
+    bs.flush()
+    self.assertEquals(1, bs.num_containers_created)
 
   def test_piggybacking_block(self):
     # Check that piggybacking blocks are created when necessary.
