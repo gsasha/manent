@@ -4,7 +4,9 @@
 #
 
 import base64
-import sys, os
+import logging
+import os
+import sys
 
 class BlockSequencer:
   def __init__(self, db_manager, txn_manager, storage_manager):

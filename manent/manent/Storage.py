@@ -55,6 +55,7 @@ def create_storage(db_manager, txn_manager, index, params,
 	storage = _instantiate(storage_type, storage_params)
 	storage.configure(params, new_container_handler)
 	return storage
+
 def load_storage(db_manager, txn_manager, index, new_container_handler):
 	config_db = db_manager.get_database_btree("config.db",
 		"storage.%d" % index, txn_manager)
@@ -103,7 +104,8 @@ class Storage:
 	def configure(self, config, new_container_handler):
 		for key, val in config.iteritems():
 			self.config_db[self._key('CONFIG.' + key)] = val
-			#print "setting config_db[%s]=%s" % (self._key('CONFIG.'+key), val)
+			logging.debug("setting config_db[%s]=%s" %
+          (self._key('CONFIG.'+key), val))
 		
 		self.config = config
 		self.load_sequences(new_container_handler)

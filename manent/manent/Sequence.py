@@ -4,11 +4,11 @@
 #
 
 import base64
+import cStringIO as StringIO
 import logging
 import os
 import re
 import shutil
-import cStringIO as StringIO
 import tempfile
 import traceback
 
