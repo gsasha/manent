@@ -25,6 +25,12 @@ class BlockSequencer:
 
     self._read_vars()
     self.current_open_container = None
+  def get_aside_blocks_num(self):
+    return self.aside_block_num
+  def get_aside_blocks_size(self):
+    return self.aside_block_size
+  def get_piggyback_headers_num(self):
+    return self.aside_block_last + 1 - self.aside_block_first
   def _read_vars(self):
     # Read the piggy-backing header status.
     self.piggyback_header_first = 0

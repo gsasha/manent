@@ -13,6 +13,7 @@ import unittest
 # itself. This allows the test to be executed directly by testoob.
 sys.path.append(os.path.join(sys.path[0], ".."))
 
+import manent.BlockSequencer as BlockSequencer
 import manent.Database as Database
 
 # For the purposes of this testing, we don't care that storage manager
@@ -47,15 +48,24 @@ class MockStorageManager:
       else:
         logging.debug("block not requested: %s %s" %
             (base64.b64encode(b_digest), Container.code_name(b_code)))
+
 class TestBlockSequencer(unittest.TestCase):
   def setUp(self):
     self.env = Database.PrivateDatabaseManager()
+    self.txn = Database.TransactionHandler(self.env)
     self.storage_manager = MockStorageManager()
   def testi_clean_start(self):
     # Check that if BlockSequencer is started cleanly, it is initialized
     # correctly.
-    self.fail()
+    bs = BlockSequencer.BlockSequencer(self.env, self.txn, self.storage_manager)
+    self.assertEquals(0, bs.get_aside_blocks_num())
+    self.assertEquals(0, bs.get_aside_blocks_size())
+    self.assertEquals(0, bs.get_piggyback_headers_num())
 
+    block = "kukumuku"
+    bs.add_block(digest.dataDigest(block), Container.CODE_DIR, block)
+    self.assertEquals(1, bs.get_aside_blocks_num())
+    self.assertEquals(len(block), bs.get_aside_blocks_size())
   def test_load(self):
     # Check that if BlockSequencer is started the second time, all its status is
     # preserved.
