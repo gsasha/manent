@@ -67,9 +67,13 @@ class MockStorage:
     self.password = password
     self.containers = {}
     self.container_sizes = {}
+    self.piggybacking_headers = True
     self.tempdir = tempfile.mkdtemp()
 
     self.cur_index = 0
+
+  def set_piggybacking_headers(self, h):
+    self.piggybacking_headers = h
 
   def cleanup(self):
     # Nothing to do on cleanup: everything is stored in memory.
@@ -86,11 +90,14 @@ class MockStorage:
     return self.password
 
   def load_header_file(self, sequence_id, index):
-    header, body, container = self.containers[index]
-    container.seek(0)
-    logging.debug("Container %d file has size %d" %
-        (index, len(container.getvalue())))
-    return container
+    if self.piggybacking_headers:
+      header, body, container = self.containers[index]
+      container.seek(0)
+      logging.debug("Container %d file has size %d" %
+          (index, len(container.getvalue())))
+      return container
+    else:
+      return None
   def load_body_file(self, sequence_id, index):
     header, body, container = self.containers[index]
     container.seek(0)
@@ -168,15 +175,9 @@ DATA = [
 class TestContainer(unittest.TestCase):
 
   def setUp(self):
-    #self.env = Database.PrivateDatabaseManager()
-    #self.txn = Database.TransactionHandler(self.env)
-    #self.storage = Storage.create_storage(self.env, self.txn, 0,
-    #    {'type': "__mock__", 'key': '1'}, MockHandler())
     self.storage = MockStorage("kakamaika")
   def tearDown(self):
-    # Clean up the state, to make sure tests don't
-    # interfere.
-    Storage.MemoryStorage.files = {}
+    self.storage = None
   def test_data_dumper(self):
     # Basic test of data dumper: data in, data out
     handler = MockHandler()
@@ -347,7 +348,27 @@ class TestContainer(unittest.TestCase):
   def test_container(self):
     # Test that container is created correctly.
     # See that the container is created, stored and reloaded back,
-    # and that all blocks get restored
+    # and that all blocks get restored.
+    self.storage.set_piggybacking_headers(False)
+    handler = MockHandler()
+    container = self.storage.create_container()
+    for d in DATA:
+      container.add_block(Digest.dataDigest(d), Container.CODE_DATA, d)
+      handler.add_expected(Digest.dataDigest(d), Container.CODE_DATA, d)
+    self.storage.finalize_container(container)
+    index = container.index
+
+    container = self.storage.get_container(index)
+    container.load_blocks(handler)
+    self.failUnless(handler.check())
+    
+  def test_container_with_piggybacking(self):
+    # Test that container is created correctly.
+    # See that the container is created, stored and reloaded back,
+    # and that all blocks get restored.
+    # In this test, we ask storage to provide separate headers, as if they were
+    # found through piggybacking.
+    self.storage.set_piggybacking_headers(True)
     handler = MockHandler()
     container = self.storage.create_container()
     for d in DATA:
