@@ -7,6 +7,7 @@ import base64
 import logging
 import os
 import random
+import sys
 import unittest
 
 # Point to the code location so that it is found when unit tests

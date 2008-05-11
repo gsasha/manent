@@ -6,6 +6,7 @@
 import logging
 import os
 import os.path
+import sys
 import unittest
 
 # Point to the code location so that it is found when unit tests
