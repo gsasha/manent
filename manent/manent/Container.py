@@ -94,7 +94,7 @@ VERSION = 2
 MAX_COMPRESSED_DATA = 256 * 1024
 
 # Estimated ratio between sizes of a container and its header.
-PIGGYBACK_HEADER_RATIO = 1000
+PIGGYBACK_HEADER_RATIO = 256
 def _last_set_bit(num):
   return num & ~(num - 1)
 
@@ -539,6 +539,8 @@ class Container:
     current_size = (self.body_dumper.total_size +
         self.header_dumper.total_size +
         MAX_COMPRESSED_DATA + 64)
+    logging.debug("Container trying to add to %d bytes block of %d, max: %d" %
+        (current_size, data_size, self.storage.container_size()))
     return current_size + data_size <= self.storage.container_size()
   def is_filled_by(self, num_blocks, size_blocks):
     """Test if the given number of blocks with given size

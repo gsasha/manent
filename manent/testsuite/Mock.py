@@ -155,6 +155,7 @@ class MockStorage:
     self.container_sizes = {}
     self.piggybacking_headers = True
     self.tempdir = tempfile.mkdtemp()
+    self.max_container_size = Container.MAX_COMPRESSED_DATA + 1024 * 1024
 
     self.cur_index = 0
 
@@ -225,14 +226,16 @@ class MockStorage:
     container.write(body_contents)
     logging.debug("Uploaded container %d: header size=%d, body size=%d"
         % (index, len(header_contents), len(body_contents)))
-    logging.debug("Container body %s" % base64.b16encode(body_contents))
+    logging.debug("Container body '%s...' len= %d" %
+        (base64.b16encode(body_contents)[:min(16, len(body_contents))],
+          len(body_contents)))
     # header and body should not be used anymore after container was uploaded.
     self.containers[index] = (None, None, container)
     self.container_sizes[index] = (len(header_contents),
         len(body_contents))
 
   def container_size(self):
-    return Container.MAX_COMPRESSED_DATA + 1024
+    return self.max_container_size
 
   def _open_container_files(self, index):
     if self.containers.has_key(index):

@@ -38,6 +38,8 @@ class MockStorageManager:
     self.blocks.append((digest, code, data, self.container))
   def create_container(self):
     return self.storage.create_container()
+  def get_container(self, index):
+    return self.storage.get_container(index)
   def container_written(self, container):
     # Do nothing - unlike real StorageManager, we don't register the blocks
     # anywhere.
@@ -134,5 +136,33 @@ class TestBlockSequencer(unittest.TestCase):
 
   def test_piggybacking_block(self):
     # Check that piggybacking blocks are created when necessary.
-    self.fail()
+    self.storage_manager.storage.max_container_size = 1000 * 1024
+    bs = BlockSequencer.BlockSequencer(
+        self.env, self.txn, self.storage_manager, self.block_manager)
+    for i in range(20000):
+      # We need to make sure block doesn't compress well, otherwise
+      # the container will never end.
+      block = os.urandom(25000) + str(i)
+      digest = Digest.dataDigest(block)
+      bs.add_block(digest, Container.CODE_DATA, block)
+      logging.debug("Added block %d. Number of containers %d" %
+          (i, bs.num_containers_created))
+      if bs.num_containers_created == 6:
+        # Container with index 4 must contain piggybacking headers.
+        container = bs.current_open_container
+        assert container.get_index() == 5
+        # We want to inspect the previous container
+        break
+    container = self.storage_manager.get_container(4)
+    class CheckHandler:
+      def __init__(self):
+        self.num_piggyback_headers = 0
+      def is_requested(self, digest, code):
+        if code == Container.CODE_HEADER:
+          self.num_piggyback_headers += 1
+        return False
+    ch = CheckHandler()
+    container.load_blocks(ch)
+    self.assertEquals(4, ch.num_piggyback_headers)
+
 
