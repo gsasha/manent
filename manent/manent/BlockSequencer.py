@@ -12,10 +12,11 @@ import BlockManager
 import Container
 
 class BlockSequencer:
-  def __init__(self, db_manager, txn_manager, storage_manager):
+  def __init__(self, db_manager, txn_manager, storage_manager, block_manager):
     self.db_manager = db_manager
     self.txn_manager = txn_manager
     self.storage_manager = storage_manager
+    self.block_manager = block_manager
     
     # For aside blocks, we have the hashes, and keep track of the number and the
     # total size of such blocks. The data itself is stored in the BlockManager.
@@ -80,15 +81,15 @@ class BlockSequencer:
     if self.current_open_container is None:
       logging.debug("Creating a container for the first time")
       self.current_open_container = self.open_container()
-    else:
-      # The container can be filled by aside data, so we might need several
-      # attempts of container creation.
-      while not self.current_open_container.can_add(data):
-        logging.debug("Container %d can't add data '%s'"
-            % (self.current_open_container.get_index(), data))
-        self.write_container(self.current_open_container)
-        self.current_open_container = self.open_container()
+    # The container can be filled by aside data, so we might need several
+    # attempts of container creation.
+    while not self.current_open_container.can_add(data):
+      logging.debug("Container %d can't add data '%s'"
+          % (self.current_open_container.get_index(), data))
+      self.write_container(self.current_open_container)
+      self.current_open_container = self.open_container()
     # Ok, a container is ready.
+    assert self.current_open_container.can_add(data)
     self.current_open_container.add_block(digest, code, data)
   def add_aside_block(self, digest, code, data):
     key = str(self.aside_block_last + 1)
@@ -137,8 +138,11 @@ class BlockSequencer:
     if container.is_filled_by(self.aside_block_num, self.aside_block_size):
       for block_idx in range(self.aside_block_first, self.aside_block_last):
         digest = self.aside_block_db[str(block_idx)]
-        code, data = self.block_manager.load_block(digest)
+        code = self.block_manager.get_block_code(digest)
+        data = self.block_manager.load_block(digest)
         if not container.can_add(data):
+          logging.debug("Container %d cannot add aside block %d size=%d" %
+              (container.get_index(), block_idx, len(data)))
           break
         logging.debug("Adding aside block %d to container %d"
             % (block_idx, container.get_index()))

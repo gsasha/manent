@@ -13,6 +13,7 @@ import unittest
 # itself. This allows the test to be executed directly by testoob.
 sys.path.append(os.path.join(sys.path[0], ".."))
 
+import manent.BlockManager as BlockManager
 import manent.BlockSequencer as BlockSequencer
 import manent.Container as Container
 import manent.Database as Database
@@ -47,10 +48,18 @@ class TestBlockSequencer(unittest.TestCase):
     self.env = Database.PrivateDatabaseManager()
     self.txn = Database.TransactionHandler(self.env)
     self.storage_manager = MockStorageManager()
-  def testi_clean_start(self):
+    self.block_manager = BlockManager.BlockManager(
+        self.env, self.txn, self.storage_manager)
+  def tearDown(self):
+    self.storage_manager = None
+    self.block_manager = None
+    self.env = None
+    self.txn = None
+  def test_clean_start(self):
     # Check that if BlockSequencer is started cleanly, it is initialized
     # correctly.
-    bs = BlockSequencer.BlockSequencer(self.env, self.txn, self.storage_manager)
+    bs = BlockSequencer.BlockSequencer(
+        self.env, self.txn, self.storage_manager, self.block_manager)
     self.assertEquals(0, bs.get_aside_blocks_num())
     self.assertEquals(0, bs.get_aside_blocks_size())
     self.assertEquals(0, bs.get_piggyback_headers_num())
@@ -63,7 +72,8 @@ class TestBlockSequencer(unittest.TestCase):
 
     # Check that if BlockSequencer is started the second time, all the state is
     # preserved.
-    bs = BlockSequencer.BlockSequencer(self.env, self.txn, self.storage_manager)
+    bs = BlockSequencer.BlockSequencer(
+        self.env, self.txn, self.storage_manager, self.block_manager)
     self.assertEquals(1, bs.get_aside_blocks_num())
     self.assertEquals(len(block), bs.get_aside_blocks_size())
     bs.close()
@@ -71,7 +81,8 @@ class TestBlockSequencer(unittest.TestCase):
   def test_container_created(self):
     # Check that if blocks are added sufficiently many times, a new container
     # will be created.
-    bs = BlockSequencer.BlockSequencer(self.env, self.txn, self.storage_manager)
+    bs = BlockSequencer.BlockSequencer(
+        self.env, self.txn, self.storage_manager, self.block_manager)
     self.assertEquals(0, bs.num_containers_created)
     for i in range(5000):
       block = "A" * 100 + str(i)
@@ -81,14 +92,27 @@ class TestBlockSequencer(unittest.TestCase):
     # one to be created to know that the first one was closed.
     self.assert_(1 < bs.num_containers_created)
 
-  def test_add_aside_block(self):
-    # Check that if we add an aside block, it is not written immediately.
-    self.fail()
-
   def test_add_many_aside_blocks(self):
     # Check that if aside blocks are added sufficiently many times, they will
     # eventually be written to a container.
-    self.fail()
+    bs = BlockSequencer.BlockSequencer(
+        self.env, self.txn, self.storage_manager, self.block_manager)
+    # All these blocks sit aside, and are not inserted into a container until a
+    # normal block is inserted.
+    for i in range(2000):
+      block = "A" * 250 + str(i)
+      digest = Digest.dataDigest(block)
+      logging.debug("Adding aside block %d: %d" % (i, len(block)))
+      self.block_manager.add_block(digest, Container.CODE_DIR, block)
+      bs.add_block(digest, Container.CODE_DIR, block)
+    self.assertEquals(0, bs.num_containers_created)
+    # Now insert a DATA block and observe that at least two containers have been
+    # created - this is because the aside blocks have been pushed.
+    # Dummy block must be larger than the aside block, otherwise it might fit
+    # in the container which refused the aside block.
+    bs.add_block(
+        Digest.dataDigest("d" * 500), Container.CODE_DATA, "d" * 500)
+    self.assert_(1 < bs.num_containers_created)
 
   def test_flush(self):
     # Check that if flush() is called, all the current aside blocks are written
