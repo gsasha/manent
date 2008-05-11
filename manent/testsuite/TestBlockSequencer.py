@@ -47,12 +47,40 @@ class MockStorageManager:
       else:
         logging.debug("block not requested: %s %s" %
             (base64.b64encode(b_digest), Container.code_name(b_code)))
-class TestBlockManager(unittest.TestCase):
+class TestBlockSequencer(unittest.TestCase):
   def setUp(self):
     self.env = Database.PrivateDatabaseManager()
     self.storage_manager = MockStorageManager()
-  def test1(self):
-    pass
+  def testi_clean_start(self):
+    # Check that if BlockSequencer is started cleanly, it is initialized
+    # correctly.
+    self.fail()
 
-  def test2(self):
-    pass
+  def test_load(self):
+    # Check that if BlockSequencer is started the second time, all its status is
+    # preserved.
+    self.fail()
+    
+  def test_container_created(self):
+    # Check that if blocks are added sufficiently many times, a new container
+    # will be created.
+    self.fail()
+
+  def test_add_aside_block(self):
+    # Check that if we add an aside block, it is not written immediately.
+    self.fail()
+
+  def test_add_many_aside_blocks(self):
+    # Check that if aside blocks are added sufficiently many times, they will
+    # eventually be written to a container.
+    self.fail()
+
+  def test_flush(self):
+    # Check that if flush() is called, all the current aside blocks are written
+    # out (but not piggybacking blocks!)
+    self.fail()
+
+  def test_piggybacking_block(self):
+    # Check that piggybacking blocks are created when necessary.
+    self.fail()
+
