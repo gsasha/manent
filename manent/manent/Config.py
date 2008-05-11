@@ -172,7 +172,7 @@ def init_logging():
 				   "CRITICAL": logging.CRITICAL }
 		if LEVELS.has_key(level):
 			logging.getLogger("").setLevel(LEVELS[level])
-			logging.info("Setting logging level to", level)
+			logging.info("Setting logging level to " + level)
 		else:
 			print "Bad logging level env: MANENT_LOGGING_LEVEL=%s", level
 
