@@ -38,6 +38,9 @@ suite_StorageManager = test_loader.loadTestsFromTestCase(TestStorageManager)
 from testsuite.TestBlockManager import TestBlockManager
 suite_BlockManager = test_loader.loadTestsFromTestCase(TestBlockManager)
 
+from testsuite.TestBlockSequencer import TestBlockSequencer
+suite_BlockSequencer = test_loader.loadTestsFromTestCase(TestBlockSequencer)
+
 suite = unittest.TestSuite([
 	suite_Packer,
 	suite_Container,
@@ -50,6 +53,7 @@ suite = unittest.TestSuite([
 	suite_Storage,
 	suite_StorageManager,
 	suite_BlockManager,
+  suite_BlockSequencer,
 	])
 
 if __name__ == "__main__":

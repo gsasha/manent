@@ -164,7 +164,7 @@ def init_logging():
     logging.config.fileConfig("./.manent_logging_config")
   except:
     pass
-  print "Logging initialized"
+  #print "Logging initialized"
   if os.environ.has_key("MANENT_LOGGING_LEVEL"):
     level = os.environ["MANENT_LOGGING_LEVEL"]
     LEVELS = { "NOTSET": logging.NOTSET,
