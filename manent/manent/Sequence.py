@@ -17,11 +17,6 @@ import Container
 import utils.IntegerEncodings as IE
 import Storage
 
-PIGGYBACK_MASK = sum([(1<<x) for x in range(2, 32, 2)])
-MAX_PIGGYBACK_HEADERS = 16 << 10
-def _last_set_bit(num):
-  return num & ~(num - 1)
-
 class Sequence:
   """Represents and manages a single sequence of containers.
      Containers are numbered sequentially from 0.
@@ -41,15 +36,8 @@ class Sequence:
     self.summary_headers_num = 0
     self.summary_headers_len = 0
     self.summary_header_last_idx = None
-  def get_num_piggyback_headers(self, index):
-    # Compute the number of piggybacking headers that can be
-    # inserted in container of a given index.
-    # The following numbers are reasonable:
-    # 0: 0, 1:0, ..., 4:4, ..., 8:4, ..., 16: 16, 20:4
-    filtered = _last_set_bit(index)
-    return (filtered | (filtered >> 1)) & 0x55555554
   def set_active(self, active):
-    assert self.active == False
+    assert self.active == None
     self.is_active = active
   def get_next_index(self):
     index = self.next_container_idx
@@ -62,35 +50,8 @@ class Sequence:
       # We already have registered this container
       return
     self.new_containers.append(index)
-  def process_new_files(self):
-    # 1. read all new headers into loaded_headers_db.
-    # 2. notify the client about the newly loaded headers.
-    # 3. clean up loaded_headers_db, since these headers are
-    #    no longer going to be used.
-    self.new_containers.sort()
-    logging.info("New containers: " + str(self.new_containers))
-
-    self.read_summary_containers()
-    self.analyze_new_containers()
-  def read_summary_containers(self):
-    # Load headers of all the new containers. To that end, we use the
-    # piggy-backed headers found in those containers. The algorithm:
-    # 1. Take last container. Read it and all the headers found in it
-    # 2. Take the last container for which we don't have headers.
-    # 3. Continue to step 2 if there still are unread headers.
-    cur_container = self.new_containers[-1]
-    while cur_container > self.next_container_idx:
-      logging.info("Getting headers from container %d" % cur_container)
-      container = self.storage.get_container(cur_container)
-      handler = PiggybackHandler()
-      container.add_handler(handler)
-      container.add_handler(self.storage.get_new_container_handler())
-      container.load_blocks()
-      for new_index, new_header in handler.headers:
-        logging.info("Container piggy-backs header %d" % new_index)
-        cur_container = new_index
-        self.loaded_headers_db[str(new_index)] = new_header
-      self.next_container_idx = max_container_idx
+  def get_new_containers(self):
+    return self.new_containers
   def add_summary_header(self, index, file):
     file.seek(0)
     file_contents = file.read()

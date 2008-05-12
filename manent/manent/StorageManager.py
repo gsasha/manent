@@ -81,7 +81,7 @@ class StorageManager:
   def _key(self, suffix):
     return PREFIX + suffix
 
-  def _register_sequence(self, storage_idx, sequence_id):
+  def register_sequence(self, storage_idx, sequence_id):
     # Generate new index for this sequence
     logger_sm.debug("new sequence detected in storage %d: %s" %
       (storage_idx, base64.urlsafe_b64encode(sequence_id)))
@@ -99,18 +99,24 @@ class StorageManager:
     dummy_storage_idx, sequence_idx = self.seq_to_index[sequence_id]
     return sequence_idx
   class BlockScanningHandler:
-    def __init_(self, storage_manager, sequence_idx, container_idx):
+    """This handler is used for loading blocks in new containers. At this point,
+    there can be no requested blocks in the BlockManager, and therefore, we do
+    not ask it if the blocks are requested"""
+    def __init_(self, storage_manager, storage_idx):
       self.storage_manager = storage_manager
-      self.sequence_idx = sequence_idx
-      self.container_idx = container_idx
-    def is_requested(self, digest, code):
-      encoded = self.storage_manager._encode_block_info(self.sequence_idx,
-        self.container_idx)
+      self.storage_idx = storage_idx
+    def is_requested(self, sequence_id, container_idx, digest, code):
+      # See if this block belongs to a previously unseen sequence.
+      if not self.storage_manager.has_sequence(sequence_id):
+        self.storage_manager.register_sequence(self.storage_idx, sequence_id)
+      # Record to which container does this block belong.
+      encoded = _encode_block_info(sequence_idx, container_idx)
       self.storage_manager.block_container_db[digest] = encoded
-      return False
+      # Check if we want the data of this block.
+      return BlockManager.is_cached(code)
     def loaded(self, digest, code, data):
-      pass
-  def add_storage(self, storage_params, new_block_handler):
+      self.storage_manager.block_manager.handle_block(digest, code, data)
+  def add_storage(self, storage_params):
     # When we add a storage, the following algorithm is executed:
     # 1. If the storage is already in the shared db, it is just added
     # 2. If the storage is not in the shared db, the storage location
@@ -118,13 +124,12 @@ class StorageManager:
     #    base storages, and a new one is created.
     storage_idx = self.assign_storage_idx()
 
-    new_containers = []
+    handler = StorageManager.BlockScanningHandler(self, storage_idx)
     storage = Storage.create_storage(self.db_manager, self.txn_manager,
-      storage_idx, storage_params, new_containers)
+      storage_idx, storage_params, handler)
     self.storages[storage_idx] = storage
-    self.process_new_containers(new_containers, new_block_handler)
     return storage_idx
-  def load_storages(self, new_block_handler):
+  def load_storages(self):
     #
     # All storages except for the specified one are inactive, i.e., base.
     # Inactive storages can be used to pull data blocks from, and must
@@ -133,43 +138,15 @@ class StorageManager:
     #
     self.storages = {}
     self.active_storage_idx = None
+    handler = StorageManager.BlockScanningHandler(self, storage_idx)
     for storage_idx in self.get_storage_idxs():
-      new_containers = []
       storage = Storage.load_storage(self.db_manager, self.txn_manager,
-        storage_idx, new_containers)
+        storage_idx, handler)
       self.storages[storage_idx] = storage
-      self.process_new_containers(new_containers, new_block_handler)
       if storage.is_active():
         seq_id = storage.get_active_sequence_id()
         self.active_storage_idx, seq_idx = self.seq_to_index[seq_id]
-    self.load_aside_blocks()
-  def process_new_containers(self, new_containers, new_block_handler):
-    for container in new_containers:
-      sequence_id = container.get_sequence_id()
-      storage_idx = container.get_storage().get_index()
-      sequence_idx = self.storage_manager.get_sequence_idx(storage_idx,
-          sequence_id)
-      scanning_handler = StorageManager.BlockScanningHandler(
-          self.storage_manager, sequence_idx, container.get_index())
-      handler = Container.AggregateBlockHandler(
-          [scanning_handler, new_block_handler])
-      container.load_blocks(handler)
-    return storage_idx
 
-  def load_aside_blocks(self):
-    # Scan the aside blocks
-    # We just need to know how many are there, in order to determine when
-    # there is enough to fill a container.
-    self.aside_blocks_num = 0
-    self.aside_blocks_size = 0
-    for key, digest in self.aside_block_db.iteritems():
-      assert self.block_manager.has_block(digest)
-      code = self.block_manager.get_block_code(digest)
-      data = self.block_manager.load_block(digest)
-      aside_blocks_num += 1
-      aside_blocks_count += len(data)
-      logging.info("Scanned aside block", base64.b64encode(digest), code,
-        len(data))
   def get_storage_idxs(self):
     KEY = self._key("storage_idxs")
     if not self.config_db.has_key(KEY):
@@ -238,8 +215,29 @@ class StorageManager:
   def load_block(self, digest):
     logging.debug("SM loading block " + base64.b64encode(digest))
     if not self.block_manager.has_block(digest):
-      #print "calling load blocks for", base64.b64encode(digest)
-      self.load_blocks_for(digest, self.block_manager.get_block_handler())
+      logging.debug("loading blocks for" + base64.b64encode(digest))
+
+      sequence_idx, container_idx = self._decode_block_info(
+        self.block_container_db[digest])
+      storage_idx, sequence_id = self.index_to_seq[sequence_idx]
+      storage = self.storages[storage_idx]
+
+      logging.debug("Digest %s is in %d:%d:%d" %
+          (base64.b64encode(digest), sequence_idx,
+          base64.urlsafe_b64encode(sequence_id), container_idx))
+
+      class Handler:
+        def __init__(self, block_manager):
+          self.block_manager = block_manager
+        def is_requested(self, digest, code):
+          if BlockManager.is_cached(code):
+            # Blocks that are supposed to be cached are already there
+            return False
+          return self.block_manager.is_requested(digest, code)
+        def loaded(self, digest, code, data):
+          self.block_manager.handle(digest, code, data)
+      container = storage.get_container(sequence_id, container_idx)
+      container.load_blocks(Handler(self.block_manager))
     return self.block_manager.load_block(digest)
   def request_block(self, digest):
     logging.debug("SM requesting block " + base64.b64encode(digest))
@@ -247,17 +245,6 @@ class StorageManager:
   def get_block_code(self, digest):
     logging.debug("SM getting code for " + base64.b64encode(digest))
     return self.block_manager.get_block_code(digest)
-  def load_blocks_for(self, digest, handler):
-    logging.debug("Loading blocks for" + base64.b64encode(digest))
-    sequence_idx, container_idx = self._decode_block_info(
-      self.block_container_db[digest])
-    logging.debug("Digest " +  base64.b64encode(digest), " is in " +
-        sequence_idx + container_idx)
-    storage_idx, sequence_id = self.index_to_seq[sequence_idx]
-    storage = self.storages[storage_idx]
-
-    container = storage.get_container(sequence_id, container_idx)
-    container.load_blocks(handler)
   def flush(self):
     self._write_aside_blocks(flush=True)
     storage = self.storages[self.active_storage_idx]

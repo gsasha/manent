@@ -77,11 +77,11 @@ class Backup:
 			self.config_db['num_exclusion_rules'] = str(n + 1)
 		elif args[0] == 'add_storage':
 			self.__open_storage()
-			storage_idx = self.storage_manager.add_storage(params, None)
+			storage_idx = self.storage_manager.add_storage(params)
 			self.storage_manager.make_active_storage(storage_idx)
 		elif args[0] == 'add_base_storage':
 			self.__open_storage()
-			self.storage_manager.add_storage(params, None)
+			self.storage_manager.add_storage(params)
 		self.txn_handler.commit()
 
 	def load(self):

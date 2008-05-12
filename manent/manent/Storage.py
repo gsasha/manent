@@ -128,6 +128,8 @@ class Storage:
   #     container in the given sequence. Used to determine which new
   #     containers have appeared for the sequence
   def create_sequence(self, test_override_sequence_id=None):
+    # If a sequence is created, rather than discovered, it can be done only
+    # in order to make it active one.
     assert self.active_sequence_id is None
     if test_override_sequence_id:
       # This is used in testing only
@@ -161,6 +163,8 @@ class Storage:
 
     # Load the data from the storage location
     container_files = self.list_container_files()
+    sequence_new_containers = {}
+
     for name in container_files:
       sequence_id, index = decode_container_name(name)
       if not self.sequences.has_key(sequence_id):
@@ -168,11 +172,82 @@ class Storage:
           base64.b64encode(sequence_id))
         self.sequences[sequence_id] = Sequence.Sequence(self,
           sequence_id)
-      self.sequences[sequence_id].register_file(index, extension)
+      sequence_new_containers[sequence_id].append(index)
+
+    for sequence_id, containers in sequence_new_containers.iteritems():
+      containers.sort()
+      logging.debug("New containers in sequence %s: %s" %
+          (base64.urlsafe_b64encode(sequence), str(containers)))
 
     # Process the new containers
-    for sequence in self.sequences.itervalues():
-      sequence.process_new_files()
+    # 1. Read the new containers that have piggyback headers - this way we get
+    # all the headers without actually reading them.
+    for sequence_id, containers in sequence_new_containers.iteritems():
+      # We process files in the reverse order because that's how piggybacking
+      # headers are organized. This necessarily converges quickly to reading
+      # from "full" containers.
+      containers.sort()
+      containers.reverse()
+      loaded_containers = []
+      for index in containers:
+        if self.loaded_headers_db.has_key(str(index)):
+          logging.debug("Skipping container %d: header piggybacked" % index)
+        logging.info("Reading container %d for piggybacked headers" % index)
+        container = self.get_container(sequence_id, index)
+        loaded_containers.append(index)
+        class PiggybackHeaderLoadHandler:
+          """Record all the piggybacked headers reported by the container.
+          Ask the incoming handler for all the other blocks.
+          Note taht the incoming handler receives the sequence id along with
+          each block."""
+          def __init_(self, sequence_id, block_handler):
+            self.sequence_id = sequence_id
+            self.block_handler = block_handler
+            self.headers = {}
+          def is_requested(self, digest, code):
+            if self.block_handler.is_requested(digest, code):
+              return True
+            return code == Container.CODE_HEADER
+          def loaded(self, digest, code, data):
+            if self.block_handler.is_requested(digest, code):
+              self.block_handler.loaded(sequence_id, digest, code, data)
+            if code == Container.CODE_HEADER:
+              index = Container.decode_piggyback_container_index(digest)
+              self.headers[index] = data
+        pb_handler = PiggybackHeaderLoadHandler(sequence_id, new_block_handler)
+        container.load_blocks(pb_handler)
+        logging.info("Container %d piggybacks headers %s" %
+            (index, str(pb_handler.get_headers().keys())))
+        for index, header in pb_handler.get_headers().iteritems():
+          self.loaded_headers_db[str(index)] = header
+      # Make sure that we will not try to re-load the containers we have loaded
+      # already.
+      for index in loaded_containers:
+        del containers[index]
+    # 2. Read all the new containers (except for those that we have read
+    # already). Since we have loaded all the headers already, there is no
+    # network use for containers that contain only DATA blocks.
+    for sequence_id, containers in sequence_new_containers.iteritems():
+      containers.sort()
+      for index in containers:
+        logging.debug("Reading container %d for metadata blocks" % index)
+        container = self.get_container(sequence_id, index)
+        class BlockLoadHandler:
+          """Transfer all the incoming blocks to the given handler,
+          adding the sequence id to each of them."""
+          def __init_(self, sequence_id, block_handler):
+            self.sequence_id = sequence_id
+            self.block_handler = block_handler
+          def is_requested(self, digest, code):
+            if self.block_handler.is_requested(digest, code):
+              return True
+            return False
+          def loaded(self, digest, code, data):
+            if self.block_handler.is_requested(digest, code):
+              self.block_handler.loaded(sequence_id, digest, code, data)
+        handler = BlockLoadHandler(sequence_id, new_block_handler)
+        container.load_blocks(handler)
+    self.loaded_headers_db.truncate()
   def flush(self):
     # TODO(gsasha): implement this
     pass
