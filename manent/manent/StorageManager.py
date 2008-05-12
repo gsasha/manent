@@ -44,8 +44,8 @@ class StorageManager:
     self.txn_manager = txn_manager
     self.block_manager = BlockManager.BlockManager(
         self.db_manager, self.txn_manager, self)
-    self.block_sequencer = BlockSequencer(
-        self.db_manager, self.txn_manager, self)
+    self.block_sequencer = BlockSequencer.BlockSequencer(
+        self.db_manager, self.txn_manager, self, self.block_manager)
 
     self.config_db = db_manager.get_database_btree("config.db", "storage",
       txn_manager)
@@ -102,7 +102,7 @@ class StorageManager:
     """This handler is used for loading blocks in new containers. At this point,
     there can be no requested blocks in the BlockManager, and therefore, we do
     not ask it if the blocks are requested"""
-    def __init_(self, storage_manager, storage_idx):
+    def __init__(self, storage_manager, storage_idx):
       self.storage_manager = storage_manager
       self.storage_idx = storage_idx
     def is_requested(self, sequence_id, container_idx, digest, code):
@@ -138,8 +138,8 @@ class StorageManager:
     #
     self.storages = {}
     self.active_storage_idx = None
-    handler = StorageManager.BlockScanningHandler(self, storage_idx)
     for storage_idx in self.get_storage_idxs():
+      handler = StorageManager.BlockScanningHandler(self, storage_idx)
       storage = Storage.load_storage(self.db_manager, self.txn_manager,
         storage_idx, handler)
       self.storages[storage_idx] = storage
