@@ -87,7 +87,7 @@ class TestBlockSequencer(unittest.TestCase):
     self.assertEquals(0, bs.num_containers_created)
     for i in range(5000):
       block = os.urandom(500) + str(i)
-      logging.debug("Adding block %d: %s" % (i, block))
+      logging.debug("Adding block %d: size=%d" % (i, len(block)))
       bs.add_block(Digest.dataDigest(block), Container.CODE_DATA, block)
     # First container is created on the first block, so we need at least another
     # one to be created to know that the first one was closed.

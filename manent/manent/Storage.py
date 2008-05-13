@@ -162,7 +162,9 @@ class Storage:
     # Load the data from the storage location
     sequence_new_containers = {}
     for name in self.list_container_files():
-      sequence_id, index = decode_container_name(name)
+      sequence_id, index, extension = decode_container_name(name)
+      if extension != CONTAINER_EXT:
+        continue
       if not self.sequence_next_container.has_key(sequence_id):
         logging.info("Found new sequence %s " %
           base64.b64encode(sequence_id))
@@ -284,9 +286,9 @@ class Storage:
     container.start_load(sequence_id, index)
     return container
 
-  def load_container_header_from_summary(self, sequence_id, index):
+  def load_header_file(self, sequence_id, index):
     self.headers_loaded_total += 1
-    header_name = encode_container_name(sequence_id, index)
+    header_name = encode_container_name(sequence_id, index, CONTAINER_EXT)
     if self.loaded_headers_db.has_key(header_name):
       stream = StringIO.StringIO(self.loaded_headers_db[header_name])
       del self.loaded_headers_db[header_name]
@@ -294,14 +296,8 @@ class Storage:
       return stream
     self.headers_loaded_from_storage += 1
     return None
-  def load_header_file(self, sequence_id, index):
-    # TODO: implement
-    return None
-
-  def load_container_header(self, sequence_id, index):
-    raise Exception("load_container_header is abstract")
-  def load_container_body(self, sequence_id, index):
-    raise Exception("load_container_body is abstract")
+  def load_body_file(self, sequence_id, index):
+    raise Exception("load_body_file is abstract")
   def upload_container(self, sequence_id, index, header_file, body_file):
     raise Exception("upload_container is abstract")
   
@@ -400,59 +396,41 @@ class FTPStorage(Storage):
       (base64.urlsafe_b64encode(sequence_id), index))
     return tempfile.TemporaryFile(dir=Config.paths.staging_area())
   
-  def load_container_header(self, sequence_id, index):
-    logging.debug("Loading container header %s %d" %
+  def load_body_file(self, sequence_id, index):
+    logging.debug("Loading container body %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))
-    stream = self.load_summary_container_header(sequence_id, index)
-    if stream is not None:
-      return stream
-    header_file_name = encode_container_name(sequence_id, index, HEADER_EXT)
-    filehandle = tempfile.TemporaryFile(dir=Config.paths.staging_area())
-    self.get_fs_handler().download(filehandle, header_file_name)
-    filehandle.seek(0)
-    return filehandle
-  def load_container_summary_header(self, sequence_id, index):
-    file_name = encode_container_name(
-      sequence_id, index, SUMMARY_HEADER_EXT)
+    file_name = encode_container_name(sequence_id, index, CONTAINER_EXT)
     filehandle = tempfile.TemporaryFile(dir=Config.paths.staging_area())
     self.get_fs_handler().download(filehandle, file_name)
     filehandle.seek(0)
     return filehandle
-  def load_container_body(self, sequence_id, index):
-    logging.debug("Loading container body %s %d" %
-      (base64.urlsafe_b64encode(sequence_id), index))
-    body_file_name = encode_container_name(sequence_id, index, BODY_EXT)
-    filehandle = tempfile.TemporaryFile(dir=Config.paths.staging_area())
-    self.get_fs_handler().download(filehandle, body_file_name)
-    filehandle.seek(0)
-    return filehandle
   
   def upload_container(self, sequence_id, index, header_file, body_file):
-    assert sequence_id == self.active_sequence_id
-    
     logging.info("Uploading container %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))
-    header_file_name_tmp = encode_container_name(sequence_id, index,
-        CONTAINER_EXT_TMP)
-    header_file_name = encode_container_name(sequence_id, index, CONTAINER_EXT)
-    self.upload_file(header_file_name, header_file_name_tmp, header_file)
+    assert sequence_id == self.active_sequence_id
+    
+    # Copy header_file + body_file > tmpfile
+    tmpfile = tempfile.TemporaryFile(dir=Config.paths.staging_area())
+    header_file.seek(0)
+    while True:
+      block = header_file.read(64 << 10)
+      if len(block) == 0: break
+      tmpfile.write(block)
+    body_file.seek(0)
+    while True:
+      block = boody_file.read(64 << 10)
+      if len(block) == 0: break
+      tmpfile.write(block)
 
-  def upload_file(self, file_name, tmp_file_name, file_stream):
-    # We're FTP storage here, don't care about the tmp_file_name.
-    # Just read the file from the stream
-    file_stream.seek(0)
-    self.get_fs_handler().upload(header_file, tmp_file_name)
+    # Upload tmpfile to the remote location
+    tmp_file_name = encode_container_name(sequence_id, index, CONTAINER_EXT_TMP)
+    file_name = encode_container_name(sequence_id, index, CONTAINER_EXT)
+
+    tmpfile.seek(0)
+    self.get_fs_handler().upload(tmpfile, tmp_file_name)
     self.get_fs_handler().rename(tmp_file_name, file_name)
     self.get_fs_handler().chmod(file_name, 0444)
-  #def upload_container(self,index,header_file_name,body_file_name):
-    #remote_header_file_name = self.compute_header_filename(index)
-    #remote_body_file_name = self.compute_body_filename(index)
-    #self.fs_handler.upload(
-      #FileReader(header_file_name, self.up_bw_limiter),
-      #remote_header_file_name)
-    #self.fs_handler.upload(
-      #FileReader(body_file_name, self.up_bw_limiter),
-      #remote_body_file_name)
 
 class DirectoryStorage(Storage):
   """
@@ -512,7 +490,7 @@ class DirectoryStorage(Storage):
     shutil.move(file_path_tmp, file_path)
     # Remove the write permission off the permanent files
     os.chmod(file_path, 0444)
-  def load_container(self, sequence_id, index):
+  def load_body_file(self, sequence_id, index):
     logging.debug("Loading container %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))
     file_name = encode_container_name(sequence_id, index, CONTAINER_EXT)
@@ -668,7 +646,7 @@ def decode_container_name(name):
     sequence_id = base64.urlsafe_b64decode(match.groups()[0])
     index = IE.ascii_decode_int_varlen(match.groups()[1])
     extension = match.groups()[2]
-    return (sequence_id, index)
+    return (sequence_id, index, extension)
   except:
     # File name unparseable. Can be junk coming from something else
     return (None, None)

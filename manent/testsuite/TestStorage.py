@@ -124,9 +124,17 @@ class TestStorage(unittest.TestCase):
     storage = Storage.DirectoryStorage(self.storage_params)
     storage.load_configuration(None)
     container = storage.get_container(seq_id, 0)
-    blocks = container.list_blocks()
-    logging.debug("Blocks: " + str(blocks))
-    data_blocks = [b for b in blocks if b[2] == Container.CODE_DATA]
+    class Handler:
+      def __init__(self):
+        self.blocks = []
+      def is_requested(self, digest, code):
+        return True
+      def loaded(self, digest, code, data):
+        self.blocks.append((digest, code, data))
+    handler = Handler()
+    container.load_blocks(handler)
+    logging.debug("Blocks: " + str(handler.blocks))
+    data_blocks = [b for b in handler.blocks if b[1] == Container.CODE_DATA]
     self.assertEqual(block_digest, data_blocks[0][0])
   def test_new_containers_visible(self):
     # Test that the new containers appearing in all the sequences are visible
