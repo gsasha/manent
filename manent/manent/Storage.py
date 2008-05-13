@@ -44,6 +44,8 @@ def _instantiate(storage_type, storage_params):
 # Create a storage with given parameters
 def create_storage(db_manager, txn_manager, index, params,
            new_block_handler):
+  logging.debug("Opening storage database %s:%s" %
+      ("config.db", "storage.%d" % index))
   config_db = db_manager.get_database_btree("config.db",
     "storage.%d" % index, txn_manager)
   storage_type = params['type']
@@ -54,6 +56,8 @@ def create_storage(db_manager, txn_manager, index, params,
   return storage
 
 def load_storage(db_manager, txn_manager, index, new_block_handler):
+  logging.debug("Opening storage database %s:%s" %
+      ("config.db", "storage.%d" % index))
   config_db = db_manager.get_database_btree("config.db",
     "storage.%d" % index, txn_manager)
   storage_type = config_db["TYPE"]

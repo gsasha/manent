@@ -62,6 +62,8 @@ class TestStorage(unittest.TestCase):
     storage.configure(self.CONFIGURATION, None)
     seq_id1 = storage.create_sequence()
     self.storage_params.index += 1
+    config_db = self.env.get_database_btree("b", None, None)
+    self.storage_params.config_db = config_db
     storage = Storage.DirectoryStorage(self.storage_params)
     storage.configure(self.CONFIGURATION, None)
     seq_id2 = storage.create_sequence()
@@ -83,28 +85,24 @@ class TestStorage(unittest.TestCase):
     storage1.configure(self.CONFIGURATION, None)
     seq_id1 = storage1.create_sequence()
     container = storage1.create_container()
-    container.finish_dump()
-    container.upload()
-    seq_id2 = storage1.create_sequence()
-    container = storage1.create_container()
+    container.add_block(Digest.dataDigest("stam"), Container.CODE_DATA, "stam")
     container.finish_dump()
     container.upload()
     # Create a new db to simulate a different machine
     config_db2 = self.env.get_database_btree("b", None, None)
     self.storage_params.config_db = config_db2
     storage2 = Storage.DirectoryStorage(self.storage_params)
-    class NopHandler:
+    class Handler:
       def __init__(self):
-        pass
-      def report_new_container(self, container):
-        pass
-    # We know that there are new containers appearing.
-    # However, we don't care in this test.
-    storage2.configure(self.CONFIGURATION, NopHandler())
-    sequences = storage2.get_sequence_ids()
-    #print sequences
-    self.assert_(seq_id1 in sequences)
-    self.assert_(seq_id2 in sequences)
+        self.sequences = []
+      def is_requested(self, sequence_id, container_idx, digest, code):
+        self.sequences.append((sequence_id, container_idx, digest, code))
+        return False
+    handler = Handler()
+    storage2.configure(self.CONFIGURATION, handler)
+    self.assertEquals(
+        (seq_id1, 0, Digest.dataDigest("stam"), Container.CODE_DATA),
+        handler.sequences[0])
   def test_container_created(self):
     # Test that containers are created and restored correctly.
     # Create storage and a container
