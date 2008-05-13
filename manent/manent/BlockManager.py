@@ -15,10 +15,9 @@ def is_cached(code):
       code != Container.CODE_HEADER)
 
 class BlockManager:
-  def __init__(self, db_manager, txn_handler, storage_manager):
+  def __init__(self, db_manager, txn_handler):
     self.db_manager = db_manager
     self.txn_handler = txn_handler
-    self.storage_manager = storage_manager
 
     # These two databases are scratch-only, so they don't need to reliably
     # survive through program restarts
@@ -68,7 +67,8 @@ class BlockManager:
       self.block_codes[digest] = str(code)
     else:
       assert code == Container.CODE_DATA
-      self.loaded_blocks[digest] = data
+      if self.requested_blocks.has_key(digest):
+        self.loaded_blocks[digest] = data
   def has_block(self, digest):
     # It is important to use block_codes here, since they are filled up
     # only when the block is saved (which is not immediate for aside

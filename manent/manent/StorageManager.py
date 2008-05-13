@@ -57,7 +57,7 @@ class StorageManager:
     self.db_manager = db_manager
     self.txn_manager = txn_manager
     self.block_manager = BlockManager.BlockManager(
-        self.db_manager, self.txn_manager, self)
+        self.db_manager, self.txn_manager)
     self.block_sequencer = BlockSequencer.BlockSequencer(
         self.db_manager, self.txn_manager, self, self.block_manager)
 
