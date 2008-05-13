@@ -50,8 +50,7 @@ class TestBlockSequencer(unittest.TestCase):
     self.env = Database.PrivateDatabaseManager()
     self.txn = Database.TransactionHandler(self.env)
     self.storage_manager = MockStorageManager()
-    self.block_manager = BlockManager.BlockManager(
-        self.env, self.txn, self.storage_manager)
+    self.block_manager = BlockManager.BlockManager(self.env, self.txn)
   def tearDown(self):
     self.storage_manager = None
     self.block_manager = None
