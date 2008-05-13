@@ -172,8 +172,8 @@ class TestStorage(unittest.TestCase):
     storage2.load_sequences(handler2)
     self.assertEqual([(seq_id1, c1.index)], handler2.containers)
   def test_new_containers_in_active_sequence_caught(self):
-    """Test that if new containers appear unexpectedly in the active sequence,
-    it is actually discovered"""
+    # Test that if new containers appear unexpectedly in the active sequence,
+    # it is actually discovered.
     storage1 = Storage.DirectoryStorage(self.storage_params)
     storage1.configure(self.CONFIGURATION, None)
     seq_id1 = storage1.create_sequence()
@@ -191,83 +191,3 @@ class TestStorage(unittest.TestCase):
       pass
     else:
       self.fail("Expected load_sequences to discover the unexpected container")
-  def test_summary_containers(self):
-    """Test that summary containers are created and later used"""
-    self.CONFIGURATION['key'] = 'test_summary_containers'
-    self.CONFIGURATION['type'] = '__mock__'
-    storage = Storage.create_storage(self.env, self.txn, 0,
-      self.CONFIGURATION, None)
-    storage.set_container_size(256)
-    storage.create_sequence()
-    start_summary_headers = storage.summary_headers_written
-    # Create a container with many entries, to make sure a summary container
-    # becomes due.
-    container = storage.create_container()
-    for i in range(10):
-      data = "block %d" % i
-      digest = Digest.dataDigest(data)
-      if not container.can_add(data):
-        container.finish_dump()
-        container.upload()
-        self.txn.commit()
-        container = storage.create_container()
-      container.add_block(digest, Container.CODE_DATA, data)
-    end_summary_headers = storage.summary_headers_written
-
-    # Check that a summary header was indeed created
-    self.failUnless(start_summary_headers < end_summary_headers)
-    
-    # Recreate the storage from containers to see that summary container
-    #    was created and loaded.
-    self.CONFIGURATION['key'] = 'test_summary_containers'
-    class DummyHandler:
-      def report_new_container(self, container):
-        print "Reporting new container", container.index
-        container.load_header()
-    storage = Storage.create_storage(self.env, self.txn, 1,
-      self.CONFIGURATION, DummyHandler())
-    storage.set_container_size(256)
-    storage.create_sequence()
-    print "HEADERS LOADED",
-    print storage.headers_loaded_total,
-    print storage.headers_loaded_from_summary,
-    print storage.headers_loaded_from_storage
-    self.assert_(storage.headers_loaded_from_summary > 0)
-  def test_summary_container_recreated(self):
-    """Test that if we ask the storage to recreate summary containers,
-    and recreate it from containers where no summary containers actually
-    existed, then the summary containers actually get created for the old
-    sequences"""
-    self.CONFIGURATION['key'] = 'test_summary_container_recreated'
-    self.CONFIGURATION['type'] = '__mock__'
-    storage = Storage.create_storage(self.env, self.txn, 0,
-      self.CONFIGURATION, None)
-    # Set a large container size, to make sure
-    # summary container is not made.
-    storage.set_container_size(1 << 20)
-    storage.create_sequence()
-    start_summary_headers = storage.summary_headers_written
-    # Create a container with many entries, to make sure a summary container
-    # becomes due.
-    for i in range(10):
-      data = "block %d" % i
-      digest = Digest.dataDigest(data)
-      container = storage.create_container()
-      container.add_block(digest, Container.CODE_DATA, data)
-      container.finish_dump()
-      container.upload()
-      self.txn.commit()
-    end_summary_headers = storage.summary_headers_written
-    # No summary headers made yet...
-    self.assert_(start_summary_headers == end_summary_headers)
-
-    # Now create a new storage, while making a summary container
-    self.CONFIGURATION['generate_summary'] = 'true'
-    class DummyHandler:
-      def report_new_container(self, container):
-        print "Reporting new container", container.index
-        container.load_header()
-    storage = Storage.create_storage(self.env, self.txn, 1,
-      self.CONFIGURATION, DummyHandler())
-    self.assert_(1 == storage.summary_headers_written)
-    self.fail()
