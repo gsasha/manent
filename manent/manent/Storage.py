@@ -43,23 +43,23 @@ def _instantiate(storage_type, storage_params):
 
 # Create a storage with given parameters
 def create_storage(db_manager, txn_manager, index, params,
-           new_container_handler):
+           new_block_handler):
   config_db = db_manager.get_database_btree("config.db",
     "storage.%d" % index, txn_manager)
   storage_type = params['type']
   config_db["TYPE"] = storage_type
   storage_params = StorageParams(index, db_manager, txn_manager, config_db)
   storage = _instantiate(storage_type, storage_params)
-  storage.configure(params, new_container_handler)
+  storage.configure(params, new_block_handler)
   return storage
 
-def load_storage(db_manager, txn_manager, index, new_container_handler):
+def load_storage(db_manager, txn_manager, index, new_block_handler):
   config_db = db_manager.get_database_btree("config.db",
     "storage.%d" % index, txn_manager)
   storage_type = config_db["TYPE"]
   storage_params = StorageParams(index, db_manager, txn_manager, config_db)
   storage = _instantiate(storage_type, storage_params)
-  storage.load_configuration(new_container_handler)
+  storage.load_configuration(new_block_handler)
   return storage
 
 
@@ -92,17 +92,17 @@ class Storage:
   #
   # Loading
   #
-  def configure(self, config, new_container_handler):
+  def configure(self, config, new_block_handler):
     for key, val in config.iteritems():
       self.config_db[self._key('CONFIG.' + key)] = val
       logging.debug("setting config_db[%s]=%s" %
           (self._key('CONFIG.'+key), val))
     
     self.config = config
-    self.load_sequences(new_container_handler)
-  def load_configuration(self, new_container_handler):
+    self.load_sequences(new_block_handler)
+  def load_configuration(self, new_block_handler):
     self.config = self.get_config()
-    self.load_sequences(new_container_handler)
+    self.load_sequences(new_block_handler)
   def get_config(self):
     PREFIX = self._key('CONFIG.')
     PREFIX_len = len(PREFIX)
@@ -148,7 +148,7 @@ class Storage:
     return self.active_sequence_id
   def get_next_index(self):
     return self.sequences[self.active_sequence_id].get_next_index()
-  def load_sequences(self, new_container_handler):
+  def load_sequences(self, new_block_handler):
     # Load previously known sequences
     AS_KEY = self._key("active_sequence")
     if self.config_db.has_key(AS_KEY):
@@ -167,13 +167,14 @@ class Storage:
         logging.info("Found new sequence %s " %
           base64.b64encode(sequence_id))
         self.sequence_next_container[sequence_id] = 0
+        sequence_new_containers[sequence_id] = []
       if index >= self.sequence_next_container[sequence_id]:
         sequence_new_containers[sequence_id].append(index)
 
     for sequence_id, containers in sequence_new_containers.iteritems():
       containers.sort()
       logging.debug("New containers in sequence %s: %s" %
-          (base64.urlsafe_b64encode(sequence), str(containers)))
+          (base64.urlsafe_b64encode(sequence_id), str(containers)))
 
     # Process the new containers
     # 1. Read the new containers that have piggyback headers - this way we get
@@ -196,25 +197,29 @@ class Storage:
           Ask the incoming handler for all the other blocks.
           Note taht the incoming handler receives the sequence id along with
           each block."""
-          def __init_(self, sequence_id, block_handler):
+          def __init__(self, sequence_id, container_idx, block_handler):
             self.sequence_id = sequence_id
+            self.container_idx = container_idx
             self.block_handler = block_handler
             self.headers = {}
           def is_requested(self, digest, code):
-            if self.block_handler.is_requested(digest, code):
+            if self.block_handler.is_requested(
+                self.sequence_id, self.container_idx, digest, code):
               return True
             return code == Container.CODE_HEADER
           def loaded(self, digest, code, data):
-            if self.block_handler.is_requested(digest, code):
-              self.block_handler.loaded(sequence_id, digest, code, data)
+            if self.block_handler.is_requested(
+                self.sequence_id, self.container_idx, digest, code):
+              self.block_handler.loaded(digest, code, data)
             if code == Container.CODE_HEADER:
               index = Container.decode_piggyback_container_index(digest)
               self.headers[index] = data
-        pb_handler = PiggybackHeaderLoadHandler(sequence_id, new_block_handler)
+        pb_handler = PiggybackHeaderLoadHandler(
+            sequence_id, index, new_block_handler)
         container.load_blocks(pb_handler)
         logging.info("Container %d piggybacks headers %s" %
-            (index, str(pb_handler.get_headers().keys())))
-        for index, header in pb_handler.get_headers().iteritems():
+            (index, str(pb_handler.headers.keys())))
+        for index, header in pb_handler.headers.iteritems():
           self.loaded_headers_db[str(index)] = header
       # Make sure that we will not try to re-load the containers we have loaded
       # already.
@@ -245,6 +250,8 @@ class Storage:
         container.load_blocks(handler)
     # 3. Update the next_container information for all the sequences.
     for sequence_id, containers in sequence_new_containers.iteritems():
+      if len(containers) == 0:
+        continue
       self.sequence_next_container[sequence_id] = max(containers) + 1
       self.config_db["next_container." + sequence_id] = str(
           self.sequence_next_container(sequence_id))
@@ -314,10 +321,10 @@ class MemoryStorage(Storage):
   def __init__(self, params):
     Storage.__init__(self, params)
     self.container_size_ = 512 * 1<<10
-  def configure(self, params, new_container_handler):
-    Storage.configure(self, params, new_container_handler)
-  def load_configuration(self, new_container_handler):
-    Storage.load_configuration(self, new_container_handler)
+  def configure(self, params, new_block_handler):
+    Storage.configure(self, params, new_block_handler)
+  def load_configuration(self, new_block_handler):
+    Storage.load_configuration(self, new_block_handler)
   def get_cur_files(self):
     if not self.files.has_key(self.config['key']):
       self.files[self.config['key']] = {}
@@ -351,10 +358,10 @@ class FTPStorage(Storage):
     self.fs_handler = None
     #self.up_bw_limiter = BandwidthLimiter(15.0E3)
     #self.down_bw_limiter = BandwidthLimiter(10000.0E3)
-  def configure(self, params, new_container_handler):
-    Storage.configure(self, params, new_container_handler)
-  def load_configuration(self, new_container_handler):
-    Storage.load_configuration(self, new_container_handler)
+  def configure(self, params, new_block_handler):
+    Storage.configure(self, params, new_block_handler)
+  def load_configuration(self, new_block_handler):
+    Storage.load_configuration(self, new_block_handler)
     #print "Loaded directory storage configuration", self.config
 
   def get_fs_handler(self):
@@ -453,11 +460,11 @@ class DirectoryStorage(Storage):
   """
   def __init__(self, params):
     Storage.__init__(self, params)
-  def configure(self, params, new_container_handler):
+  def configure(self, params, new_block_handler):
     #print "Configuring directory storage with parameters", params
-    Storage.configure(self, params, new_container_handler)
-  def load_configuration(self, new_container_handler):
-    Storage.load_configuration(self, new_container_handler)
+    Storage.configure(self, params, new_block_handler)
+  def load_configuration(self, new_block_handler):
+    Storage.load_configuration(self, new_block_handler)
     #print "Loaded directory storage configuration", self.config
   def get_path(self):
     return self.config["path"]

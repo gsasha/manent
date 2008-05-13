@@ -18,6 +18,20 @@ PREFIX = "STORAGE_MANAGER."
 
 logger_sm = logging.getLogger("manent.storage_manager")
 
+#--------------------------------------------------------
+# Utility methods
+#--------------------------------------------------------
+def _encode_block_info(seq_idx, container_idx):
+  io = StringIO.StringIO()
+  io.write(IE.binary_encode_int_varlen(seq_idx))
+  io.write(IE.binary_encode_int_varlen(container_idx))
+  return io.getvalue()
+def _decode_block_info(encoded):
+  io = StringIO.StringIO(encoded)
+  seq_idx = IE.binary_read_int_varlen(io)
+  container_idx = IE.binary_read_int_varlen(io)
+  return (seq_idx, container_idx)
+
 class StorageManager:
   """Handles the moving of blocks to and from storages.
 
@@ -81,6 +95,8 @@ class StorageManager:
   def _key(self, suffix):
     return PREFIX + suffix
 
+  def has_sequence(self, sequence_id):
+    return self.seq_to_index.has_key(sequence_id)
   def register_sequence(self, storage_idx, sequence_id):
     # Generate new index for this sequence
     logger_sm.debug("new sequence detected in storage %d: %s" %
@@ -93,11 +109,6 @@ class StorageManager:
       
     self.seq_to_index[sequence_id] = (storage_idx, sequence_idx)
     self.index_to_seq[sequence_idx] = (storage_idx, sequence_id)
-  def get_sequence_idx(self, storage_idx, sequence_id):
-    if not self.seq_to_index.has_key(sequence_id):
-      self._register_sequence(storage_idx, sequence_id)
-    dummy_storage_idx, sequence_idx = self.seq_to_index[sequence_id]
-    return sequence_idx
   class BlockScanningHandler:
     """This handler is used for loading blocks in new containers. At this point,
     there can be no requested blocks in the BlockManager, and therefore, we do
@@ -109,6 +120,7 @@ class StorageManager:
       # See if this block belongs to a previously unseen sequence.
       if not self.storage_manager.has_sequence(sequence_id):
         self.storage_manager.register_sequence(self.storage_idx, sequence_id)
+      storage_idx, sequence_idx = self.storage_manager.seq_to_index[sequence_id]
       # Record to which container does this block belong.
       encoded = _encode_block_info(sequence_idx, container_idx)
       self.storage_manager.block_container_db[digest] = encoded
@@ -194,7 +206,7 @@ class StorageManager:
     if not self.block_manager.has_block(digest):
       logging.debug("loading blocks for" + base64.b64encode(digest))
 
-      sequence_idx, container_idx = self._decode_block_info(
+      sequence_idx, container_idx = _decode_block_info(
         self.block_container_db[digest])
       storage_idx, sequence_id = self.index_to_seq[sequence_idx]
       storage = self.storages[storage_idx]
@@ -219,7 +231,7 @@ class StorageManager:
   def load_blocks_for(self, digest, handler):
     # This method exists only for testing.
     logging.debug("SM loading blocks for " + base64.b64encode(digest))
-    sequence_idx, container_idx = self._decode_block_info(
+    sequence_idx, container_idx = _decode_block_info(
         self.block_container_db[digest])
     storage_idx, sequence_id = self.index_to_seq[sequence_idx]
     storage = self.storages[storage_idx]
@@ -243,23 +255,9 @@ class StorageManager:
     # Update the container in the blocks db
     container_idx = container.get_index()
     storage_idx, seq_idx = self.seq_to_index[container.get_sequence_id()]
-    encoded = self._encode_block_info(seq_idx, container_idx)
+    encoded = _encode_block_info(seq_idx, container_idx)
     logging.info("Encoding block info seq=%s container=%d" %
       (seq_idx, container_idx))
     for digest, code in container.list_blocks():
       self.block_container_db[digest] = encoded
     self.txn_manager.commit()
-  #--------------------------------------------------------
-  # Utility methods
-  #--------------------------------------------------------
-  def _encode_block_info(self, seq_idx, container_idx):
-    io = StringIO.StringIO()
-    io.write(IE.binary_encode_int_varlen(seq_idx))
-    io.write(IE.binary_encode_int_varlen(container_idx))
-    return io.getvalue()
-  def _decode_block_info(self, encoded):
-    io = StringIO.StringIO(encoded)
-    seq_idx = IE.binary_read_int_varlen(io)
-    container_idx = IE.binary_read_int_varlen(io)
-    return (seq_idx, container_idx)
-
