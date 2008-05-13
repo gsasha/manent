@@ -170,7 +170,7 @@ class StorageManager:
       raise Exception("Switching active storage not supported yet")
     storage = self.storages[storage_index]
     seq_id = storage.create_sequence()
-    self._register_sequence(storage_index, seq_id)
+    self.register_sequence(storage_index, seq_id)
     self.active_storage_idx = storage_index
   def get_active_sequence_id(self):
     storage = self.storages[self.active_storage_idx]
@@ -188,30 +188,7 @@ class StorageManager:
     if self.block_container_db.has_key(digest):
       return
 
-    storage = self.storages[self.active_storage_idx]
-    #
-    # Make sure we have a container that can take this block
-    #
-    if code == Container.CODE_DATA:
-      #print "Block", base64.b64encode(digest),\
-        #Container.code_name(code), "sent to normal container"
-      # Put the data to a normal container
-      # 1. Make sure the current container can take the block.
-      if not self.current_open_container.can_add(data):
-        self._write_container(self.current_open_container)
-        self.current_open_container = None
-        if self.aside_blocks_size() >= self.container_size():
-          self._write_aside_blocks(flush=False)
-      if self.current_open_container is None:
-        self.current_open_container = storage.create_container()
-      # 2. Proceed to add the block
-      self.current_open_container.add_block(digest, code, data)
-    else:
-      #print "Block", base64.b64encode(digest),\
-        #Container.code_name(code), "sent to aside container"
-      key = IE.binary_encode_int_varlen(self.num_aside_blocks)
-      self.num_aside_blocks += 1
-      self.aside_block_db[key] = digest
+    self.block_sequencer.add_block(digest, code, data)
   def load_block(self, digest):
     logging.debug("SM loading block " + base64.b64encode(digest))
     if not self.block_manager.has_block(digest):
@@ -239,6 +216,16 @@ class StorageManager:
       container = storage.get_container(sequence_id, container_idx)
       container.load_blocks(Handler(self.block_manager))
     return self.block_manager.load_block(digest)
+  def load_blocks_for(self, digest, handler):
+    # This method exists only for testing.
+    logging.debug("SM loading blocks for " + base64.b64encode(digest))
+    sequence_idx, container_idx = self._decode_block_info(
+        self.block_container_db[digest])
+    storage_idx, sequence_id = self.index_to_seq[sequence_idx]
+    storage = self.storages[storage_idx]
+    container = storage.get_container(sequence_id, container_idx)
+    container.load_blocks(handler)
+
   def request_block(self, digest):
     logging.debug("SM requesting block " + base64.b64encode(digest))
     self.block_manager.request_block(digest)
@@ -246,18 +233,11 @@ class StorageManager:
     logging.debug("SM getting code for " + base64.b64encode(digest))
     return self.block_manager.get_block_code(digest)
   def flush(self):
-    self._write_aside_blocks(flush=True)
+    self.block_sequencer.flush()
     storage = self.storages[self.active_storage_idx]
-
-    if self.current_aside_container is not None:
-      logging.info("Exporting aside container to output stream")
-    if self.current_open_container is not None:
-      # TODO: what if the container is empty???
-      self._write_container(self.current_open_container)
-      self.current_open_container = None
     storage.flush()
   def create_container(self):
-    storage = self.storages[get_active_storage_index]
+    storage = self.storages[self.get_active_storage_index()]
     return storage.create_container()
   def container_written(self, container):
     # Update the container in the blocks db

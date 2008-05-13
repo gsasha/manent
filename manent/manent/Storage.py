@@ -81,6 +81,7 @@ class Storage:
       "loaded_headers_%d.db" % params.index, None)
     self.index = params.index
     self.sequences = {}
+    self.sequence_next_container = {}
     self.active_sequence_id = None
     # For statistics and testing
     self.headers_loaded_total = 0
@@ -119,14 +120,12 @@ class Storage:
     return self.index
 
   # Data structure stored in a database for a specific storage:
-  # storage.%d.active_sequence - the sequence to which new containers
-  #                              are added
-  # TODO(gsasha): check if these comments are obsolete, and if so, delete them.
-  # storage.%d.$sequence.index  - the index of the sequence with the given
-  #     storage id. Used to determine if the sequence has been loaded already
-  # storage.%d.$sequence.next_container - the index of the last known
+  # active_sequence - the sequence to which new containers
+  #                   are added
+  # next_container.$sequence - the index of the last known
   #     container in the given sequence. Used to determine which new
-  #     containers have appeared for the sequence
+  #     containers have appeared for the sequence. Also, used to know if this
+  #     sequence has been loaded already.
   def create_sequence(self, test_override_sequence_id=None):
     # If a sequence is created, rather than discovered, it can be done only
     # in order to make it active one.
@@ -136,11 +135,13 @@ class Storage:
       self.active_sequence_id = test_override_sequence_id
     else:
       self.active_sequence_id = os.urandom(12)
+
     logging.debug("Creating sequence %s" %
         base64.b64encode(self.active_sequence_id))
-    self.sequences[self.active_sequence_id] = Sequence.Sequence(self,
-      self.active_sequence_id)
+    self.sequence_next_container[self.active_sequence_id] = 0
     self.config_db[self._key("active_sequence")] = self.active_sequence_id
+    self.config_db[self._key("next_container.%s" % self.active_sequence_id)] =\
+        str(self.sequence_next_container[self.active_sequence_id])
     return self.active_sequence_id
   def is_active(self):
     return self.active_sequence_id is not None
@@ -154,25 +155,21 @@ class Storage:
     if self.config_db.has_key(AS_KEY):
       self.active_sequence_id = self.config_db[AS_KEY]
     
-    SEQ_PREFIX = self._key(".sequences.")
+    SEQ_PREFIX = self._key("next_container.")
     for key, value in self.config_db.iteritems_prefix(SEQ_PREFIX):
       seq_id = key[len(SEQ_PREFIX):]
-      seq = Sequence(self, seq_id)
-      seq.set_active(seq_id == self.active_sequence_id)
-      self.sequences[seq_id] = seq
+      self.sequence_next_container[seq_id] = str(value)
 
     # Load the data from the storage location
-    container_files = self.list_container_files()
     sequence_new_containers = {}
-
-    for name in container_files:
+    for name in self.list_container_files():
       sequence_id, index = decode_container_name(name)
-      if not self.sequences.has_key(sequence_id):
+      if not self.sequence_next_container.has_key(sequence_id):
         logging.info("Found new sequence %s " %
           base64.b64encode(sequence_id))
-        self.sequences[sequence_id] = Sequence.Sequence(self,
-          sequence_id)
-      sequence_new_containers[sequence_id].append(index)
+        self.sequence_next_container[sequence_id] = 0
+      if index >= self.sequence_next_container[sequence_id]:
+        sequence_new_containers[sequence_id].append(index)
 
     for sequence_id, containers in sequence_new_containers.iteritems():
       containers.sort()
@@ -247,14 +244,15 @@ class Storage:
               self.block_handler.loaded(sequence_id, digest, code, data)
         handler = BlockLoadHandler(sequence_id, new_block_handler)
         container.load_blocks(handler)
+    # 3. Update the next_container information for all the sequences.
+    for sequence_id, containers in sequence_new_containers.iteritems():
+      self.sequence_next_container[sequence_id] = max(containers) + 1
+      self.config_db["next_container." + sequence_id] = str(
+          self.sequence_next_container(sequence_id))
     self.loaded_headers_db.truncate()
   def flush(self):
     # TODO(gsasha): implement this
     pass
-  def get_sequence_ids(self):
-    return self.sequences.keys()
-  def get_active_sequence(self):
-    return self.sequences[self.active_sequence_id]
   def close(self):
     self.loaded_headers_db.close()
     # TODO(gsasha): close all databases
@@ -269,8 +267,11 @@ class Storage:
     if self.active_sequence_id is None:
       raise Exception("Can't create a container for an inactive storage")
     container = Container.Container(self)
-    sequence = self.get_active_sequence()
-    container.start_dump(self.active_sequence_id, sequence.get_next_index())
+    index = self.sequence_next_container[self.active_sequence_id]
+    container.start_dump(self.active_sequence_id, index)
+
+    self.sequence_next_container[self.active_sequence_id] = index + 1
+    self.config_db["next_container." + self.active_sequence_id] = str(index + 1)
     return container
   def get_container(self, sequence_id, index):
     container = Container.Container(self)
@@ -313,7 +314,7 @@ class MemoryStorage(Storage):
   files = {}
   def __init__(self, params):
     Storage.__init__(self, params)
-    self.container_size_ = 1<<10
+    self.container_size_ = 512 * 1<<10
   def configure(self, params, new_container_handler):
     Storage.configure(self, params, new_container_handler)
   def load_configuration(self, new_container_handler):
