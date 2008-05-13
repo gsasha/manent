@@ -341,8 +341,8 @@ class MemoryStorage(Storage):
     return StringIO.StringIO()
   def upload_container(self, sequence_id, index, header_file, body_file):
     assert sequence_id == self.active_sequence_id
-    body_file_name = encode_container_name(sequence_id, index, CONTAINER_EXT)
-    self.get_cur_files()[body_file_name] = (header_file.getvalue() +
+    file_name = encode_container_name(sequence_id, index, CONTAINER_EXT)
+    self.get_cur_files()[file_name] = (header_file.getvalue() +
       body_file.getvalue())
   def load_body_file(self, sequence_id, index):
     body_file_name = encode_container_name(sequence_id, index, CONTAINER_EXT)
@@ -476,75 +476,48 @@ class DirectoryStorage(Storage):
   def open_header_file(self, sequence_id, index):
     logging.debug("Starting container header %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))
-    header_file_name = encode_container_name(sequence_id, index, HEADER_EXT_TMP)
-    header_file_path = os.path.join(self.get_path(), header_file_name)
-    return open(header_file_path, "wb+")
+    return mktemp.TemporaryFile(dir=Config.paths.staging_area())
   def open_body_file(self, sequence_id, index):
     logging.debug("Starting container body %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))
-    body_file_name = encode_container_name(sequence_id, index, BODY_EXT_TMP)
-    body_file_path = os.path.join(self.get_path(), body_file_name)
-    return open(body_file_path, "wb+")
+    return mktemp.TemporaryFile(dir=Config.paths.staging_area())
   def upload_container(self, sequence_id, index, header_file, body_file):
     # Write the header file to summary header
     assert sequence_id == self.active_sequence_id
     
     logging.debug("Uploading container %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))
-    header_file_name_tmp = encode_container_name(sequence_id, index, HEADER_EXT_TMP)
-    header_file_name = encode_container_name(sequence_id, index, HEADER_EXT)
-    self.upload_file(header_file_name, header_file_name_tmp, header_file)
-    body_file_name_tmp = encode_container_name(sequence_id, index, BODY_EXT_TMP)
-    body_file_name = encode_container_name(sequence_id, index, BODY_EXT)
-    self.upload_file(body_file_name, body_file_name_tmp, body_file)
-  def upload_file(self, file_name, tmp_file_name, file_stream):
-    # We're FTP storage here, don't care about the tmp_file_name.
-    # Just read the file from the stream
-    tmp_file_path = os.path.join(self.get_path(), tmp_file_name)
+    file_name_tmp = encode_container_name(sequence_id, index, CONTAINER_EXT_TMP)
+    file_name = encode_container_name(sequence_id, index, CONTAINER_EXT)
+    file_path_tmp = os.path.join(self.get_path(), file_name_tmp)
     file_path = os.path.join(self.get_path(), file_name)
-    if not os.path.isfile(tmp_file_path):
-      # If the temporary file does not exist, this is because it has not
-      # been created, and the data does not sit in the repository's fs.
-      # Copy the data to the temporary file, and then rename it to
-      # temporary one.
-      tmp_file_stream = open(tmp_file_path, "wb")
-      file_stream.seek(0)
-      while True:
-        block = file_stream.read(64 << 10)
-        if len(block) == 0: break
-        tmp_file_stream.write(block)
-      tmp_file_stream.close()
-      file_stream.close()
-    else:
-      # If the temporary file exists, then the data is just there
-      # Close the file handle before doing operations on it since
-      # Windows doesn't permit renaming while open.
-      file_stream.close()
+
+    if os.path.isfile(tmp_file_path):
+      # If the tmp file exists, it has been there earlier, but we can't trust
+      # its contents (It may be half-uploaded).
+      os.unlink(tmp_file_path)
+    file_stream = open(tmp_file_path, "wb")
+    header_file.seek(0)
+    while True:
+      block = header_file.read(64 << 10)
+      if len(block) == 0: break
+      file_stream.write(block)
+    body_file.seek(0)
+    while True:
+      block = body_file.read(64 << 10)
+      if len(block) == 0: break
+      file_stream.write(block)
+    file_stream.close()
     # Rename the tmp file to permanent one
-    shutil.move(tmp_file_path, file_path)
+    shutil.move(file_path_tmp, file_path)
     # Remove the write permission off the permanent files
     os.chmod(file_path, 0444)
-  def load_container_header(self, sequence_id, index):
-    logging.debug("Loading container header %s %d" %
+  def load_container(self, sequence_id, index):
+    logging.debug("Loading container %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))
-    stream = self.load_container_header_from_summary(sequence_id, index)
-    if stream is not None:
-      return stream
-    header_file_name = encode_container_name(sequence_id, index, HEADER_EXT)
-    header_file_path = os.path.join(self.get_path(), header_file_name)
-    return open(header_file_path, "rb")
-  def load_container_header_summary(self, sequence_id, index):
-    logging.debug("Loading container header summary %s %d" %
-      (base64.urlsafe_b64encode(sequence_id), index))
-    file_name = encode_container_name(sequence_id, index, SUMMARY_HEADER_EXT)
+    file_name = encode_container_name(sequence_id, index, CONTAINER_EXT)
     file_path = os.path.join(self.get_path(), file_name)
     return open(file_path, "rb")
-  def load_container_body(self, sequence_id, index):
-    logging.debug("Loading container body %s %d" %
-      (base64.urlsafe_b64encode(sequence_id), index))
-    body_file_name = encode_container_name(sequence_id, index, BODY_EXT)
-    body_file_path = os.path.join(self.get_path(), body_file_name)
-    return open(body_file_path, "rb")
 
 import smtplib
 import email.Encoders as Encoders
