@@ -476,11 +476,11 @@ class DirectoryStorage(Storage):
   def open_header_file(self, sequence_id, index):
     logging.debug("Starting container header %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))
-    return mktemp.TemporaryFile(dir=Config.paths.staging_area())
+    return tempfile.TemporaryFile(dir=Config.paths.staging_area())
   def open_body_file(self, sequence_id, index):
     logging.debug("Starting container body %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))
-    return mktemp.TemporaryFile(dir=Config.paths.staging_area())
+    return tempfile.TemporaryFile(dir=Config.paths.staging_area())
   def upload_container(self, sequence_id, index, header_file, body_file):
     # Write the header file to summary header
     assert sequence_id == self.active_sequence_id
@@ -492,11 +492,11 @@ class DirectoryStorage(Storage):
     file_path_tmp = os.path.join(self.get_path(), file_name_tmp)
     file_path = os.path.join(self.get_path(), file_name)
 
-    if os.path.isfile(tmp_file_path):
+    if os.path.isfile(file_path_tmp):
       # If the tmp file exists, it has been there earlier, but we can't trust
       # its contents (It may be half-uploaded).
-      os.unlink(tmp_file_path)
-    file_stream = open(tmp_file_path, "wb")
+      os.unlink(file_path_tmp)
+    file_stream = open(file_path_tmp, "wb")
     header_file.seek(0)
     while True:
       block = header_file.read(64 << 10)
