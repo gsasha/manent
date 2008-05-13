@@ -80,7 +80,6 @@ class Storage:
     self.loaded_headers_db = params.db_manager.get_scratch_database(
       "loaded_headers_%d.db" % params.index, None)
     self.index = params.index
-    self.sequences = {}
     self.sequence_next_container = {}
     self.active_sequence_id = None
     # For statistics and testing
@@ -158,7 +157,7 @@ class Storage:
     SEQ_PREFIX = self._key("next_container.")
     for key, value in self.config_db.iteritems_prefix(SEQ_PREFIX):
       seq_id = key[len(SEQ_PREFIX):]
-      self.sequence_next_container[seq_id] = str(value)
+      self.sequence_next_container[seq_id] = int(value)
 
     # Load the data from the storage location
     sequence_new_containers = {}
