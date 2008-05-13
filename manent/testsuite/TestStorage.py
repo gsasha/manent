@@ -57,7 +57,7 @@ class TestStorage(unittest.TestCase):
       self.assertEqual(container_idx, dec_container_idx)
       self.assertEqual(dec_ext, "data")
   def test_sequence_created(self):
-    """Test that unique sequence ids are created"""
+    # Test that unique sequence ids are created
     storage = Storage.DirectoryStorage(self.storage_params)
     storage.configure(self.CONFIGURATION, None)
     seq_id1 = storage.create_sequence()
@@ -67,7 +67,7 @@ class TestStorage(unittest.TestCase):
     seq_id2 = storage.create_sequence()
     self.failUnless(seq_id1 != seq_id2)
   def test_active_sequence_reloaded(self):
-    """Test that the active sequence is reloaded correctly"""
+    # Test that the active sequence is reloaded correctly
     storage1 = Storage.DirectoryStorage(self.storage_params)
     storage1.configure(self.CONFIGURATION, None)
     seq_id1 = storage1.create_sequence()
@@ -77,7 +77,7 @@ class TestStorage(unittest.TestCase):
     seq_id2 = storage2.get_active_sequence_id()
     self.assertEqual(seq_id1, seq_id2)
   def test_sequences_reloaded(self):
-    """Test that all the sequences created get restored"""
+    # Test that all the sequences created get restored
     # Create storage and a container
     storage1 = Storage.DirectoryStorage(self.storage_params)
     storage1.configure(self.CONFIGURATION, None)
@@ -151,26 +151,28 @@ class TestStorage(unittest.TestCase):
     # Create a container in each storage, make sure the containers are mutually
     # visible
     c1 = storage1.create_container()
+    c1.add_block(Digest.dataDigest("c1block"), Container.CODE_DATA, "c1block")
     c1.finish_dump()
     c1.upload()
     c2 = storage2.create_container()
+    c2.add_block(Digest.dataDigest("c2block"), Container.CODE_DATA, "c2block")
     c2.finish_dump()
     c2.upload()
     # Reload the storages
     class Handler:
       def __init__(self):
         self.containers = []
-      def report_new_container(self, container):
-        self.containers.append((container.get_sequence_id(),
-                    container.get_index()))
-      def get_containers(self):
-        return self.containers
+      def is_requested(self, sequence_id, container_idx, digest, code):
+        self.containers.append((sequence_id, container_idx))
+        return False
+      def loaded(self, digest, code, data):
+        pass
     handler1 = Handler()
     storage1.load_sequences(handler1)
-    self.assertEqual([(seq_id2, c2.index)], handler1.get_containers())
+    self.assertEqual([(seq_id2, c2.index)], handler1.containers)
     handler2 = Handler()
     storage2.load_sequences(handler2)
-    self.assertEqual([(seq_id1, c1.index)], handler2.get_containers())
+    self.assertEqual([(seq_id1, c1.index)], handler2.containers)
   def test_new_containers_in_active_sequence_caught(self):
     """Test that if new containers appear unexpectedly in the active sequence,
     it is actually discovered"""
