@@ -29,9 +29,6 @@ suite_Exclusion = test_loader.loadTestsFromTestCase(TestExclusionProcessor)
 from testsuite.TestStorage import TestStorage
 suite_Storage = test_loader.loadTestsFromTestCase(TestStorage)
 
-from testsuite.TestSequence import TestSequence
-suite_Sequence = test_loader.loadTestsFromTestCase(TestSequence)
-
 from testsuite.TestStorageManager import TestStorageManager
 suite_StorageManager = test_loader.loadTestsFromTestCase(TestStorageManager)
 
@@ -49,7 +46,6 @@ suite = unittest.TestSuite([
 	suite_DB,
 	suite_Format,
 	suite_Exclusion,
-	suite_Sequence,
 	suite_Storage,
 	suite_StorageManager,
 	suite_BlockManager,

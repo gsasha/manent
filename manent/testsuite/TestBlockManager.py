@@ -73,8 +73,12 @@ class TestBlockManager(unittest.TestCase):
 
     # aaa is a data block. It is not available if not requested
     bm.request_block(Digest.dataDigest("aaa"))
-    self.storage_manager.load_blocks_for(Digest.dataDigest("aaa"),
-      bm.get_block_handler())
+    class Handler:
+      def is_requested(self, digest, code):
+        return BlockManager.is_cached(code)
+      def loaded(self, digest, code, data):
+        return
+    self.storage_manager.load_blocks_for(Digest.dataDigest("aaa"), Handler())
     self.assertEqual(bm.load_block(Digest.dataDigest("aaa")), "aaa")
     self.assertEqual(1, self.storage_manager.num_load_block_requests)
     # ccc and ddd are non-data blocks, so they should be cached and
