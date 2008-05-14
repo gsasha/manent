@@ -311,7 +311,7 @@ class Backup:
 	def __open_storage(self):
 		# TODO: consider not loading storages on initialization, only on meaningful
 		# operations
-		self.storage_manager.load_storages(None)
+		self.storage_manager.load_storages()
 		self.increment_manager = IncrementManager.IncrementManager(
 			self.db_manager, self.txn_handler, self.storage_manager)
 		self.storage_opened = True
