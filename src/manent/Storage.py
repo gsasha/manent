@@ -21,7 +21,6 @@ import traceback
 
 import Config
 import Container
-import Sequence
 import utils.IntegerEncodings as IE
 import utils.RemoteFSHandler as RemoteFSHandler
 
