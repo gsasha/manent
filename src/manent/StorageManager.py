@@ -192,8 +192,6 @@ class StorageManager:
   def get_block_size(self):
     storage = self.storages[self.active_storage_idx]
     return storage.get_block_size()
-  # TODO: make class called AsideContainer, but it is not really a container,
-  # just holder for aside blocks. Methods: is_full, get_block(id) -> digest
   def add_block(self, digest, code, data):
     self.block_manager.add_block(digest, code, data)
 
@@ -211,7 +209,7 @@ class StorageManager:
       storage_idx, sequence_id = self.index_to_seq[sequence_idx]
       storage = self.storages[storage_idx]
 
-      logging.debug("Digest %s is in %d:%d:%d" %
+      logging.debug("Digest %s is in %d:%s:%d" %
           (base64.b64encode(digest), sequence_idx,
           base64.urlsafe_b64encode(sequence_id), container_idx))
 
@@ -222,9 +220,9 @@ class StorageManager:
           if BlockManager.is_cached(code):
             # Blocks that are supposed to be cached are already there
             return False
-          return self.block_manager.is_requested(digest, code)
+          return self.block_manager.is_requested(digest)
         def loaded(self, digest, code, data):
-          self.block_manager.handle(digest, code, data)
+          self.block_manager.handle_block(digest, code, data)
       container = storage.get_container(sequence_id, container_idx)
       container.load_blocks(Handler(self.block_manager))
     return self.block_manager.load_block(digest)

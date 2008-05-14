@@ -54,6 +54,8 @@ class BlockManager:
         int(self.requested_blocks[digest]) + 1)
     else:
       self.requested_blocks[digest] = "1"
+  def is_requested(self, digest):
+    return self.requested_blocks.has_key(digest)
   def add_block(self, digest, code, data):
     if code != Container.CODE_DATA:
       # We store the block code only for blocks that are not DATA.
