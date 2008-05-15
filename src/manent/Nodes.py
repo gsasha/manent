@@ -250,6 +250,7 @@ class File(Node):
       return
     
     # --- File not yet in database, process it
+    logging.info("Scanning file " + self.path())
     packer = PackerStream.PackerOStream(self.backup, Container.CODE_DATA)
     for data in FileIO.read_blocks(open(self.path(), "rb"),
                           self.backup.get_block_size()):
@@ -337,6 +338,7 @@ class Symlink(Node):
     if self.scan_prev(ctx, prev_num):
       return
 
+    logging.info("Scanning symlink " + self.path())
     self.link = os.readlink(self.path())
 
     packer = PackerStream.PackerOStream(self.backup, Container.CODE_DATA)
