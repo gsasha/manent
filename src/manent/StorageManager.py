@@ -123,7 +123,8 @@ class StorageManager:
       storage_idx, sequence_idx = self.storage_manager.seq_to_index[sequence_id]
       # Record to which container does this block belong.
       encoded = _encode_block_info(sequence_idx, container_idx)
-      self.storage_manager.block_container_db[digest] = encoded
+      if not self.storage_manager.block_container_db.has_key(digest):
+        self.storage_manager.block_container_db[digest] = encoded
       # Check if we want the data of this block.
       return BlockManager.is_cached(code)
     def loaded(self, digest, code, data):

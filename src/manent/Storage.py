@@ -242,17 +242,20 @@ class Storage:
         class BlockLoadHandler:
           """Transfer all the incoming blocks to the given handler,
           adding the sequence id to each of them."""
-          def __init__(self, sequence_id, block_handler):
+          def __init__(self, sequence_id, container_idx, block_handler):
             self.sequence_id = sequence_id
+            self.container_idx = container_idx
             self.block_handler = block_handler
           def is_requested(self, digest, code):
-            if self.block_handler.is_requested(digest, code):
+            if self.block_handler.is_requested(
+                self.sequence_id, self.container_idx, digest, code):
               return True
             return False
           def loaded(self, digest, code, data):
-            if self.block_handler.is_requested(digest, code):
-              self.block_handler.loaded(sequence_id, digest, code, data)
-        handler = BlockLoadHandler(sequence_id, new_block_handler)
+            if self.block_handler.is_requested(
+                self.sequence_id, self.container_idx, digest, code):
+              self.block_handler.loaded(digest, code, data)
+        handler = BlockLoadHandler(sequence_id, index, new_block_handler)
         container.load_blocks(handler)
     # 3. Update the next_container information for all the sequences.
     for sequence_id, containers in sequence_new_containers.iteritems():
@@ -260,7 +263,7 @@ class Storage:
         continue
       self.sequence_next_container[sequence_id] = max(containers) + 1
       self.config_db["next_container." + sequence_id] = str(
-          self.sequence_next_container(sequence_id))
+          self.sequence_next_container[sequence_id])
     self.loaded_headers_db.truncate()
   def flush(self):
     # TODO(gsasha): implement this
