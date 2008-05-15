@@ -45,46 +45,51 @@ class Backup:
       exclusion_file.write(Config.BACKUP_EXCLUSION_RULES_TEMPLATE)
       exclusion_file.close()
     
+    logging.debug("Opening the databases")
     self.db_manager = Database.DatabaseManager(Config.paths,
       self.label)
     self.txn_handler = Database.TransactionHandler(self.db_manager)
+    logging.debug("Opening the databases done")
   #
   # Two initialization methods:
   # Creation of new backup, loading from live DB
   #
   def configure(self, args):
-    self.__open_all()
-    params = parse_to_keys(args[1:])
-    if args[0] == 'show':
-      for k, v in self.config_db.iteritems():
-        print k, '=', v
-    elif args[0] == 'set':
-      if params.has_key('data_path'):
-        self.config_db['data_path'] = params['data_path']
-    elif args[0] == 'add_exclusion':
-      exclusion_type = params['type']
-      exclusion_action = params['action']
-      exclusion_pattern = params['pattern']
-      if self.config_db.has_key('num_exclusion_rules'):
-        n = int(self.config_db['num_exclusion_rules'])
-      else:
-        n = 0
-      if not exclusion_type in ['relative', 'absolute', 'wildcard']:
-        raise Exception("Unknown rule type " + exclusion_type)
-      if not exclusion_action in ['include', 'exclude']:
-        raise Exception("Unknown rule action " + exclusion_action)
-      self.config_db['exclusion_rule_%d.type' % n] = exclusion_type
-      self.config_db['exclusion_rule_%d.action' % n] = exclusion_action
-      self.config_db['exclusion_rule_%d.pattern' % n] = exclusion_pattern
-      self.config_db['num_exclusion_rules'] = str(n + 1)
-    elif args[0] == 'add_storage':
-      self.__open_storage()
-      storage_idx = self.storage_manager.add_storage(params)
-      self.storage_manager.make_active_storage(storage_idx)
-    elif args[0] == 'add_base_storage':
-      self.__open_storage()
-      self.storage_manager.add_storage(params)
-    self.txn_handler.commit()
+    try:
+      self.__open_all()
+      params = parse_to_keys(args[1:])
+      if args[0] == 'show':
+        for k, v in self.config_db.iteritems():
+          print k, '=', v
+      elif args[0] == 'set':
+        if params.has_key('data_path'):
+          self.config_db['data_path'] = params['data_path']
+      elif args[0] == 'add_exclusion':
+        exclusion_type = params['type']
+        exclusion_action = params['action']
+        exclusion_pattern = params['pattern']
+        if self.config_db.has_key('num_exclusion_rules'):
+          n = int(self.config_db['num_exclusion_rules'])
+        else:
+          n = 0
+        if not exclusion_type in ['relative', 'absolute', 'wildcard']:
+          raise Exception("Unknown rule type " + exclusion_type)
+        if not exclusion_action in ['include', 'exclude']:
+          raise Exception("Unknown rule action " + exclusion_action)
+        self.config_db['exclusion_rule_%d.type' % n] = exclusion_type
+        self.config_db['exclusion_rule_%d.action' % n] = exclusion_action
+        self.config_db['exclusion_rule_%d.pattern' % n] = exclusion_pattern
+        self.config_db['num_exclusion_rules'] = str(n + 1)
+      elif args[0] == 'add_storage':
+        self.__open_storage()
+        storage_idx = self.storage_manager.add_storage(params)
+        self.storage_manager.make_active_storage(storage_idx)
+      elif args[0] == 'add_base_storage':
+        self.__open_storage()
+        self.storage_manager.add_storage(params)
+      self.txn_handler.commit()
+    finally:
+      self.__close_all()
 
   def load(self):
     self.data_path = self.config_db["data_path"]
@@ -97,11 +102,13 @@ class Backup:
 
   def create(self):
     try:
+      logginng.debug("Create starting")
       self.__open_all()
 
       # Nothing to do here
       
       self.txn_handler.commit()
+      logging.debug("Create finished. Now must close everything down")
     except:
       traceback.print_exc()
       self.txn_handler.abort()
@@ -263,8 +270,8 @@ class Backup:
       "data", self.txn_handler)
     self.completed_nodes_db = self.db_manager.get_database("completed_nodes.db",
       "nodes", self.txn_handler)
-    self.storage_manager = StorageManager.StorageManager(self.db_manager,
-      self.txn_handler)
+    #self.storage_manager = StorageManager.StorageManager(self.db_manager,
+    #  self.txn_handler)
     #print "DATA PATH", self.config_db['data_path']
 
   def __open_exclusion_processor(self):
@@ -317,6 +324,9 @@ class Backup:
   def __open_storage(self):
     # TODO: consider not loading storages on initialization, only on meaningful
     # operations
+    logging.debug("Opening storage")
+    self.storage_manager = StorageManager.StorageManager(self.db_manager,
+      self.txn_handler)
     self.storage_manager.load_storages()
     self.increment_manager = IncrementManager.IncrementManager(
       self.db_manager, self.txn_handler, self.storage_manager)
@@ -325,6 +335,8 @@ class Backup:
     if self.storage_opened:
       self.increment_manager.close()
       self.storage_manager.close()
+    else:
+      logging.debug("Storage has not been opened")
     self.completed_nodes_db.close()
     self.config_db.close()
   

@@ -61,8 +61,16 @@ class BlockSequencer:
           self.aside_block_db["aside_num"])
       self.aside_block_size = int(
           self.aside_block_db["aside_size"])
+    logging.debug("%d %d %d %d %d %d" %
+        (self.piggyback_header_first, self.piggyback_header_last,
+          self.aside_block_first, self.aside_block_last,
+          self.aside_block_num, self.aside_block_size))
   def _write_vars(self):
     logging.debug("BlockSequence saving vars")
+    logging.debug("%d %d %d %d %d %d" %
+        (self.piggyback_header_first, self.piggyback_header_last,
+          self.aside_block_first, self.aside_block_last,
+          self.aside_block_num, self.aside_block_size))
     self.piggyback_headers_db["block_first"] = str(self.piggyback_header_first)
     self.piggyback_headers_db["block_last"] = str(self.piggyback_header_last)
     self.aside_block_db["aside_first"] = str(self.aside_block_first)

@@ -34,7 +34,7 @@ datadir = "testdata"
 # Step 0. Create backup 1, configure it and run one backup iteration. Check that
 # one container has been added.
 #
-logging.info("Creating backup1")
+logging.info(" - Step 0 ---------------- Creating backup1")
 label1 = "backup1"
 backup1 = config.create_backup(label1)
 config.save()
@@ -45,12 +45,14 @@ backup1.configure(("set data_path=%s" % (scratchdir)).split())
 #
 # Step 1. Test backup&restore of the first data pack.
 #
+logging.info(" - Step 1 ---------------- Testing pack 1")
 retcode = subprocess.call("tar xvf testdata/pack1.tar -C %s" % scratchdir,
     shell=True)
 assert retcode == 0
 backup1.scan("scan1")
 # TODO(gsasha): check that one container has been added
-logging.info("Restoring from the backup and comparing the results")
+logging.info(" - Step 1 ---------------- Restoring from the backup and"
+    "comparing the results")
 backup1.restore(("storage=0 increment=0 target=%s" % restoredir).split())
 retcode = subprocess.call("diff -r %s %s" % (scratchdir, restoredir),
     shell=True)
