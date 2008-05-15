@@ -242,7 +242,7 @@ class Storage:
         class BlockLoadHandler:
           """Transfer all the incoming blocks to the given handler,
           adding the sequence id to each of them."""
-          def __init_(self, sequence_id, block_handler):
+          def __init__(self, sequence_id, block_handler):
             self.sequence_id = sequence_id
             self.block_handler = block_handler
           def is_requested(self, digest, code):
