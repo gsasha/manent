@@ -244,8 +244,9 @@ class StorageManager:
     return self.block_manager.get_block_code(digest)
   def flush(self):
     self.block_sequencer.flush()
-    storage = self.storages[self.active_storage_idx]
-    storage.flush()
+    # All storages must flush, because they might have found new containers.
+    for storage in self.storages.itervalues():
+      storage.flush()
   def create_container(self):
     storage = self.storages[self.get_active_storage_index()]
     return storage.create_container()

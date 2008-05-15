@@ -7,6 +7,7 @@ import base64
 import logging
 import os
 import sys
+import traceback
 
 import BlockManager
 import Container
@@ -27,10 +28,12 @@ class BlockSequencer:
     self.piggyback_headers_db = db_manager.get_database_btree(
         "storage-piggyback_headers.db", "blocks", txn_manager)
 
+    self.loaded = None
     self._read_vars()
     self.current_open_container = None
     # Statistics kept to support testing.
     self.num_containers_created = 0
+
   def get_aside_blocks_num(self):
     return self.aside_block_num
   def get_aside_blocks_size(self):
@@ -39,13 +42,15 @@ class BlockSequencer:
     return self.aside_block_last + 1 - self.aside_block_first
   def _read_vars(self):
     logging.debug("BlockSequence reading vars")
+    assert self.loaded is None
+    self.loaded = True
     # Read the piggy-backing header status.
     self.piggyback_header_first = 0
     self.piggyback_header_last = -1
     if self.piggyback_headers_db.has_key("block_first"):
-      self.piggyback_first_header = int(
+      self.piggyback_header_first = int(
           self.piggyback_headers_db["block_first"])
-      self.piggyback_last_header = int(
+      self.piggyback_header_last = int(
           self.piggyback_headers_db["block_last"])
     # Read the aside blocks status.
     self.aside_block_first = 0
@@ -71,6 +76,10 @@ class BlockSequencer:
         (self.piggyback_header_first, self.piggyback_header_last,
           self.aside_block_first, self.aside_block_last,
           self.aside_block_num, self.aside_block_size))
+    # traceback.print_stack()
+    assert self.loaded is not None
+    self.loaded = None
+
     self.piggyback_headers_db["block_first"] = str(self.piggyback_header_first)
     self.piggyback_headers_db["block_last"] = str(self.piggyback_header_last)
     self.aside_block_db["aside_first"] = str(self.aside_block_first)
@@ -78,7 +87,6 @@ class BlockSequencer:
     self.aside_block_db["aside_num"] = str(self.aside_block_num)
     self.aside_block_db["aside_size"] = str(self.aside_block_size)
   def close(self):
-    self._write_vars()
     self.piggyback_headers_db.close()
     self.aside_block_db.close()
   def add_block(self, digest, code, data):

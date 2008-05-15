@@ -3,11 +3,13 @@
 #    License: see LICENSE.txt
 #
 
-import os, os.path
-import bsddb.db as db
 import base64
-import time
+import bsddb.db as db
+import logging
+import os
+import os.path
 import threading
+import time
 import traceback
 
 import Config
@@ -194,11 +196,13 @@ class DatabaseWrapper:
     self.d = db.DB(self.db_manager.dbenv)
     self.cursor = None
     
-    #print "Opening database filename=%s, dbname=%s" %(self.__get_filename(), self.__get_dbname())
+    logging.debug("Opening database filename=%s, dbname=%s" %
+        (self.__get_filename(), self.__get_dbname()))
     start = time.time()
-    self.d.open(self.__get_filename(), self.__get_dbname(), db_type, db.DB_CREATE, txn=self.__get_txn())
+    self.d.open(self.__get_filename(), self.__get_dbname(), db_type,
+        db.DB_CREATE, txn=self.__get_txn())
     end = time.time()
-    #print "opening database %s:%s takes %f seconds" % (self.__get_filename(),self.__get_dbname(),end-start)
+    logging.debug("Opening took %f seconds" % (end - start))
 
   def __get_filename(self):
     return self.filename
@@ -246,7 +250,10 @@ class DatabaseWrapper:
       self.cursor.close()
       self.cursor = None
   def close(self):
-    #print "Closing database filename=%s, dbname=%s" %(self.__get_filename(),self.__get_dbname())
+    #traceback.print_stack()
+    assert self.filename is not None
+    logging.debug("Closing database filename=%s, dbname=%s" %
+        (self.__get_filename(), self.__get_dbname()))
     self.d.close()
     self.d = None
     if self.is_scratch:

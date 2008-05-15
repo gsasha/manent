@@ -266,6 +266,7 @@ class Backup:
     return self.completed_nodes_db
 
   def __open_all(self):
+    logging.debug("Backup opening all")
     self.config_db = self.db_manager.get_database_btree("config.db",
       "data", self.txn_handler)
     self.completed_nodes_db = self.db_manager.get_database("completed_nodes.db",
@@ -335,6 +336,8 @@ class Backup:
     if self.storage_opened:
       self.increment_manager.close()
       self.storage_manager.close()
+      # In Integration test, we use the same backup object several times.
+      self.storage_opened = False
     else:
       logging.debug("Storage has not been opened")
     self.completed_nodes_db.close()
