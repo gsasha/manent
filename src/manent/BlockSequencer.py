@@ -38,6 +38,7 @@ class BlockSequencer:
   def get_piggyback_headers_num(self):
     return self.aside_block_last + 1 - self.aside_block_first
   def _read_vars(self):
+    logging.debug("BlockSequence reading vars")
     # Read the piggy-backing header status.
     self.piggyback_header_first = 0
     self.piggyback_header_last = -1
@@ -61,6 +62,7 @@ class BlockSequencer:
       self.aside_block_size = int(
           self.aside_block_db["aside_size"])
   def _write_vars(self):
+    logging.debug("BlockSequence saving vars")
     self.piggyback_headers_db["block_first"] = str(self.piggyback_header_first)
     self.piggyback_headers_db["block_last"] = str(self.piggyback_header_last)
     self.aside_block_db["aside_first"] = str(self.aside_block_first)
@@ -137,6 +139,8 @@ class BlockSequencer:
     # 2. Push into the container as many piggybacking blocks as it's willing to
     # accept.
     rejected_header = None
+    logging.info("Known piggyback headers %d:%d" %
+        (self.piggyback_header_first, self.piggyback_header_last))
     for header in range(self.piggyback_header_last,
                         self.piggyback_header_first - 1, -1):
       header_data = self.piggyback_headers_db[str(header)]

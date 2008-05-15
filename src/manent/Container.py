@@ -439,14 +439,14 @@ class DataDumpLoader:
               logging.debug("Reading chunk to uncompress at offset %d",
                   self.file.tell())
               chunk = self.file.read(toread)
-              logging.debug("Uncompressing chunk %s", base64.b16encode(chunk))
+              logging.debug("Uncompressing chunk len=%s", len(chunk))
               if self.decryptor is not None:
                 chunk = self.decryptor.decrypt(chunk)
                 self.decryptor_data_digest.update(chunk)
                 self.decrypted_bytes += len(data)
               if len(chunk) < toread:
-                raise Exception("Cannot read data expected "
-                                  "in the container")
+                raise Exception(
+                    "Cannot read data expected in the container")
               self.uncompressed_buf = self.uncompressor.decompress(chunk)
         else:
           data = self.file.read(size)
