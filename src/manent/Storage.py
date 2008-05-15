@@ -194,6 +194,7 @@ class Storage:
       for index in containers:
         if self.loaded_headers_db.has_key(str(index)):
           logging.debug("Skipping container %d: header piggybacked" % index)
+          continue
         logging.info("Reading container %d for piggybacked headers" % index)
         container = self.get_container(sequence_id, index)
         loaded_containers.append(index)

@@ -78,7 +78,6 @@ class BlockSequencer:
           self.aside_block_num, self.aside_block_size))
     # traceback.print_stack()
     assert self.loaded is not None
-    self.loaded = None
 
     self.piggyback_headers_db["block_first"] = str(self.piggyback_header_first)
     self.piggyback_headers_db["block_last"] = str(self.piggyback_header_last)
@@ -89,6 +88,7 @@ class BlockSequencer:
   def close(self):
     self.piggyback_headers_db.close()
     self.aside_block_db.close()
+    self.loaded = None
   def add_block(self, digest, code, data):
     # Check if we need to put the current block aside.
     if BlockManager.is_cached(code):
