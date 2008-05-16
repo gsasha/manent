@@ -21,17 +21,10 @@ print "Loading container", base64.urlsafe_b64encode(sequence_id), idx
 env = Database.PrivateDatabaseManager()
 config_db = env.get_database_btree("", None, None)
 
-class Handler:
-	def __init__(self):
-		pass
-	def report_new_container(self, container):
-		pass
-
 storage = Storage.DirectoryStorage(0, config_db)
-storage.configure(params, Handler())
+storage.configure(params)
 
 container = Container.Container(storage)
 container.start_load(sequence_id, idx)
-container.load_header()
-container.load_body()
+container.load_blocks(None)
 container.print_blocks()

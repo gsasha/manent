@@ -778,20 +778,3 @@ class Container:
     blocks = unserialize_blocks(body_table_io)
     return blocks
 
-
-class AggregateBlockHandler:
-  def __init__(self, handlers = []):
-    self.handlers = handlers
-  def add_handler(self, handler):
-    self.handlers.append(handler)
-  def is_requested(self, digest, code):
-    # We ask all handlers about requested, because some of them
-    # use this call only and ignore loaded()
-    requested = False
-    for handler in self.handlers:
-      if handler.is_requested(digest, code):
-        requested = True
-    return requested
-  def loaded(self, digest, code, data):
-    for handler in self.handlers:
-      handler.loaded(digest, code, data)
