@@ -516,10 +516,14 @@ class Directory(Node):
       # Stats are empty for the root node, but we don't want to store
       # it in the cndb, because at this point we're already done with the
       # increment anyway
-      cndb[Digest.dataDigest(self.path())] =\
-        self.digest + IntegerEncodings.binary_encode_int_varlen(self.level) +\
-        self.serialize_stats(None)
+      digest = Digest.dataDigest(self.path())
+      encoded = (self.digest +
+          IntegerEncodings.binary_encode_int_varlen(self.level) +
+          self.serialize_stats(None))
 
+      if not cndb.has_key(digest) or cndb[digest] != encoded:
+        cndb[digest] = encoded
+        
     if self.digest != prev_digest:
       #print "changed node", self.path()
       ctx.changed_nodes += 1

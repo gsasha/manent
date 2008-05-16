@@ -55,14 +55,20 @@ class Increment:
 		#print "Finalizing increment", self.fs_digest
 		storage_index_str = IE.ascii_encode_int_varlen(self.storage_index)
 		index_str = IE.ascii_encode_int_varlen(self.index)
-		self.db["Increment.%s.%s.fs_digest"%(storage_index_str,index_str)] = self.fs_digest
-		self.db["Increment.%s.%s.fs_level" %(storage_index_str,index_str)] = self.fs_level
-		self.db["Increment.%s.%s.time"     %(storage_index_str,index_str)] = str(self.ctime)
-		self.db["Increment.%s.%s.comment"  %(storage_index_str,index_str)] = self.comment
-		self.db["Increment.%s.%s.index"    %(storage_index_str,index_str)] = index_str
+		self.db["Increment.%s.%s.fs_digest" %
+        (storage_index_str,index_str)] = self.fs_digest
+		self.db["Increment.%s.%s.fs_level"  %
+        (storage_index_str,index_str)] = str(self.fs_level)
+		self.db["Increment.%s.%s.time"      %
+        (storage_index_str,index_str)] = str(self.ctime)
+		self.db["Increment.%s.%s.comment"   %
+        (storage_index_str,index_str)] = self.comment
+		self.db["Increment.%s.%s.index"     %
+        (storage_index_str,index_str)] = index_str
 		message = self.__compute_message()
 		digest = Digest.dataDigest(message)
-		self.block_database.add_block(digest, Container.CODE_INCREMENT_DESCRIPTOR, message)
+		self.block_database.add_block(
+        digest, Container.CODE_INCREMENT_DESCRIPTOR, message)
 		return digest
 
 	#
@@ -77,12 +83,17 @@ class Increment:
 		
 		storage_index_str = IE.ascii_encode_int_varlen(storage_index)
 		index_str = IE.ascii_encode_int_varlen(index)
-		self.fs_digest =     self.db["Increment.%s.%s.fs_digest"%(storage_index_str, index_str)]
-		self.fs_level  = int(self.db["Increment.%s.%s.fs_level"%(storage_index_str, index_str)])
-		self.ctime     = int(self.db["Increment.%s.%s.time"%(storage_index_str, index_str)])
-		self.comment   =     self.db["Increment.%s.%s.comment"%(storage_index_str, index_str)]
+		self.fs_digest =     self.db["Increment.%s.%s.fs_digest" %
+        (storage_index_str, index_str)]
+		self.fs_level  = int(self.db["Increment.%s.%s.fs_level" %
+      (storage_index_str, index_str)])
+		self.ctime     = int(self.db["Increment.%s.%s.time" %
+      (storage_index_str, index_str)])
+		self.comment   =     self.db["Increment.%s.%s.comment" %
+        (storage_index_str, index_str)]
 		
-		assert self.db["Increment.%s.%s.index"%(storage_index_str, index_str)] == index_str
+		assert self.db["Increment.%s.%s.index" %
+        (storage_index_str, index_str)] == index_str
 
 		self.readonly = True
 

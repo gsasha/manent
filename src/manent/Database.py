@@ -226,7 +226,10 @@ class DatabaseWrapper:
     #print "db[%s:%s].get(%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]))
     return self.get(key)
   def __setitem__(self, key, value):
-    #print "db[%s:%s].set(%s,%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]), base64.b64encode(value[0:10]))
+    logging.debug("db[%s:%s].set(%s,%s)" %
+        (self.filename,self.dbname,
+          base64.b64encode(key[0:10]),
+          base64.b64encode(value[0:10])))
     return self.put(key, value)
   def __delitem__(self, key):
     #print "db[%s:%s].del(%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]))

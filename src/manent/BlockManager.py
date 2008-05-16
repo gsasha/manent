@@ -61,15 +61,16 @@ class BlockManager:
       # We store the block code only for blocks that are not DATA.
       # The DATA blocks are the majority, and so  by not storing them,
       # we save space in the database.
-      self.cached_blocks[digest] = data
-      self.block_codes[digest] = str(code)
+      self._update_cached_blocks(digest, data)
+      self._update_block_codes(digest, code)
   def handle_block(self, digest, code, data):
     if is_cached(code):
-      self.cached_blocks[digest] = data
-      self.block_codes[digest] = str(code)
+      self._update_cached_blocks(digest, data)
+      self._update_block_codes(digest, code)
     else:
       assert code == Container.CODE_DATA
       if self.requested_blocks.has_key(digest):
+        # This happens during loading, not scan, so no real need to protect.
         self.loaded_blocks[digest] = data
   def has_block(self, digest):
     # It is important to use block_codes here, since they are filled up
@@ -111,3 +112,16 @@ class BlockManager:
       return int(self.block_codes[digest])
     else:
       return Container.CODE_DATA
+  def _update_cached_blocks(self, digest, data):
+    if not self.cached_blocks.has_key(digest):
+      self.cached_blocks[digest] = data
+    # It is impossible (well, extremely implaausible) that a different block
+    # will have the same digest. So, we never update the cached block contents
+    # if it was defined already
+  def _update_block_codes(self, digest, code):
+    if code != Container.CODE_DATA and not self.block_codes.has_key(digest):
+      self.block_codes[digest] = str(code)
+      return
+    # The block code is interesting only for deciding what should be cached.
+    # Otherwise, it's just informative. Besides, we write the code only for
+    # non-DATA blocks, so it does not affect the caching anyway.

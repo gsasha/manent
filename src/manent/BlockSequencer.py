@@ -120,6 +120,8 @@ class BlockSequencer:
     # Write out all the aside blocks we have and clean out the last container.
     for block_idx in range(self.aside_block_first, self.aside_block_last + 1):
       digest = self.aside_block_db[str(block_idx)]
+      del self.aside_block_db[str(block_idx)]
+      self.aside_block_first = block_idx + 1
       code = self.block_manager.get_block_code(digest)
       data = self.block_manager.load_block(digest)
       if self.current_open_container is None:
@@ -183,6 +185,7 @@ class BlockSequencer:
     if container.is_filled_by(self.aside_block_num, self.aside_block_size):
       for block_idx in range(self.aside_block_first, self.aside_block_last + 1):
         digest = self.aside_block_db[str(block_idx)]
+        del self.aside_block_db[str(block_idx)]
         code = self.block_manager.get_block_code(digest)
         data = self.block_manager.load_block(digest)
         if not container.can_add(data):
