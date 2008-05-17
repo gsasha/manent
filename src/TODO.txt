@@ -38,6 +38,11 @@ CHANGELOG:
 
 FEATURES PLANNED FOR 1.0
 
+- Piggybacked blocks should not be added to storage.db:blocks.
+
+- Report compression rate, # of bytes changed vs # of bytes scanned and other
+  statistics...
+
 - Avoid compressing files that are .zip, .jpg etc.
 
 - Make sure the container reports its size accurately during construction

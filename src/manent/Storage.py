@@ -192,7 +192,8 @@ class Storage:
       containers.reverse()
       loaded_containers = []
       for index in containers:
-        if self.loaded_headers_db.has_key(str(index)):
+        KEY = sequence_id + str(index)
+        if self.loaded_headers_db.has_key(KEY):
           logging.debug("Skipping container %d: header piggybacked" % index)
           continue
         logging.info("Reading container %d for piggybacked headers" % index)
@@ -226,7 +227,8 @@ class Storage:
         logging.info("Container %d piggybacks headers %s" %
             (index, str(pb_handler.headers.keys())))
         for index, header in pb_handler.headers.iteritems():
-          self.loaded_headers_db[str(index)] = header
+          KEY = sequence_id + str(index)
+          self.loaded_headers_db[KEY] = header
       # Make sure that we will not try to re-load the containers we have loaded
       # already.
       for index in loaded_containers:
@@ -295,10 +297,13 @@ class Storage:
 
   def load_header_file(self, sequence_id, index):
     self.headers_loaded_total += 1
-    header_name = encode_container_name(sequence_id, index, CONTAINER_EXT)
-    if self.loaded_headers_db.has_key(header_name):
-      stream = StringIO.StringIO(self.loaded_headers_db[header_name])
-      del self.loaded_headers_db[header_name]
+    # TODO(gsasha): MULTITHREADED we can't read several sequences of the same
+    # storage concurrently since loaded headers of different sequences would
+    # conflict.
+    KEY = sequence_id + str(index)
+    if self.loaded_headers_db.has_key(KEY):
+      stream = StringIO.StringIO(self.loaded_headers_db[KEY])
+      del self.loaded_headers_db[KEY]
       self.headers_loaded_from_summary += 1
       return stream
     self.headers_loaded_from_storage += 1
