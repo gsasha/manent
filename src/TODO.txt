@@ -38,6 +38,8 @@ CHANGELOG:
 
 FEATURES PLANNED FOR 1.0
 
+- Avoid compressing files that are .zip, .jpg etc.
+
 - Make sure the container reports its size accurately during construction
   (including data that is to be compressed).
 

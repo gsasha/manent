@@ -163,6 +163,7 @@ class BlockSequencer:
     rejected_header = None
     logging.info("Known piggyback headers %d:%d" %
         (self.piggyback_header_first, self.piggyback_header_last))
+    piggybacked_headers = []
     for header in range(self.piggyback_header_last,
                         self.piggyback_header_first - 1, -1):
       header_data = self.piggyback_headers_db[str(header)]
@@ -174,9 +175,12 @@ class BlockSequencer:
               (container.get_index(), header, len(header_data)))
           rejected_header = header
         break
+      piggybacked_headers.append(header)
       logging.debug("Adding piggyback header %d to container %d"
           % (header, container.get_index()))
       container.add_piggyback_header(header, header_data)
+    logging.info("Container %d includes piggyback headers %s" %
+        (container.get_index(), str(piggybacked_headers)))
     # Clean up piggyback headers that cannot be inserted anymore.
     if rejected_header is not None:
       for header in range(self.piggyback_header_first, rejected_header + 1):

@@ -588,9 +588,9 @@ class Container:
     # Compute the number of piggybacking headers that can be
     # inserted in container of a given index.
     # The following numbers are reasonable:
-    # 0: 0, 1:0, ..., 4:4, ..., 8:4, ..., 16: 16, 20:4
+    # 0: 0, 1:0, ..., 4:3, ..., 8:3, ..., 16: 15, 20:3
     filtered = _last_set_bit(self.index)
-    return (filtered | (filtered >> 1)) & 0x55555554
+    return ((filtered | (filtered >> 1)) & 0x55555554) - 1
   def add_piggyback_header(self, header_index, header_data):
     # A piggyback header is not accessed by address, so we don't need its
     # digest. We thus use the digest field to store its index.
