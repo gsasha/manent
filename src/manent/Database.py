@@ -227,7 +227,7 @@ class DatabaseWrapper:
     return self.get(key)
   def __setitem__(self, key, value):
     logging.debug("db[%s:%s].set(%s,%s)" %
-        (self.filename,self.dbname,
+        (self.filename, self.dbname,
           base64.b64encode(key[0:10]),
           base64.b64encode(value[0:10])))
     return self.put(key, value)
@@ -254,9 +254,9 @@ class DatabaseWrapper:
       self.cursor = None
   def close(self):
     #traceback.print_stack()
-    assert self.filename is not None
     logging.debug("Closing database filename=%s, dbname=%s" %
         (self.__get_filename(), self.__get_dbname()))
+    #assert self.filename is not None
     self.d.close()
     self.d = None
     if self.is_scratch:

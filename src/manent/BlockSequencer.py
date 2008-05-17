@@ -22,11 +22,11 @@ class BlockSequencer:
     # For aside blocks, we have the hashes, and keep track of the number and the
     # total size of such blocks. The data itself is stored in the BlockManager.
     self.aside_block_db = db_manager.get_database_btree(
-        "storage-aside.db", "blocks", txn_manager)
+        "storage-aside-blocks.db", "blocks", txn_manager)
 
     # For piggy-backed headers, we have the contents of the headers themselves.
     self.piggyback_headers_db = db_manager.get_database_btree(
-        "storage-piggyback_headers.db", "blocks", txn_manager)
+        "storage-piggyback-headers.db", "headers", txn_manager)
 
     self.loaded = None
     self._read_vars()
@@ -86,6 +86,7 @@ class BlockSequencer:
     self.aside_block_db["aside_num"] = str(self.aside_block_num)
     self.aside_block_db["aside_size"] = str(self.aside_block_size)
   def close(self):
+    self._write_vars()
     self.piggyback_headers_db.close()
     self.aside_block_db.close()
     self.loaded = None
@@ -110,6 +111,8 @@ class BlockSequencer:
     assert self.current_open_container.can_add(data)
     self.current_open_container.add_block(digest, code, data)
   def add_aside_block(self, digest, code, data):
+    logging.debug("BlockSequencer adding aside block %s:%s:%d" %
+        (base64.b64encode(digest), Container.code_name(code), len(data)))
     key = str(self.aside_block_last + 1)
     self.aside_block_last += 1
     self.aside_block_db[key] = digest
@@ -135,6 +138,7 @@ class BlockSequencer:
     if self.current_open_container is not None:
       self.write_container(self.current_open_container)
       self.current_open_container = None
+    self._write_vars()
   def write_container(self, container):
     logging.debug("Finalizing container %d" % container.get_index())
     container.finish_dump()
