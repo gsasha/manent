@@ -1,13 +1,8 @@
 CHANGELOG:
 
-0.9.7:
+0.10.0
 
 - fix permissions for db files
-
-FEATURES PLANNED FOR 0.10.8:
-
-- Storage creation and loading now receives a list into which it should
-  put the list of new containers.
 
 - Switch to new container format that unifies headers with data files,
   and stores summary headers inside data files as blocks of a special type.
@@ -39,45 +34,29 @@ FEATURES PLANNED FOR 0.10.8:
   compressible, we can safely assume that the size of the blocks we have
   accumulated is about the same size that they will take in the container.
 
-- Make sure the container reports its size accurately during construction
-  (including data that is to be compressed).
-
-FEATURES PLANNED FOR 0.9.8:
-
-- Implement summary headers.
-  First, we'll implement normal summary headers, i.e., created through non-failing execution.
-  Then, we'll consider creating summary headers over failed execution.
-
-  Add an executable to recreate summary headers for orphaned sequences.
-
-- Correctly decide which summary headers to load:
-  1. If the summary header index is less than the highest loaded header index, ignore it.
-  2. If the header contained in a summary is less than the highest loaded, or if it is already loaded, ignore it.
-
-- Perform better decisions on when to store summary headers:
-  1. Introduce threshold on the number of headers in summary before they are pushed as a result of increment finalizaiton.
-  2. Add summary headers (if asked for...) for foreign sequences.
+- Integration testing.
 
 FEATURES PLANNED FOR 1.0
 
-- Implement system testing.
+- Make sure the container reports its size accurately during construction
+  (including data that is to be compressed).
 
 - Write more metadata to increment, such as backup name, machine name etc.
 
 - add option "compare=" to "Manent.py test"
 
-- Implement storage queueing. After that, make sure that if process crashes after uploading container, it still can continue.
+- Implement storage queueing. After that, make sure that if process crashes
+  after uploading container, it still can continue.
 
 - Add options for storage and exclusion reconfiguration
 
-- Make sure several DB's can open in parallel (probably it's the DB_JOINENV flag).
+- Make sure several DB's can open in parallel (probably it's the DB_JOINENV
+  flag).
   http://pybsddb.sourceforge.net/ref/env/faq.html
 
 - Make sure data reloads correctly on storage manager load
 
 FEATURES PLANNED FOR 1.X
-
-- Implement a "diff" command that tells what changed
 
 - Provide a more accurate estimate of progress
 
@@ -115,10 +94,6 @@ CHANGELOG V0.9.7:
 - Organize file names in ~/.manent
 
 - Add copyright statement in every file
-
-- Check why recreating storage reloads data files, and not only the header files.
-  DONE
-  - Check that in all the places where load_body is called, which can be abandoned.
 
 - Remove flush method from Node
 
