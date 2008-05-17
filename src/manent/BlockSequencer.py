@@ -161,7 +161,7 @@ class BlockSequencer:
     # 2. Push into the container as many piggybacking blocks as it's willing to
     # accept.
     rejected_header = None
-    logging.info("Known piggyback headers %d:%d" %
+    logging.debug("Known piggyback headers %d:%d" %
         (self.piggyback_header_first, self.piggyback_header_last))
     piggybacked_headers = []
     for header in range(self.piggyback_header_last,
@@ -179,8 +179,6 @@ class BlockSequencer:
       logging.debug("Adding piggyback header %d to container %d"
           % (header, container.get_index()))
       container.add_piggyback_header(header, header_data)
-    logging.info("Container %d includes piggyback headers %s" %
-        (container.get_index(), str(piggybacked_headers)))
     # Clean up piggyback headers that cannot be inserted anymore.
     if rejected_header is not None:
       for header in range(self.piggyback_header_first, rejected_header + 1):
@@ -190,6 +188,7 @@ class BlockSequencer:
     # 3. If the container can be filled by currently collected aside blocks,
     # write them out to the container, write the container out and open a new
     # one again.
+    nondata_blocks_added = 0
     if container.is_filled_by(self.aside_block_num, self.aside_block_size):
       logging.debug("Adding aside blocks %d:%d to container %d" %
           (self.aside_block_first, self.aside_block_last,
@@ -206,8 +205,11 @@ class BlockSequencer:
             % (block_idx, container.get_index()))
         del self.aside_block_db[str(block_idx)]
         container.add_block(digest, code, data)
+        nondata_blocks_added += 1
         self.aside_block_num -= 1
         self.aside_block_size -= len(data)
         self.aside_block_first = block_idx + 1
+    logging.info("Container %d nondata blocks:%d, piggyback headers:%s" %
+        (container.get_index(), nondata_blocks_added, str(piggybacked_headers)))
     return container
 

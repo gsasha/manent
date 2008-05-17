@@ -259,8 +259,6 @@ class StorageManager:
     container_idx = container.get_index()
     storage_idx, seq_idx = self.seq_to_index[container.get_sequence_id()]
     encoded = _encode_block_info(seq_idx, container_idx)
-    logging.info("Encoding block info seq=%s container=%d" %
-      (seq_idx, container_idx))
     for digest, code in container.list_blocks():
       self.block_container_db[digest] = encoded
     self.txn_manager.commit()
