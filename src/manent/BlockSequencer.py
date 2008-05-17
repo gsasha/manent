@@ -153,6 +153,7 @@ class BlockSequencer:
     # 3. Let the storage manager know about the finalized container.
     self.storage_manager.container_written(container)
     self._write_vars()
+    self.txn_manager.commit()
   def open_container(self):
     # 1. Ask the storage to create a new empty container.
     logging.debug("BlockSequencer: creating a new container")
@@ -161,7 +162,7 @@ class BlockSequencer:
     # 2. Push into the container as many piggybacking blocks as it's willing to
     # accept.
     rejected_header = None
-    logging.debug("Known piggyback headers %d:%d" %
+    logging.info("Known piggyback headers %d:%d" %
         (self.piggyback_header_first, self.piggyback_header_last))
     piggybacked_headers = []
     for header in range(self.piggyback_header_last,

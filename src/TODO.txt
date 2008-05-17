@@ -42,6 +42,8 @@ FEATURES PLANNED
 
 - Add a filesystem interface as a http or ftp server
 
+- Add files larger than a certain amount (1MB?) to cndb.
+
 - Report compression rate, # of bytes changed vs # of bytes scanned and other
   statistics...
 
