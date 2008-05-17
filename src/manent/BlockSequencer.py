@@ -183,9 +183,11 @@ class BlockSequencer:
     # write them out to the container, write the container out and open a new
     # one again.
     if container.is_filled_by(self.aside_block_num, self.aside_block_size):
+      logging.debug("Adding aside blocks %d:%d to container %d" %
+          (self.aside_block_first, self.aside_block_last,
+            container.get_index()))
       for block_idx in range(self.aside_block_first, self.aside_block_last + 1):
         digest = self.aside_block_db[str(block_idx)]
-        del self.aside_block_db[str(block_idx)]
         code = self.block_manager.get_block_code(digest)
         data = self.block_manager.load_block(digest)
         if not container.can_add(data):
@@ -194,6 +196,7 @@ class BlockSequencer:
           break
         logging.debug("Adding aside block %d to container %d"
             % (block_idx, container.get_index()))
+        del self.aside_block_db[str(block_idx)]
         container.add_block(digest, code, data)
         self.aside_block_num -= 1
         self.aside_block_size -= len(data)
