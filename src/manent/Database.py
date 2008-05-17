@@ -233,6 +233,7 @@ class DatabaseWrapper:
         (self.filename, self.dbname,
           base64.b64encode(key),
           base64.b64encode(value[0:10])))
+    #traceback.print_stack()
     return self.put(key, value)
   def __delitem__(self, key):
     #print "db[%s:%s].del(%s)" % (self.filename,self.dbname,

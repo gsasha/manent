@@ -13,6 +13,8 @@ import Container
 def is_cached(code):
   return (code != Container.CODE_DATA and
       code != Container.CODE_HEADER)
+def is_indexed(code):
+  return code != Container.CODE_HEADER
 
 class BlockManager:
   def __init__(self, db_manager, txn_handler):
