@@ -267,10 +267,10 @@ class Backup:
 
   def __open_all(self):
     logging.debug("Backup opening all")
-    self.config_db = self.db_manager.get_database_btree("config.db",
-      "data", self.txn_handler)
-    self.completed_nodes_db = self.db_manager.get_database("completed_nodes.db",
-      "nodes", self.txn_handler)
+    self.config_db = self.db_manager.get_database_btree(
+        "config.db", "settings", self.txn_handler)
+    self.completed_nodes_db = self.db_manager.get_database(
+        "tmp-completed-nodes.db", None, self.txn_handler)
     #self.storage_manager = StorageManager.StorageManager(self.db_manager,
     #  self.txn_handler)
     #print "DATA PATH", self.config_db['data_path']

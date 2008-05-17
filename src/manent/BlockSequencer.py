@@ -22,11 +22,11 @@ class BlockSequencer:
     # For aside blocks, we have the hashes, and keep track of the number and the
     # total size of such blocks. The data itself is stored in the BlockManager.
     self.aside_block_db = db_manager.get_database_btree(
-        "storage-aside-blocks.db", "blocks", txn_manager)
+        "tmp-aside-blocks.db", None, txn_manager)
 
     # For piggy-backed headers, we have the contents of the headers themselves.
     self.piggyback_headers_db = db_manager.get_database_btree(
-        "storage-piggyback-headers.db", "headers", txn_manager)
+        "tmp-piggyback-headers.db", None, txn_manager)
 
     self.loaded = None
     self._read_vars()

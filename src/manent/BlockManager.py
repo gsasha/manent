@@ -25,10 +25,10 @@ class BlockManager:
       "scratch-requested-blocks.db", None)
     self.loaded_blocks = self.db_manager.get_scratch_database(
       "scratch-data-blocks.db", None)
-    self.cached_blocks = self.db_manager.get_database("cached-blocks.db",
-      None, self.txn_handler)
-    self.block_codes = self.db_manager.get_database("block-types.db",
-      None, self.txn_handler)
+    self.cached_blocks = self.db_manager.get_database("storage.db",
+      "bm-cached-blocks", self.txn_handler)
+    self.block_codes = self.db_manager.get_database("storage.db",
+      "bm-block-types", self.txn_handler)
     #
     # It is possible that the program was terminated before the scratch
     # cache was removed. In that case, it contains junk data
