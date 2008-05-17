@@ -215,30 +215,35 @@ class DatabaseWrapper:
   #
   # Access methods
   #
-  def get(self,key):
-    #print "db[%s:%s].get(%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]))
+  def get(self, key):
+    #print "db[%s:%s].get(%s)" % (self.filename,self.dbname,i
+    #   base64.b64encode(key[0:10]))
     txn = self.__get_txn()
     return self.d.get(str(key), txn=txn)
   def put(self, key, value):
-    #print "db[%s:%s].put(%s,%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]), base64.b64encode(value[0:10]))
+    #print "db[%s:%s].put(%s,%s)" % (self.filename,self.dbname,
+    #  base64.b64encode(key[0:10]), base64.b64encode(value[0:10]))
     self.d.put(str(key), str(value), txn=self.__get_txn())
   def __getitem__(self,key):
-    #print "db[%s:%s].get(%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]))
+    #print "db[%s:%s].get(%s)" % (self.filename,self.dbname,
+    # base64.b64encode(key[0:10]))
     return self.get(key)
   def __setitem__(self, key, value):
     logging.debug("db[%s:%s].set(%s,%s)" %
         (self.filename, self.dbname,
-          base64.b64encode(key[0:10]),
+          base64.b64encode(key),
           base64.b64encode(value[0:10])))
     return self.put(key, value)
   def __delitem__(self, key):
-    #print "db[%s:%s].del(%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]))
+    #print "db[%s:%s].del(%s)" % (self.filename,self.dbname,
+    # base64.b64encode(key[0:10]))
     self.d.delete(key, txn=self.__get_txn())
   def __len__(self):
     stat = self.d.stat()
     return stat['ndata']
   def has_key(self, key):
-    #print "db[%s:%s].has_key(%s)" % (self.filename,self.dbname, base64.b64encode(key[0:10]))
+    #print "db[%s:%s].has_key(%s)" % (self.filename,self.dbname,
+    # base64.b64encode(key[0:10]))
     return self.get(key) != None
   #
   # Database cleanup options
