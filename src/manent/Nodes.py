@@ -163,12 +163,23 @@ class Node:
     """
     ctx.total_nodes += 1
     if prev_num is None:
-      ctx.changed_nodes += 1
-      return False
+      cndb = self.backup.get_completed_nodes_db()
+      path_digest = Digest.dataDigest(self.path())
+      if cndb.has_key(path_digest):
+        prev_data_is = StringIO.StringIO(cndb[path_digest])
+        prev_digest = prev_data_is.read(Digest.dataDigestSize())
+        prev_level = IntegerEncodings.binary_read_int_varlen(prev_data_is)
+        prev_type = IntegerEncodings.binary_read_int_varlen(prev_data_is)
+        #print "prev_stat_data->", base64.b64encode(prev_data_is.read())
+        prev_stat = self.unserialize_stats(prev_data_is, None)
+      else:
+        ctx.changed_nodes += 1
+        return False
+    else:
+      prev_type, prev_stat, prev_digest, prev_level = prev_num
 
     changed = False
 
-    prev_type, prev_stat, prev_digest, prev_level = prev_num
     if prev_type != self.get_type():
       logging.info("node type differs in the db")
       changed = True
@@ -251,14 +262,30 @@ class File(Node):
     
     # --- File not yet in database, process it
     logging.info("Scanning file " + self.path())
+    file_size = 0
     packer = PackerStream.PackerOStream(self.backup, Container.CODE_DATA)
     for data in FileIO.read_blocks(open(self.path(), "rb"),
                           self.backup.get_block_size()):
       packer.write(data)
+      file_size += len(data)
       
     self.digest = packer.get_digest()
     self.level = packer.get_level()
     self.update_hlink(ctx)
+
+    if file_size > 256 * 1024:
+      logging.debug("File %s is big enough to register in cndb" %
+          self.path())
+      cndb = self.backup.get_completed_nodes_db()
+      assert self.stats is not None
+      path_digest = Digest.dataDigest(self.path())
+      encoded = (self.digest +
+          IntegerEncodings.binary_encode_int_varlen(self.level) +
+          IntegerEncodings.binary_encode_int_varlen(self.get_type()) +
+          self.serialize_stats(None))
+
+      if not cndb.has_key(path_digest) or cndb[path_digest] != encoded:
+        cndb[path_digest] = encoded
 
   def test(self, ctx):
     """
@@ -408,15 +435,18 @@ class Directory(Node):
       if prev_type != NODE_TYPE_DIR:
         prev_digest = None
     else:
-      # Only dirs stored here, so no need to check node type
       cndb = self.backup.get_completed_nodes_db()
       path_digest = Digest.dataDigest(self.path())
       if cndb.has_key(path_digest):
         prev_data_is = StringIO.StringIO(cndb[path_digest])
         prev_digest = prev_data_is.read(Digest.dataDigestSize())
         prev_level = IntegerEncodings.binary_read_int_varlen(prev_data_is)
+        prev_type = IntegerEncodings.binary_read_int_varlen(prev_data_is)
         #print "prev_stat_data->", base64.b64encode(prev_data_is.read())
         prev_stat = self.unserialize_stats(prev_data_is, None)
+        if prev_type != self.get_type():
+          logging.debug("Node from cndb is not a directory!")
+          prev_digest = None
     # Load the data of the prev node
     if prev_digest is not None:
       #print "prev_digest=", prev_digest
@@ -519,6 +549,7 @@ class Directory(Node):
       digest = Digest.dataDigest(self.path())
       encoded = (self.digest +
           IntegerEncodings.binary_encode_int_varlen(self.level) +
+          IntegerEncodings.binary_encode_int_varlen(self.get_type()) +
           self.serialize_stats(None))
 
       if not cndb.has_key(digest) or cndb[digest] != encoded:
