@@ -172,6 +172,7 @@ class Storage:
         logging.info("Found new sequence %s " %
           base64.b64encode(sequence_id))
         self.sequence_next_container[sequence_id] = 0
+      if not sequence_new_containers.has_key(sequence_id):
         sequence_new_containers[sequence_id] = []
       if index >= self.sequence_next_container[sequence_id]:
         sequence_new_containers[sequence_id].append(index)
@@ -190,7 +191,7 @@ class Storage:
       # from "full" containers.
       containers.sort()
       containers.reverse()
-      loaded_containers = []
+      loaded_containers = {} 
       for index in containers:
         KEY = sequence_id + str(index)
         if self.loaded_headers_db.has_key(KEY):
@@ -198,7 +199,7 @@ class Storage:
           continue
         logging.info("Reading container %d for piggybacked headers" % index)
         container = self.get_container(sequence_id, index)
-        loaded_containers.append(index)
+        loaded_containers[index] = 1
         class PiggybackHeaderLoadHandler:
           """Record all the piggybacked headers reported by the container.
           Ask the incoming handler for all the other blocks.
@@ -231,8 +232,9 @@ class Storage:
           self.loaded_headers_db[KEY] = header
       # Make sure that we will not try to re-load the containers we have loaded
       # already.
-      for index in loaded_containers:
-        del containers[index]
+      filtered_containers = [c for c in containers if not
+          loaded_containers.has_key(c)]
+      sequence_new_containers[sequence_id] = filtered_containers
     # 2. Read all the new containers (except for those that we have read
     # already). Since we have loaded all the headers already, there is no
     # network use for containers that contain only DATA blocks.
