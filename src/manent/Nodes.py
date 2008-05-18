@@ -56,6 +56,10 @@ class Node:
     self.name = name
     self.stats = None
     self.cached_path = None
+
+    self.weight = 0.0
+    self.processed_percent = 0.0
+    self.cur_scanned_child = None
   def get_digest(self):
     return self.digest
   def set_digest(self, digest):
@@ -64,7 +68,10 @@ class Node:
     return self.level
   def set_level(self, level):
     self.level = level
-  #testrunner
+  def set_weight(self, weight):
+    self.weight = weight
+  def get_percent_done(self):
+    raise Exception("Abstract method")
   # Path computations
   #
   def path(self):
@@ -462,16 +469,19 @@ class Directory(Node):
         prev_name_data[node_name] = ((node_type, node_stat,
                                       node_digest, node_level))
 
-    #
-    # Initialize scanning data
-    #
-    self.children = []
     
     #
     # Scan the directory
     #
-    # Scan the files in the directory
     exclusion_processor.filter_files()
+
+    # Initialize scanning data
+    self.children = []
+    num_children = len(exclusion_processor.get_included_files() +
+        exclusion_processor.get_included_dirs())
+    processed_children = 0.0
+
+    # Scan the files in the directory
     for name in exclusion_processor.get_included_files():
       path = os.path.join(self.path(), name)
       file_mode = os.lstat(path)[stat.ST_MODE]
@@ -500,6 +510,10 @@ class Directory(Node):
       except IOError, (errno, strerror):
         logging.error("IOError %s accessing '%s' %s" % (errno, strerror, path))
         traceback.print_exc()
+      finally:
+        processed_children += 1
+        self.processed_percent = processed_children / num_children
+        ctx.update_scan_status()
 
     # Scan the subdirs in the directory
     for name in exclusion_processor.get_included_dirs():
@@ -514,6 +528,8 @@ class Directory(Node):
       try:
         if stat.S_ISDIR(file_mode):
           node = Directory(self.backup, self, name)
+          node.set_weight(self.weight / num_children)
+          self.cur_scanned_child = node
           #
           # The order is different here, and it's all because directory can
           # produce temporary digest of its contents during scanning
@@ -530,6 +546,11 @@ class Directory(Node):
       except IOError, (errno, strerror):
         logging.error("IOError %s accessing '%s'" % (strerror, path))
         traceback.print_exc()
+      finally:
+        processed_children += 1
+        self.processed_percent = processed_children / num_children
+        ctx.update_scan_status()
+        self.cur_scanned_child = None
 
     num_new_blocks, size_new_blocks = self.write(ctx)
     if num_new_blocks != 0:
@@ -562,6 +583,13 @@ class Directory(Node):
     if self.digest != prev_digest:
       #print "changed node", self.path()
       ctx.changed_nodes += 1
+
+  def get_percent_done(self):
+    if self.cur_scanned_child is None:
+      return self.weight * self.processed_percent
+    else:
+      return (self.weight * self.processed_percent +
+          self.cur_scanned_child.get_percent_done())
 
   def write(self, ctx):
     """

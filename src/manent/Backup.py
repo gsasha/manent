@@ -129,6 +129,7 @@ class Backup:
       last_fs_digest, last_fs_level = self.increment_manager.start_increment(
           comment)
       root = Nodes.Directory(self, None, self.config_db['data_path'])
+      root.set_weight(1.0)
       ctx = ScanContext(self, root)
 
       prev_num = (Nodes.NODE_TYPE_DIR, None, last_fs_digest, last_fs_level)
@@ -355,6 +356,8 @@ class ScanContext:
     self.changed_nodes = 0
 
     self.root_node = root_node
+  def update_scan_status(self):
+    print "Done: %f %%\r" % (100.0 * self.root_node.get_percent_done()),
 
 #=========================================================
 # RestoreContext
