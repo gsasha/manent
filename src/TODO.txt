@@ -49,6 +49,10 @@ FEATURES PLANNED
   change, if only because the diff is now different. Not nice. It might be the
   reason for having so large a container on an almost empty increment...
 
+  In addition, there might be a bug: if we think that the file is still PREV,
+  but its parent's information has changed, then its values, which are encoded
+  as diffs from parents, might silently change.
+
 - Add a filesystem interface as a http or ftp server
 
 - Report compression rate, # of bytes changed vs # of bytes scanned and other

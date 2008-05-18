@@ -198,11 +198,12 @@ class StorageManager:
     self.block_manager.add_block(digest, code, data)
 
     if self.block_container_db.has_key(digest):
-      return
+      return False
 
     logging.debug("Storage manager adding new block %s:%s:%d" %
         (base64.b64encode(digest), Container.code_name(code), len(data)))
     self.block_sequencer.add_block(digest, code, data)
+    return True
   def load_block(self, digest):
     logging.debug("SM loading block " + base64.b64encode(digest))
     if not self.block_manager.has_block(digest):

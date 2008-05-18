@@ -255,7 +255,7 @@ class Backup:
   def get_block_size(self):
     return self.storage_manager.get_block_size()
   def add_block(self, digest, code, data):
-    self.storage_manager.add_block(digest, code, data)
+    return self.storage_manager.add_block(digest, code, data)
   def load_block(self, digest):
     return self.storage_manager.load_block(digest)
   def request_block(self, digest):

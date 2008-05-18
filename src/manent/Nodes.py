@@ -191,18 +191,18 @@ class Node:
       logging.info("Base stat not defined")
       changed = True
     elif self.stats[stat.ST_INO] != prev_stat[stat.ST_INO]:
-      logging.info("Inode number differs: was %d, now %d" %
-        (prev_stat[stat.ST_INO], self.stats[stat.ST_INO]))
+      logging.info("Inode of %s differs: was %d, now %d" %
+        (self.path(), prev_stat[stat.ST_INO], self.stats[stat.ST_INO]))
       changed = True
     elif self.stats[stat.ST_MTIME] != prev_stat[stat.ST_MTIME]:
-      logging.info("Mtime differs: %d != %d" %
-        (self.stats[stat.ST_MTIME], prev_stat[stat.ST_MTIME]))
+      logging.info("Mtime of %s differs: %d != %d" %
+        (self.path(), self.stats[stat.ST_MTIME], prev_stat[stat.ST_MTIME]))
       changed = True
     elif time.time() - self.stats[stat.ST_MTIME] <= 1.0:
       # The time from the last change is less than the resolution
       # of time() functions
-      logging.info("File too recent %d : %d" %
-          (prev_stat[stat.ST_MTIME], time.time()))
+      logging.info("File %s too recent %d : %d" %
+          (self.path(), prev_stat[stat.ST_MTIME], time.time()))
       changed = True
     else:
       #
@@ -257,11 +257,10 @@ class File(Node):
     # Check if the file is the same as in one of the upper levels
     #
     if self.scan_prev(ctx, prev_num):
-      logging.info("File %s: PREV" % self.path())
+      logging.debug("File %s: PREV" % self.path())
       return
     
     # --- File not yet in database, process it
-    logging.info("Scanning file " + self.path())
     file_size = 0
     packer = PackerStream.PackerOStream(self.backup, Container.CODE_DATA)
     for data in FileIO.read_blocks(open(self.path(), "rb"),
@@ -273,6 +272,9 @@ class File(Node):
     self.level = packer.get_level()
     self.update_hlink(ctx)
 
+    logging.info("Scanned file %s size:%d new_blocks:%d new_blocks_size:%d" %
+        (self.path(), file_size, packer.get_num_new_blocks(),
+          packer.get_size_new_blocks()))
     if file_size > 256 * 1024:
       logging.debug("File %s is big enough to register in cndb" %
           self.path())
@@ -365,7 +367,6 @@ class Symlink(Node):
     if self.scan_prev(ctx, prev_num):
       return
 
-    logging.info("Scanning symlink " + self.path())
     self.link = os.readlink(self.path())
 
     packer = PackerStream.PackerOStream(self.backup, Container.CODE_DATA)
@@ -375,6 +376,9 @@ class Symlink(Node):
     self.level = packer.get_level()
     self.update_hlink(ctx)
     
+    logging.info("Scanned symlink %s size:%d new_blocks:%d new_blocks_size:%d" %
+        (self.path(), file_size, packer.get_num_new_blocks(),
+          packer.get_size_new_blocks()))
   def test(self, ctx):
     logging.info("Testing " + self.path())
 
@@ -416,7 +420,7 @@ class Directory(Node):
   def scan(self, ctx, prev_num, exclusion_processor):
     """Scan the node, considering data in all the previous increments
     """
-    logging.info("Scanning directory " + self.path())
+    logging.debug("Scanning directory " + self.path())
     #
     # Process data from previous increments.
     #
@@ -449,8 +453,6 @@ class Directory(Node):
           prev_digest = None
     # Load the data of the prev node
     if prev_digest is not None:
-      #print "prev_digest=", prev_digest
-      #print "prev_stat= ", prev_stat
       dir_stream = PackerStream.PackerIStream(self.backup, prev_digest,
         prev_level)
       for node_type, node_name, node_stat, node_digest, node_level in\
@@ -468,7 +470,6 @@ class Directory(Node):
     #
     # Scan the directory
     #
-    #print "starting scan for", self.path()
     # Scan the files in the directory
     exclusion_processor.filter_files()
     for name in exclusion_processor.get_included_files():
@@ -530,9 +531,12 @@ class Directory(Node):
         logging.error("IOError %s accessing '%s'" % (strerror, path))
         traceback.print_exc()
 
-    self.write(ctx)
+    num_new_blocks, size_new_blocks = self.write(ctx)
+    if num_new_blocks != 0:
+      logging.info("Scanned dir %s size:%d new_blocks:%d new_blocks_size:%d" %
+        (self.path(), len(self.children), num_new_blocks,
+          size_new_blocks))
     self.children = None
-
     #
     # Update the current dir in completed_nodes_db
     #
@@ -578,6 +582,7 @@ class Directory(Node):
     
     self.digest = packer.get_digest()
     self.level = packer.get_level()
+    return (packer.get_num_new_blocks(), packer.get_size_new_blocks())
     
   def test(self, ctx):
     logging.info("Testing " + self.path())

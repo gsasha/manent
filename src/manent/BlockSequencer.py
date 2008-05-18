@@ -162,7 +162,7 @@ class BlockSequencer:
     # 2. Push into the container as many piggybacking blocks as it's willing to
     # accept.
     rejected_header = None
-    logging.info("Known piggyback headers %d:%d" %
+    logging.debug("Known piggyback headers %d:%d" %
         (self.piggyback_header_first, self.piggyback_header_last))
     piggybacked_headers = []
     for header in range(self.piggyback_header_last,
