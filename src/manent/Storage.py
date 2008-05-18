@@ -79,9 +79,11 @@ class StorageParams:
 
 class Storage:
   def __init__(self, params):
+    self.db_manager = params.db_manager
+    self.txn_manager = params.txn_manager
     self.config_db = params.config_db
     self.loaded_headers_db = params.db_manager.get_scratch_database(
-      "loaded_headers_%d.db" % params.index, None)
+      "scratch_loaded_headers_%d.db" % params.index, None)
     self.index = params.index
     self.sequence_next_container = {}
     self.active_sequence_id = None
@@ -152,6 +154,7 @@ class Storage:
   def get_next_index(self):
     return self.sequences[self.active_sequence_id].get_next_index()
   def load_sequences(self, new_block_handler):
+    logging.debug("Loading sequences for storage %d" % self.index)
     # Load previously known sequences
     AS_KEY = self._key("active_sequence")
     if self.config_db.has_key(AS_KEY):
@@ -164,6 +167,7 @@ class Storage:
 
     # Load the data from the storage location
     sequence_new_containers = {}
+    sequence_computed_next_container = {}
     for name in self.list_container_files():
       sequence_id, index, extension = decode_container_name(name)
       if extension != CONTAINER_EXT:
@@ -181,10 +185,15 @@ class Storage:
       containers.sort()
       logging.debug("New containers in sequence %s: %s" %
           (base64.urlsafe_b64encode(sequence_id), str(containers)))
+      if containers != []:
+        self.sequence_next_container[sequence_id] = max(containers) + 1
 
     # Process the new containers
     # 1. Read the new containers that have piggyback headers - this way we get
     # all the headers without actually reading them.
+    logging.debug("Loading sequences for storage %d:"
+        "reading new containers for headers" %
+        self.index)
     for sequence_id, containers in sequence_new_containers.iteritems():
       # We process files in the reverse order because that's how piggybacking
       # headers are organized. This necessarily converges quickly to reading
@@ -238,6 +247,9 @@ class Storage:
     # 2. Read all the new containers (except for those that we have read
     # already). Since we have loaded all the headers already, there is no
     # network use for containers that contain only DATA blocks.
+    logging.debug("Loading sequences for storage %d:"
+        "reading new containers for blocks" %
+        self.index)
     for sequence_id, containers in sequence_new_containers.iteritems():
       containers.sort()
       for index in containers:
@@ -262,21 +274,23 @@ class Storage:
         handler = BlockLoadHandler(sequence_id, index, new_block_handler)
         container.load_blocks(handler)
     # 3. Update the next_container information for all the sequences.
-    for sequence_id, containers in sequence_new_containers.iteritems():
-      if len(containers) == 0:
-        continue
-      self.sequence_next_container[sequence_id] = max(containers) + 1
-      self.config_db["next_container." + sequence_id] = str(
-          self.sequence_next_container[sequence_id])
+    logging.debug("Loading sequences for storage %d:"
+        "updating container information" %
+        self.index)
+    for sequence_id, next_container in self.sequence_next_container.iteritems():
+      logging.debug("Sequence %s next_container:%d" %
+          (base64.b64encode(sequence_id), next_container))
+      self.config_db["next_container." + sequence_id] = str(next_container)
     self.loaded_headers_db.truncate()
+    self.txn_manager.commit()
   def flush(self):
     # TODO(gsasha): implement this
     pass
   def close(self):
     self.loaded_headers_db.close()
-    # TODO(gsasha): close all databases
     pass
   def info(self):
+    # TODO(gsasha): close all databases
     pass
 
   #
