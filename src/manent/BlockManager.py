@@ -27,7 +27,7 @@ class BlockManager:
       "scratch-requested-blocks.db", None)
     self.loaded_blocks = self.db_manager.get_scratch_database(
       "scratch-data-blocks.db", None)
-    self.cached_blocks = self.db_manager.get_database("storage.db",
+    self.cached_blocks = self.db_manager.get_database_btree("storage.db",
       "bm-cached-blocks", self.txn_handler)
     self.block_codes = self.db_manager.get_database("storage.db",
       "bm-block-types", self.txn_handler)

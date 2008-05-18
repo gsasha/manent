@@ -69,11 +69,13 @@ class DatabaseManager:
     # Configure the database environment
     #
     self.dbenv = db.DBEnv()
-    self.dbenv.set_cachesize(0, 100*1024*1024)
+    self.dbenv.set_cachesize(0, 500*1024*1024)
     self.dbenv.set_lk_max_locks(20000)
     self.dbenv.set_lk_max_objects(20000)
     self.dbenv.set_lk_detect(db.DB_LOCK_DEFAULT)
     self.dbenv.set_flags(db.DB_LOG_AUTOREMOVE, True)
+    self.dbenv.set_flags(db.DB_TXN_WRITE_NOSYNC, True)
+    self.dbenv.set_lg_bsize(100 * 1024 * 1024)
     #print "Opening environment in", self.__dbenv_dir()
     self.dbenv.open(self.__dbenv_dir(),
         db.DB_RECOVER|db.DB_CREATE|db.DB_INIT_TXN|
@@ -88,6 +90,8 @@ class DatabaseManager:
   def txn_begin(self):
     self.dbenv.txn_checkpoint()
     return self.dbenv.txn_begin(flags=db.DB_DIRTY_READ)
+  def txn_checkpoint(self):
+    self.dbenv.txn_checkpoint()
   def close(self):
     #
     # Close up the db environment. The user should have been
@@ -175,6 +179,8 @@ class TransactionHandler:
     if self.txn is not None:
       self.txn.commit()
     self.txn = None
+  def checkpoint(self):
+    self.db_manager.txn_checkpoint()
   def abort(self):
     if self.txn is not None:
       self.txn.abort()
@@ -199,6 +205,7 @@ class DatabaseWrapper:
     logging.debug("Opening database filename=%s, dbname=%s" %
         (self.__get_filename(), self.__get_dbname()))
     start = time.time()
+    self.d.set_pagesize(64*1024)
     self.d.open(self.__get_filename(), self.__get_dbname(), db_type,
         db.DB_CREATE, txn=self.__get_txn())
     end = time.time()

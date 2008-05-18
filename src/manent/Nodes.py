@@ -384,7 +384,7 @@ class Symlink(Node):
     self.update_hlink(ctx)
     
     logging.info("Scanned symlink %s size:%d new_blocks:%d new_blocks_size:%d" %
-        (self.path(), file_size, packer.get_num_new_blocks(),
+        (self.path(), len(self.link), packer.get_num_new_blocks(),
           packer.get_size_new_blocks()))
   def test(self, ctx):
     logging.info("Testing " + self.path())

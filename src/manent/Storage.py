@@ -206,7 +206,8 @@ class Storage:
         if self.loaded_headers_db.has_key(KEY):
           logging.debug("Skipping container %d: header piggybacked" % index)
           continue
-        logging.info("Reading container %d for piggybacked headers" % index)
+        logging.info("Reading container %s:%d for piggybacked headers" %
+            (base64.urlsafe_b64encode(sequence_id), index))
         container = self.get_container(sequence_id, index)
         loaded_containers[index] = 1
         class PiggybackHeaderLoadHandler:
@@ -234,8 +235,9 @@ class Storage:
         pb_handler = PiggybackHeaderLoadHandler(
             sequence_id, index, new_block_handler)
         container.load_blocks(pb_handler)
-        logging.info("Container %d piggybacks headers %s" %
-            (index, str(pb_handler.headers.keys())))
+        logging.info("Container %s:%d piggybacks headers %s" %
+            (base64.urlsafe_b64encode(sequence_id), index,
+              str(pb_handler.headers.keys())))
         for index, header in pb_handler.headers.iteritems():
           KEY = sequence_id + str(index)
           self.loaded_headers_db[KEY] = header
@@ -253,7 +255,7 @@ class Storage:
     for sequence_id, containers in sequence_new_containers.iteritems():
       containers.sort()
       for index in containers:
-        logging.debug("Reading container %d for metadata blocks" % index)
+        logging.info("Reading container %d for metadata blocks" % index)
         container = self.get_container(sequence_id, index)
         class BlockLoadHandler:
           """Transfer all the incoming blocks to the given handler,
@@ -273,6 +275,7 @@ class Storage:
               self.block_handler.loaded(digest, code, data)
         handler = BlockLoadHandler(sequence_id, index, new_block_handler)
         container.load_blocks(handler)
+      self.txn_manager.checkpoint()
     # 3. Update the next_container information for all the sequences.
     logging.debug("Loading sequences for storage %d:"
         "updating container information" %
