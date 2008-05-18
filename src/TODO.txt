@@ -40,10 +40,14 @@ CHANGELOG:
 
 - Add files larger than a certain amount (256KB) to cndb.
 
+- FIXED: For some reason, last containers in a sequence (ones that do not
+  piggy-back anything) are re-read every time. Not nice at all.
+
 FEATURES PLANNED
 
-- For some reason, last containers in a sequence (ones that do not piggy-back
-  anything) are re-read every time. Not nice at all.
+- Problem: if parent directory's timestamp changes, its entries' timestamps must
+  change, if only because the diff is now different. Not nice. It might be the
+  reason for having so large a container on an almost empty increment...
 
 - Add a filesystem interface as a http or ftp server
 
