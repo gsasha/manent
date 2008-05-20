@@ -120,11 +120,17 @@ class Backup:
   #
   # Scanning (adding a new increment)
   #
-  def scan(self, comment):
+  def scan(self):
     try:
       self.__open_all()
       self.__open_exclusion_processor()
       self.__open_storage()
+
+      params = parse_to_keys(args)
+      if params.has_key("comment"):
+        comment = params["comment"]
+      else:
+        comment = ""
 
       last_fs_digest, last_fs_level = self.increment_manager.start_increment(
           comment)

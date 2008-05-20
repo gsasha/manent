@@ -450,7 +450,7 @@ class FTPStorage(Storage):
       tmpfile.write(block)
     body_file.seek(0)
     while True:
-      block = boody_file.read(64 << 10)
+      block = body_file.read(64 << 10)
       if len(block) == 0: break
       tmpfile.write(block)
 

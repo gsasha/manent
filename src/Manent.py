@@ -62,7 +62,7 @@ elif sys.argv[1] == "backup":
 	label = sys.argv[2]
 
 	backup = config.load_backup(label)
-	backup.scan("stam")
+  backup.scan(sys.argv[3:])
 	
 	config.save()
 	config.close()

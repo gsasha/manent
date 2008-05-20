@@ -174,18 +174,22 @@ class TestStorage(unittest.TestCase):
   def test_new_containers_in_active_sequence_caught(self):
     # Test that if new containers appear unexpectedly in the active sequence,
     # it is actually discovered.
+    logging.debug("----------------1")
     storage1 = Storage.DirectoryStorage(self.storage_params)
     storage1.configure(self.CONFIGURATION, None)
     seq_id1 = storage1.create_sequence()
+    logging.debug("----------------2")
     config_db2 = self.env.get_database_btree("b", None, None)
     self.storage_params.config_db = config_db2
     storage2 = Storage.DirectoryStorage(self.storage_params)
     storage2.configure(self.CONFIGURATION, None)
     storage2.create_sequence(test_override_sequence_id=seq_id1)
     c = storage2.create_container()
+    c.add_block(Digest.dataDigest("aaa"), Container.CODE_DATA, "aaa")
     c.finish_dump()
     c.upload()
     try:
+      logging.debug("----------------3")
       storage1.load_sequences(None)
     except:
       pass

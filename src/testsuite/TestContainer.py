@@ -294,12 +294,14 @@ class TestContainer(unittest.TestCase):
     # 1. Container 
     EXPECTED_HEADER_COUNTS = {
         0: 0,
-        4: 4,
-        8: 4,
+        4: 4,  # This is special case!
+        8: 3,
         15: 0,
         16: 16,
         17: 0,
-        64: 64}
+        32: 15,
+        64: 64,
+        128: 63}
     for index in range(120):
       container = self.storage.create_container()
       if EXPECTED_HEADER_COUNTS.has_key(container.get_index()):

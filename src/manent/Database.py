@@ -55,6 +55,8 @@ class PrivateDatabaseManager:
     return DatabaseWrapper(self, None, filename + "." + str(tablename))
   def txn_begin(self):
     return None
+  def txn_checkpoint(self):
+    pass
 
 # The normal database manager class
 class DatabaseManager:
@@ -75,6 +77,7 @@ class DatabaseManager:
     self.dbenv.set_lk_detect(db.DB_LOCK_DEFAULT)
     self.dbenv.set_flags(db.DB_LOG_AUTOREMOVE, True)
     self.dbenv.set_flags(db.DB_TXN_WRITE_NOSYNC, True)
+    self.dbenv.set_flags(db.DB_TXN_NOSYNC, True)
     self.dbenv.set_lg_bsize(100 * 1024 * 1024)
     #print "Opening environment in", self.__dbenv_dir()
     self.dbenv.open(self.__dbenv_dir(),

@@ -13,7 +13,8 @@ import utils.IntegerEncodings as IE
 # TODO: reconstruction of IncrementManager
 
 class IncrementManager:
-  def __init__(self, db_manager, txn_handler, storage_manager):
+  def __init__(self, db_manager, txn_handler, backup_label, storage_manager):
+    self.backup_label = backup_label
     self.storage_manager = storage_manager
     self.config_db = db_manager.get_database_btree("config.db", "increments",
       txn_handler)
@@ -32,8 +33,8 @@ class IncrementManager:
     for key, value in self.config_db.iteritems_prefix("Increment"):
       if key.endswith("fs_digest"):
         match = increment_rexp.match(key)
-        storage_index = IE.ascii_decode_int_varlen(match.group(1))
-        index = IE.ascii_decode_int_varlen(match.group(2))
+        storage_index = int(match.group(1))
+        index = int(match.group(2))
 
         if not increments.has_key(storage_index):
           increments[storage_index] = []
@@ -58,7 +59,8 @@ class IncrementManager:
 
     self.active_increment = Increment.Increment(self.storage_manager,
         self.config_db)
-    self.active_increment.start(storage_index, next_index, comment)
+    self.active_increment.start(
+        storage_index, next_index, self.backup_label, comment)
 
     if last_index is None:
       return (None, None)
@@ -76,7 +78,7 @@ class IncrementManager:
     assert self.active_increment is not None
 
     logging.info("Finalizing increment %d to %s" %
-        (self.active_increment.index, base64.b64encode(digest)))
+        (self.active_increment.get_index(), base64.b64encode(digest)))
     inc_digest = self.active_increment.finalize(digest, level)
     self.active_increment = None
     return inc_digest
