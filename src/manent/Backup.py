@@ -120,7 +120,7 @@ class Backup:
   #
   # Scanning (adding a new increment)
   #
-  def scan(self):
+  def scan(self, args):
     try:
       self.__open_all()
       self.__open_exclusion_processor()
@@ -337,7 +337,7 @@ class Backup:
       self.txn_handler)
     self.storage_manager.load_storages()
     self.increment_manager = IncrementManager.IncrementManager(
-      self.db_manager, self.txn_handler, self.storage_manager)
+      self.db_manager, self.txn_handler, self.label, self.storage_manager)
     self.storage_opened = True
   def __close_all(self):
     if self.storage_opened:

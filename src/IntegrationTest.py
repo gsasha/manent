@@ -49,7 +49,7 @@ logging.info(" - Step 1 ---------------- Testing pack 1")
 retcode = subprocess.call("tar xvf testdata/pack1.tar -C %s" % scratchdir,
     shell=True)
 assert retcode == 0
-backup1.scan("scan1")
+backup1.scan(["comment=scan1"])
 # TODO(gsasha): check that one container has been added
 logging.info(" - Step 1 ---------------- Restoring from the backup and"
     "comparing the results")
@@ -66,7 +66,7 @@ for dir in [scratchdir, restoredir]:
 #
 logging.info("Testing second data pack")
 os.system("tar xvf testdata/pack2.tar -C %s" % scratchdir)
-backup1.scan("scan2")
+backup1.scan(["comment=scan2"])
 # TODO(gsasha): check that one more container has been added.
 logging.info("Restoring from the backup and comparing the results")
 backup1.restore(("storage=0 increment=1 target=%s" % restoredir).split())
@@ -82,7 +82,7 @@ for dir in [scratchdir, restoredir]:
 # one container has been added.
 #
 os.system("tar xvf testdata/pack3.tar -C %s" % scratchdir)
-backup1.scan("scan3")
+backup1.scan(["comment=scan3"])
 # TODO(gsasha): check that one moore container has been added.
 logging.info("Restoring from the backup and comparing the results")
 backup1.restore(("storage=0 increment=2 target=%s" % restoredir).split())
@@ -100,7 +100,7 @@ for i in range(30):
   file = open(os.path.join(scratchdir, "file"+str(i)), "w")
   file.write(os.urandom(1024*1024))
   file.close()
-backup1.scan("scan4")
+backup1.scan(["comment=scan4"])
 backup1.restore(("storage=0 increment=3 target=%s" % restoredir).split())
 retcode = subprocess.call("diff -r %s %s" % (scratchdir, restoredir),
     shell=True)
@@ -123,7 +123,7 @@ backup2.configure(
       (storagedir)).split())
 backup2.configure(("set data_path=%s" % (scratchdir)).split())
 
-backup2.scan("scan1")
+backup2.scan(["comment=scan1"])
 backup2.restore(("storage=0 increment=0 target=%s" % restoredir).split())
 retcode = subprocess.call("diff -r %s %s" % (scratchdir, restoredir),
     shell=True)
