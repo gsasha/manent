@@ -5,6 +5,7 @@
 
 import base64
 import cStringIO as StringIO
+import socket
 import time
 
 import Container
@@ -44,6 +45,7 @@ class Increment:
         "backup_label": backup_label,
         "comment": comment,
         "ctime": str(time.time()),
+        "hostname": socket.gethostbyaddr(socket.gethostname())[0],
         "fs_digest": None,
         "fs_level": None,
     }
