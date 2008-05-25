@@ -88,6 +88,8 @@ class StorageManager:
       self.seq_to_index[sequence_id] = (storage_idx, sequence_idx)
       self.index_to_seq[sequence_idx] = (storage_idx, sequence_id)
   def close(self):
+    for index, storage in self.storages.iteritems():
+      storage.close()
     self.block_container_db.close()
     self.config_db.close()
     self.block_sequencer.close()

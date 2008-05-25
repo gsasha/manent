@@ -17,6 +17,7 @@ import unittest
 sys.path.append(os.path.join(sys.path[0], ".."))
 
 import manent.BlockManager as BlockManager
+import manent.Config as Config
 import manent.Container as Container
 import manent.Database as Database
 import manent.Storage as Storage
@@ -28,8 +29,14 @@ class TestStorageManager(unittest.TestCase):
     self.env = Database.PrivateDatabaseManager()
     self.txn = Database.TransactionHandler(self.env)
   def tearDown(self):
-    # Clean up the state, to make sure tests don't interfere.
+    # Clean up the state to make sure tests don't interfere.
     Storage.MemoryStorage.files = {}
+    if self.env is not None:
+      # Some tests need to clean self.env anyway...
+      self.txn = None
+      self.env.close()
+      self.env = None
+      Config.paths.clean_temp_area()
   def test_add_storage(self):
     # Test that adding a storage creates (and recreates) it correctly
     storage_manager = StorageManager.StorageManager(self.env, self.txn)
@@ -42,6 +49,7 @@ class TestStorageManager(unittest.TestCase):
     storage_manager.add_block(block_digest, Container.CODE_DATA, block)
     storage_manager.flush()
     seq_id1 = storage_manager.get_active_sequence_id()
+    storage_manager.close()
     # Recreate the storage_manager and add another block to it
     storage_manager = StorageManager.StorageManager(self.env, self.txn)
     storage_manager.load_storages()
@@ -51,6 +59,7 @@ class TestStorageManager(unittest.TestCase):
     storage_manager.flush()
     seq_id2 = storage_manager.get_active_sequence_id()
     self.assertEqual(seq_id1, seq_id2)
+    storage_manager.close()
   def test_add_block(self):
     # Test that if blocks are added, they are available for loading back.
     storage_manager = StorageManager.StorageManager(self.env, self.txn)
@@ -62,6 +71,7 @@ class TestStorageManager(unittest.TestCase):
     block_digest = Digest.dataDigest(block)
     storage_manager.add_block(block_digest, Container.CODE_DATA, block)
     storage_manager.flush()
+    storage_manager.close()
     # Recreate the storage and read the block back
     storage_manager = StorageManager.StorageManager(self.env, self.txn)
     storage_manager.load_storages()
@@ -76,6 +86,7 @@ class TestStorageManager(unittest.TestCase):
     storage_manager.load_blocks_for(block_digest, handler)
     self.assertEqual({(block_digest, Container.CODE_DATA): block},
       handler.blocks)
+    storage_manager.close()
   def test_rescan_storage(self):
     # Test that new sequences appearing from outside are discovered
     storage_manager = StorageManager.StorageManager(self.env, self.txn)
@@ -87,8 +98,14 @@ class TestStorageManager(unittest.TestCase):
     block_digest = Digest.dataDigest(block)
     storage_manager.add_block(block_digest, Container.CODE_DATA, block)
     storage_manager.flush()
+    storage_manager.close()
+    self.txn = None
+    self.env.close()
+    self.env = None
+    Config.paths.clean_temp_area()
     # Create second storage manager with a different db, but on the same storage
-    # (mock shares all the files), and see that it sees the block from the first one.
+    # (mock shares all the files), and see that it sees the block from the first
+    # one.
     class Handler:
       def __init__(self):
         self.blocks = {}
@@ -108,6 +125,11 @@ class TestStorageManager(unittest.TestCase):
     storage_manager2.load_blocks_for(block_digest, handler)
     self.assertEqual({(block_digest, Container.CODE_DATA): block},
       handler.blocks)
+    storage_manager2.close()
+    txn2 = None
+    env2.close()
+    env2 = None
+    Config.paths.clean_temp_area()
   def test_base_storage(self):
     # Test that base storage works
     # First storage manager. This will be the base.
@@ -121,6 +143,11 @@ class TestStorageManager(unittest.TestCase):
     block_digest = Digest.dataDigest(block)
     storage_manager.add_block(block_digest, Container.CODE_DATA, block)
     storage_manager.flush()
+    storage_manager.close()
+    self.txn = None
+    self.env.close()
+    self.env = None
+    Config.paths.clean_temp_area()
     # Second storage manager with a different db, and on a different storage
     # and see that it sees the block from the base one.
     logging.debug("creating second storage manager")
@@ -143,6 +170,11 @@ class TestStorageManager(unittest.TestCase):
     storage_manager2.load_blocks_for(block_digest, handler)
     self.assertEqual({(block_digest, Container.CODE_DATA): block},
       handler.blocks)
+    storage_manager2.close()
+    txn2 = None
+    env2.close()
+    env2 = None
+    Config.paths.clean_temp_area()
 
 suite_StorageManager = unittest.TestLoader().loadTestsFromTestCase(TestStorageManager)
 if __name__ == "__main__":

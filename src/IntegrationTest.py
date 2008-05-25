@@ -10,7 +10,9 @@ import shutil
 import subprocess
 import tempfile
 
-tempdir = tempfile.mkdtemp(prefix="/tmp/")
+import manent.Config as Config
+
+tempdir = Config.paths.temp_area()
 homedir = os.path.join(tempdir, "home")
 storagedir = os.path.join(tempdir, "storage")
 scratchdir = os.path.join(tempdir, "scratch")

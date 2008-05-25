@@ -8,7 +8,9 @@ import logging
 import os
 import os.path
 import re
+import shutil
 import sys
+import tempfile
 
 import ConfigParser
 import Backup
@@ -107,6 +109,7 @@ class Paths:
   def __init__(self):
     self.staging_area_exists = False
     self.home_area_exists = False
+    self.temp_area_path = None
   def home_area(self):
     if os.environ.has_key("MANENT_HOME_DIR"):
       # Allow the user to override the placement of
@@ -128,7 +131,7 @@ class Paths:
     return path
 
   def backup_home_area(self, label):
-    return os.path.join(self.home_area(), "BACKUP." + label)
+    return os.path.join(self.home_area(), "BACKUP-" + label)
 
   def staging_area(self):
     if os.name == "nt":
@@ -141,13 +144,24 @@ class Paths:
     return path
 
   def backup_staging_area(self, label):
-    return os.path.join(self.staging_area(), "BACKUP." + label)
+    return os.path.join(self.staging_area(), "BACKUP-" + label)
 
   def temp_area(self):
+    if self.temp_area_path is not None:
+      try:
+        os.mkdir(self.temp_area_path)
+      except:
+        pass
+      return self.temp_area_path
     if os.name == "nt":
-      return os.environ["TEMP"]
+      self.temp_area_path = tempfile.mkdtemp(
+          prefix=os.path.join(os.environ["TEMP"], ""))
     else:
-      return "/tmp"
+      self.temp_area_path = tempfile.mkdtemp(
+          prefix=os.path.join("/tmp", ""))
+    return self.temp_area_path
+  def clean_temp_area(self):
+    shutil.rmtree(self.temp_area())
 
 paths = Paths()
 

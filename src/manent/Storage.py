@@ -92,6 +92,10 @@ class Storage:
     self.headers_loaded_from_summary = 0
     self.headers_loaded_from_storage = 0
 
+  def close(self):
+    self.loaded_headers_db.close()
+    self.config_db.close()
+
   def _key(self, suffix):
     return "%s" % (suffix)
   #
@@ -289,11 +293,7 @@ class Storage:
   def flush(self):
     # TODO(gsasha): implement this
     pass
-  def close(self):
-    self.loaded_headers_db.close()
-    pass
   def info(self):
-    # TODO(gsasha): close all databases
     pass
 
   #

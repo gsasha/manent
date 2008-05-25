@@ -40,19 +40,28 @@ class PrivateDatabaseManager:
     self.dbenv.open(Config.paths.temp_area(),
         db.DB_PRIVATE|db.DB_CREATE|db.DB_INIT_TXN|
         db.DB_INIT_MPOOL|db.DB_INIT_LOCK|db.DB_THREAD)
+  def close(self):
+    #
+    # Close up the db environment. The user should have been
+    # smart enough to close it himself.
+    #
+    self.dbenv.close()
+    dbenv = db.DBEnv()
+    self.dbenv = None
   def get_database(self, filename, tablename, txn_handler):
-    return DatabaseWrapper(self, None, filename + "." + str(tablename),
-      txn_handler)
+    name = filename + "." + str(tablename)
+    return DatabaseWrapper(self, name, name, txn_handler)
   def get_database_btree(self, filename, tablename, txn_handler):
-    return DatabaseWrapper(self, None, filename + "." + str(tablename),
-      txn_handler, db_type=db.DB_BTREE)
+    name = filename + "." + str(tablename)
+    return DatabaseWrapper(self, name, name, txn_handler, db_type=db.DB_BTREE)
   def get_database_hash(self, filename, tablename, txn_handler):
-    return DatabaseWrapper(self, None, filename + "." + str(tablename),
-      txn_handler, db_type=db.DB_HASH)
+    name = filename + "." + str(tablename)
+    return DatabaseWrapper(self, name, name, txn_handler, db_type=db.DB_HASH)
   def get_scratch_database(self, filename, tablename):
     # Under Private database, the scratch database is no different from any
     # other, except that it has no transactions.
-    return DatabaseWrapper(self, None, filename + "." + str(tablename))
+    name = filename + "." + str(tablename)
+    return DatabaseWrapper(self, name, name)
   def txn_begin(self):
     return None
   def txn_checkpoint(self):
@@ -71,14 +80,14 @@ class DatabaseManager:
     # Configure the database environment
     #
     self.dbenv = db.DBEnv()
-    self.dbenv.set_cachesize(0, 500*1024*1024)
+    self.dbenv.set_cachesize(0, 50*1024*1024)
     self.dbenv.set_lk_max_locks(20000)
     self.dbenv.set_lk_max_objects(20000)
     self.dbenv.set_lk_detect(db.DB_LOCK_DEFAULT)
     self.dbenv.set_flags(db.DB_LOG_AUTOREMOVE, True)
     self.dbenv.set_flags(db.DB_TXN_WRITE_NOSYNC, True)
     self.dbenv.set_flags(db.DB_TXN_NOSYNC, True)
-    self.dbenv.set_lg_bsize(100 * 1024 * 1024)
+    self.dbenv.set_lg_bsize(2 * 1024 * 1024)
     #print "Opening environment in", self.__dbenv_dir()
     self.dbenv.open(self.__dbenv_dir(),
         db.DB_RECOVER|db.DB_CREATE|db.DB_INIT_TXN|
@@ -108,6 +117,7 @@ class DatabaseManager:
     #print "Waiting for the checkpoint thread to finish"
     #self.checkpoint_finished.wait()
     self.dbenv.close()
+    self.dbenv = None
     dbenv = db.DBEnv()
     dbenv.remove(self.__dbenv_dir())
 

@@ -15,6 +15,7 @@ sys.path.append(os.path.join(sys.path[0], ".."))
 
 import manent.BlockManager as BlockManager
 import manent.BlockSequencer as BlockSequencer
+import manent.Config as Config
 import manent.Container as Container
 import manent.Database as Database
 import manent.utils.Digest as Digest
@@ -56,6 +57,7 @@ class TestBlockSequencer(unittest.TestCase):
     self.block_manager = None
     self.env = None
     self.txn = None
+    Config.paths.clean_temp_area()
   def test_clean_start(self):
     # Check that if BlockSequencer is started cleanly, it is initialized
     # correctly.

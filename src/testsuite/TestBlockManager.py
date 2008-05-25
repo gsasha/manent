@@ -14,6 +14,7 @@ import unittest
 # itself. This allows the test to be executed directly by testoob.
 sys.path.append(os.path.join(sys.path[0], ".."))
 
+import manent.Config as Config
 import manent.Container as Container
 import manent.Database as Database
 import manent.Storage as Storage
@@ -51,6 +52,9 @@ class MockStorageManager:
 class TestBlockManager(unittest.TestCase):
   def setUp(self):
     self.env = Database.PrivateDatabaseManager()
+  def tearDown(self):
+    self.env = None
+    Config.paths.clean_temp_area()
   def add_block(self, bm, code, data):
     bm.add_block(Digest.dataDigest(data), code, data)
   def test_add_block(self):

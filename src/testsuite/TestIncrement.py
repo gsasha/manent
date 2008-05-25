@@ -13,6 +13,7 @@ import unittest
 # itself. This allows the test to be executed directly by testoob.
 sys.path.append(os.path.join(sys.path[0], ".."))
 
+import manent.Config as Config
 import manent.Database as Database
 import manent.Increment as Increment
 import manent.IncrementManager as IncrementManager
@@ -25,8 +26,10 @@ class TestIncrement(unittest.TestCase):
     self.env = Database.PrivateDatabaseManager()
     self.txn = Database.TransactionHandler(self.env)
   def tearDown(self):
-    self.env = None
     self.txn = None
+    self.env.close()
+    self.env = None
+    Config.paths.clean_temp_area()
 
   def test_load(self):
     """Test that increment saves to db and loads"""
