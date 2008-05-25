@@ -2,7 +2,7 @@ CHANGELOG:
 
 0.10.0
 
-- Make it work on Windows!
+- Make it work on Windows now!
 
 - Make it work on Mac.
 
