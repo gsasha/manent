@@ -2,6 +2,10 @@ CHANGELOG:
 
 0.10.0
 
+- Make it work on Windows.
+
+- Make it work on Mac.
+
 - fix permissions for db files
 
 - Switch to new container format that unifies headers with data files,
