@@ -172,7 +172,13 @@ class Storage:
     # Load the data from the storage location
     sequence_new_containers = {}
     sequence_computed_next_container = {}
-    for name in self.list_container_files():
+    try:
+      container_files = self.list_container_files()
+    except:
+      logging.info("Failed to fetch the container files."
+          " Probably a network problem")
+      container_files = []
+    for name in container_files:
       sequence_id, index, extension = decode_container_name(name)
       if extension != CONTAINER_EXT:
         continue

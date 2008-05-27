@@ -76,6 +76,13 @@ elif sys.argv[1] == "restore":
   backup.restore(sys.argv[3:])
   config.close()
 
+elif sys.argv[1] == "ftp":
+  label = sys.argv[2]
+
+  backup = config.load_backup(label)
+  backup.serve(sys.argv[3:])
+  config.close()
+
 elif sys.argv[1] == "test":
   label = sys.argv[2]
 

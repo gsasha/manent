@@ -63,8 +63,16 @@ class StorageManager:
 
     self.config_db = db_manager.get_database_btree("config.db", "storage",
       txn_manager)
+    logging.debug("Loaded storage manager db")
+    for key, val in self.config_db.iteritems():
+      logging.debug("Storage manager db: [%s]->[%s]" %
+          (key, val))
     self.block_container_db = db_manager.get_database_hash("storage.db",
       "blocks", txn_manager)
+    logging.debug("********** Loaded storage manager logs")
+    for key, val in self.config_db.iteritems():
+      logging.debug("Storage manager blocks: [%s]->[%s]" %
+          (base64.b64encode(key), base64.b64encode(val)))
 
     # Mapping of storage sequences to indices and vice versa
     # The storage sequence data consists of storage index and sequence
@@ -152,23 +160,28 @@ class StorageManager:
     # be updated on each invocation, since somebody else might be adding
     # blocks there
     #
+    logging.debug("StorageManager loading storages")
     self.storages = {}
     self.active_storage_idx = None
     for storage_idx in self.get_storage_idxs():
+      logging.debug("StorageManager loading storage %d" % storage_idx)
       handler = StorageManager.BlockScanningHandler(self, storage_idx)
       storage = Storage.load_storage(self.db_manager, self.txn_manager,
         storage_idx, handler)
       self.storages[storage_idx] = storage
       if storage.is_active():
+        logging.debug("Storage is active")
         seq_id = storage.get_active_sequence_id()
         self.active_storage_idx, seq_idx = self.seq_to_index[seq_id]
 
   def get_storage_idxs(self):
     KEY = self._key("storage_idxs")
     if not self.config_db.has_key(KEY):
+      logging.debug("--- Storage manager knows of no storage idxs")
       return []
     idxs_str = self.config_db[KEY]
     storage_idxs = IE.binary_decode_int_varlen_list(idxs_str)
+    logging.debug("--- Storage manager knows of idxs: %s" % str(storage_idxs))
     return storage_idxs
   def assign_storage_idx(self):
     storage_idxs = self.get_storage_idxs()

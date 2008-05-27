@@ -14,11 +14,11 @@ import traceback
 
 import Backup
 import Container
-import utils.Digest as Digest
-import utils.Format as Format
-import utils.FileIO as FileIO
-import utils.IntegerEncodings as IntegerEncodings
 import PackerStream
+import utils.Digest as Digest
+import utils.FileIO as FileIO
+import utils.Format as Format
+import utils.IntegerEncodings as IntegerEncodings
 
 #----------------------------------------------------
 # Node conversion
@@ -691,6 +691,37 @@ class Directory(Node):
       node.set_level(node_level)
       node.list_files()
   
+  def read_child_nodes(self):
+    self.children_nodes_data = {}
+    self.children_nodes = {}
+    packer = PackerStream.PackerIStream(self.backup, self.get_digest(),
+      self.get_level())
+    for (node_type, node_name, node_stat, node_digest, node_level) in\
+        self.read_directory_entries(packer, self.stats):
+      self.children_nodes_data[node_name] = (node_type, node_stat,
+                                   node_digest, node_level)
+  def get_child_node(self, name):
+    if not self.children_nodes_data.has_key(name):
+      return None
+    if not self.children_nodes.has_key(name):
+      node_type, node_stat, node_digest, node_level =\
+          self.children_nodes_data[name]
+      if node_type == NODE_TYPE_DIR:
+        node = Directory(self.backup, self, node_name)
+      elif node_type == NODE_TYPE_FILE:
+        node = File(self.backup, self, node_name)
+      elif node_type == NODE_TYPE_SYMLINK:
+        node = Symlink(self.backup, self, node_name)
+      node.set_stats(node_stat)
+      node.set_digest(node_digest)
+      node.set_level(node_level)
+      self.children_nodes[name] = node
+    return self.children_nodes[name]
+  def get_child_node_data(self, name):
+    return self.children_nodes_data[name]
+  def get_child_node_names(self):
+    return self.children_nodes_data.keys()
+
   def read_directory_entries(self, file, base_stats):
     while True:
       node_type = Format.read_int(file)

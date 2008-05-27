@@ -13,6 +13,7 @@ import Config
 import Container
 import Database
 import ExclusionProcessor
+import FTPServer
 import IncrementManager
 import Nodes
 import StorageManager
@@ -188,6 +189,23 @@ class Backup:
     finally:
       self.__close_all()
   
+  #
+  # Serving the filesystem as ftp
+  #
+  def serve(self, args):
+    try:
+      self.__open_all()
+      self.__open_storage()
+
+      params = parse_to_keys(args)
+      port = int(params['port'])
+      logging.info("Serving FTP on port " + str(port))
+      FTPServer.serve(self, port)
+    except:
+      traceback.print_exc()
+      self.txn_handler.abort()
+    finally:
+      self.__close_all()
   #
   # Testing that an increment can be loaded
   #
