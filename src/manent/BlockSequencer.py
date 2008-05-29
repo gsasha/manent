@@ -128,26 +128,37 @@ class BlockSequencer:
       code = self.block_manager.get_block_code(digest)
       data = self.block_manager.load_block(digest)
       if self.current_open_container is None:
-        self.current_open_container = self.storage_manager.create_container()
-        self.num_containers_created += 1
+        self.current_open_container = self.open_container()
       while not self.current_open_container.can_add(data):
         self.write_container(self.current_open_container)
-        self.current_open_container = self.storage_manager.create_container()
-        self.num_containers_created += 1
+        self.current_open_container = self.open_container()
       self.current_open_container.add_block(digest, code, data)
     if self.current_open_container is not None:
       self.write_container(self.current_open_container)
       self.current_open_container = None
+    # We want to create a summary container to prevent database reconnects,
+    # which do not read non-summary containers, from missing latest blocks. To
+    # this end, we just create empty containers until the index of the created
+    # container tells us it's summary.
+    if self.num_containers_created != 0:
+      for i in range(4):
+        container = self.storage_manager.create_container()
+        if (container.index + 1) % 4 == 0:
+          self.write_container(container)
+          break
+      else:
+        raise Exception("Failed to generate a summary container in 4 tries")
     self._write_vars()
   def write_container(self, container):
     logging.debug("Finalizing container %d" % container.get_index())
+    self.num_containers_created += 1
     container.finish_dump()
     # 1. Get the header out of the container and store it here for
     # piggybacking.
     header_contents = container.get_header_contents()
     self.piggyback_headers_db[str(container.get_index())] = header_contents
     logging.debug("Created piggyback header %d" % container.get_index())
-    self.piggyback_header_last += 1
+    self.piggyback_header_last = container.index
     # 2. Ask the container to upload itself.
     container.upload()
     # 3. Let the storage manager know about the finalized container.
@@ -158,34 +169,31 @@ class BlockSequencer:
     # 1. Ask the storage to create a new empty container.
     logging.debug("BlockSequencer: creating a new container")
     container = self.storage_manager.create_container()
-    self.num_containers_created += 1
     # 2. Push into the container as many piggybacking blocks as it's willing to
     # accept.
-    rejected_header = None
     logging.debug("Known piggyback headers %d:%d" %
         (self.piggyback_header_first, self.piggyback_header_last))
+    logging.debug("Existing piggyback headers %s" %
+        str([k for k,v in self.piggyback_headers_db.iteritems()]))
     piggybacked_headers = []
     for header in range(self.piggyback_header_last,
                         self.piggyback_header_first - 1, -1):
+      if not self.piggyback_headers_db.has_key(str(header)):
+        # There can be a hole in the container sequence, because a summary
+        # container might get inserted after a flushed one, and summary
+        # container will need a special index ((i+1)%4==0)
+        continue
       header_data = self.piggyback_headers_db[str(header)]
       if not container.can_add_piggyback_header(header_data):
-        # We will do the cleaning only when the header doesn't fit in the size.
-        if not container.can_add(header_data):
-          logging.debug("Container %d rejected header %d size=%d:"
-              " not enough space" %
-              (container.get_index(), header, len(header_data)))
-          rejected_header = header
         break
       piggybacked_headers.append(header)
       logging.debug("Adding piggyback header %d to container %d"
           % (header, container.get_index()))
       container.add_piggyback_header(header, header_data)
     # Clean up piggyback headers that cannot be inserted anymore.
-    if rejected_header is not None:
-      for header in range(self.piggyback_header_first, rejected_header + 1):
-        logging.debug("Deleting unusable piggyback header %d" % header)
-        del self.piggyback_headers_db[str(header)]
-      self.piggyback_first_header = rejected_header + 1
+    while self.piggyback_header_last - self.piggyback_header_first > 1025:
+      del self.piggyback_headers_db[str(self.piggyback_header_first)]
+      self.piggyback_header_first += 1
     # 3. If the container can be filled by currently collected aside blocks,
     # write them out to the container, write the container out and open a new
     # one again.

@@ -136,7 +136,9 @@ class TestBlockSequencer(unittest.TestCase):
     self.block_manager.add_block(digest, Container.CODE_DIR, block)
     bs.add_block(digest, Container.CODE_DIR, block)
     bs.flush()
-    self.assertEquals(1, bs.num_containers_created)
+    # Block sequencer must create two containers: one to contain all the blocks
+    # created above, and one to piggyback the header for the first container.
+    self.assertEquals(2, bs.num_containers_created)
 
   def test_piggybacking_block(self):
     # Check that piggybacking blocks are created when necessary.
@@ -151,13 +153,10 @@ class TestBlockSequencer(unittest.TestCase):
       bs.add_block(digest, Container.CODE_DATA, block)
       logging.debug("Added block %d. Number of containers %d" %
           (i, bs.num_containers_created))
-      if bs.num_containers_created == 6:
-        # Container with index 4 must contain piggybacking headers.
-        container = bs.current_open_container
-        assert container.get_index() == 5
-        # We want to inspect the previous container
+      if bs.num_containers_created == 4:
+        # Container with index 3 must contain piggybacking headers.
         break
-    container = self.storage_manager.get_container(4)
+    container = self.storage_manager.get_container(3)
     class CheckHandler:
       def __init__(self):
         self.num_piggyback_headers = 0
@@ -167,6 +166,6 @@ class TestBlockSequencer(unittest.TestCase):
         return False
     ch = CheckHandler()
     container.load_blocks(ch)
-    self.assertEquals(4, ch.num_piggyback_headers)
+    self.assertEquals(3, ch.num_piggyback_headers)
 
 

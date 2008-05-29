@@ -203,9 +203,23 @@ class Storage:
       # headers are organized. This necessarily converges quickly to reading
       # from "full" containers.
       containers.sort()
+      # We are interested only in loading containers that are summary (a
+      # finished increment should add a summary container). So, we discard up to
+      # 3 containers until we find a summary one.
+      while len(containers) != 0 and (containers[-1] + 1) % 4 != 0:
+        containers.pop()
       containers.reverse()
       loaded_containers = {} 
       for index in containers:
+        # If a summary container gets full before it can accomodate all the
+        # appointed headers, it can make us try to load a container that is
+        # non-summary. We want to avoid this, and thus we walk upwards to find a
+        # container which is actually a summary (i.e., contains no data blocks).
+        # There is a danger of infinite looping if we somehow get to a header
+        # that fills a container single-handedly, but I think that is highly
+        # unlikely and won't handle it for now.
+        while (index + 1) % 4 != 0 and (index + 1) in containers:
+          index += 1
         KEY = sequence_id + str(index)
         if self.loaded_headers_db.has_key(KEY):
           logging.debug("Skipping container %d: header piggybacked" % index)
@@ -217,7 +231,7 @@ class Storage:
         class PiggybackHeaderLoadHandler:
           """Record all the piggybacked headers reported by the container.
           Ask the incoming handler for all the other blocks.
-          Note taht the incoming handler receives the sequence id along with
+          Note that the incoming handler receives the sequence id along with
           each block."""
           def __init__(self, sequence_id, container_idx, block_handler):
             self.sequence_id = sequence_id

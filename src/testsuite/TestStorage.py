@@ -97,10 +97,11 @@ class TestStorage(unittest.TestCase):
     storage1 = Storage.DirectoryStorage(self.storage_params)
     storage1.configure(self.CONFIGURATION, None)
     seq_id1 = storage1.create_sequence()
-    container = storage1.create_container()
-    container.add_block(Digest.dataDigest("stam"), Container.CODE_DATA, "stam")
-    container.finish_dump()
-    container.upload()
+    for i in range(4):
+      container = storage1.create_container()
+      container.add_block(Digest.dataDigest("m"), Container.CODE_DATA, "m")
+      container.finish_dump()
+      container.upload()
     storage1.close()
     # Create a new db to simulate a different machine
     config_db2 = self.env.get_database_btree("b", None, None)
@@ -114,9 +115,8 @@ class TestStorage(unittest.TestCase):
         return False
     handler = Handler()
     storage2.configure(self.CONFIGURATION, handler)
-    self.assertEquals(
-        (seq_id1, 0, Digest.dataDigest("stam"), Container.CODE_DATA),
-        handler.sequences[0])
+    self.assert_((seq_id1, 0, Digest.dataDigest("m"), Container.CODE_DATA) in
+        handler.sequences)
     storage2.close()
   def test_container_created(self):
     # Test that containers are created and restored correctly.
@@ -164,31 +164,42 @@ class TestStorage(unittest.TestCase):
     storage2.configure(self.CONFIGURATION, None)
     seq_id2 = storage2.create_sequence()
     self.assert_(seq_id1 != seq_id2)
-    # Create a container in each storage, make sure the containers are mutually
+    # Create 4 containers in each storage, make sure the containers are mutually
     # visible
-    c1 = storage1.create_container()
-    c1.add_block(Digest.dataDigest("c1block"), Container.CODE_DATA, "c1block")
-    c1.finish_dump()
-    c1.upload()
-    c2 = storage2.create_container()
-    c2.add_block(Digest.dataDigest("c2block"), Container.CODE_DATA, "c2block")
-    c2.finish_dump()
-    c2.upload()
+    c1s = []
+    c2s = []
+    for i in range(4):
+      c1 = storage1.create_container()
+      c1.add_block(Digest.dataDigest("c1block%d" % i),
+          Container.CODE_DATA, "c1block%d" % i)
+      c1.finish_dump()
+      c1.upload()
+      c1s.append((seq_id1, c1.index))
+      c2 = storage2.create_container()
+      c2.add_block(Digest.dataDigest("c2block%d" % i),
+          Container.CODE_DATA, "c2block%d" % i)
+      c2.finish_dump()
+      c2.upload()
+      c2s.append((seq_id2, c2.index))
     # Reload the storages
     class Handler:
       def __init__(self):
         self.containers = []
       def is_requested(self, sequence_id, container_idx, digest, code):
-        self.containers.append((sequence_id, container_idx))
+        if not (sequence_id, container_idx) in self.containers: 
+          # Since the last container is a summary, it will ask for all the
+          # piggybacking containers too. Must make sure we register every new
+          # container exactly once.
+          self.containers.append((sequence_id, container_idx))
         return False
       def loaded(self, digest, code, data):
         pass
     handler1 = Handler()
     storage1.load_sequences(handler1)
-    self.assertEqual([(seq_id2, c2.index)], handler1.containers)
+    self.assertEqual(c2s, sorted(handler1.containers))
     handler2 = Handler()
     storage2.load_sequences(handler2)
-    self.assertEqual([(seq_id1, c1.index)], handler2.containers)
+    self.assertEqual(c1s, sorted(handler2.containers))
     storage1.close()
     storage2.close()
   def test_new_containers_in_active_sequence_caught(self):
@@ -204,10 +215,14 @@ class TestStorage(unittest.TestCase):
     storage2 = Storage.DirectoryStorage(self.storage_params)
     storage2.configure(self.CONFIGURATION, None)
     storage2.create_sequence(test_override_sequence_id=seq_id1)
-    c = storage2.create_container()
-    c.add_block(Digest.dataDigest("aaa"), Container.CODE_DATA, "aaa")
-    c.finish_dump()
-    c.upload()
+    # We need to create 4 countainers, since the first 3 are non-summary and
+    # will thus not be discovered.
+    for i in range(4):
+      c = storage2.create_container()
+      c.add_block(Digest.dataDigest("aaa%d" % i),
+                  Container.CODE_DATA, "aaa%d" % i)
+      c.finish_dump()
+      c.upload()
     try:
       logging.debug("----------------3")
       storage1.load_sequences(None)

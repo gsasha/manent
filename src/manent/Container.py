@@ -93,10 +93,17 @@ VERSION = 2
 
 MAX_COMPRESSED_DATA = 256 * 1024
 
-# Estimated ratio between sizes of a container and its header.
-PIGGYBACK_HEADER_RATIO = 256
-def _last_set_bit(num):
-  return num & ~(num - 1)
+def compute_num_piggyback_headers(index):
+  # Compute the number of piggybacking headers that can be
+  # inserted in container of a given index.
+  # For the sequence of number of allowed piggyback headers, see the test.
+  if (index + 1) % 1024 == 0:
+    return index % 1024
+  SIZES = [1024, 256, 64, 16]
+  for s in SIZES:
+    if (index + 1) % s != 0 and (index + 1) % (s/4) == 0:
+      return index % s
+  return 0
 
 def encode_piggyback_container_index(index):
   index_str = str(index)
@@ -502,6 +509,9 @@ class Container:
     assert self.body_file.tell() == 0
     self.piggyback_headers_num = 0
     self.piggyback_headers_size = 0
+    self.max_num_piggyback_headers = compute_num_piggyback_headers(self.index)
+    logging.debug("Container %d can add %d piggyback headers" %
+        (self.index, self.max_num_piggyback_headers))
 
     self.body_dumper = DataDumper(self.body_file)
     self.header_dump_os = StringIO.StringIO()
@@ -548,6 +558,9 @@ class Container:
     return not self._can_add_bytes(num_blocks * (8 + Digest.dataDigestSize()) + 
         size_blocks)
   def can_add(self, data):
+    if self.max_num_piggyback_headers >= 3:
+      # This header is reserved exclusively for piggyback headers.
+      return False
     return self._can_add_bytes(len(data))
   def add_block(self, digest, code, data):
     logging.debug("Container %d :adding block %s, %s, size:%d" % (
@@ -565,38 +578,15 @@ class Container:
   # Support for adding piggyback headers.
   #
   def can_add_piggyback_header(self, header_data):
-    if not self.can_add(header_data):
+    if not self._can_add_bytes(len(header_data)):
       logging.debug("No space to add the piggyback header (%d bytes)" %
           len(header_data))
       return False
-    max_num_piggyback_headers = self._num_piggyback_headers()
-    if self.piggyback_headers_num >= max_num_piggyback_headers:
-      logging.debug("Container already has %d piggyback headers and can"
-          " accept only %d" % (self.piggyback_headers_num,
-                               max_num_piggyback_headers))
+    if self.piggyback_headers_num >= self.max_num_piggyback_headers:
+      logging.debug("Container already has %d piggyback headers" %
+          self.piggyback_headers_num)
       return False
-    max_size_piggyback_headers = (max_num_piggyback_headers *
-        self.storage.container_size() / PIGGYBACK_HEADER_RATIO)
-    logging.debug("Container %d can accept %d piggyback headers, has: %d" %
-        (self.index, max_num_piggyback_headers, self.piggyback_headers_num))
-    logging.debug(
-        "Container %d can accept %d bytes of piggyback headers, has: %d" %
-        (self.index, max_size_piggyback_headers, self.piggyback_headers_size))
-    return (len(header_data) + self.piggyback_headers_size <
-        max_size_piggyback_headers)
-  def _num_piggyback_headers(self):
-    # Compute the number of piggybacking headers that can be
-    # inserted in container of a given index.
-    # The following numbers are reasonable:
-    # 0: 0, 1:0, ..., 4:4, ..., 8:3, ..., 16: 16, 20:3
-    filtered = _last_set_bit(self.index)
-    count = ((filtered | (filtered >> 1)) & 0x55555554)
-    if count == self.index:
-      # Containers that piggyback up to container #1 should already piggyback 0
-      # as well, because otherwise it's not piggybacked
-      return count
-    else:
-      return count-1
+    return True
   def add_piggyback_header(self, header_index, header_data):
     # A piggyback header is not accessed by address, so we don't need its
     # digest. We thus use the digest field to store its index.

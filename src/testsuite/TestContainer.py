@@ -292,17 +292,17 @@ class TestContainer(unittest.TestCase):
 
     # Test that:
     # 1. Container 
-    EXPECTED_HEADER_COUNTS = {
-        0: 0,
-        4: 4,  # This is special case!
-        8: 3,
-        15: 0,
-        16: 16,
-        17: 0,
-        32: 15,
-        64: 64,
-        128: 63}
-    for index in range(120):
+    EXPECTED_HEADER_COUNTS = {}
+    for i in range(0, 128, 1):
+      EXPECTED_HEADER_COUNTS[i] = 0
+    for i in range(3, 128, 4):
+      EXPECTED_HEADER_COUNTS[i] = i % 16
+    for i in range(15, 128, 16):
+      EXPECTED_HEADER_COUNTS[i] = i % 64
+    for i in range(63, 128, 64):
+      EXPECTED_HEADER_COUNTS[i] = i % 256
+    for index in range(max(EXPECTED_HEADER_COUNTS.keys()) + 1):
+      logging.info("++++ Testing container %d" % index)
       container = self.storage.create_container()
       if EXPECTED_HEADER_COUNTS.has_key(container.get_index()):
         exp_headers = EXPECTED_HEADER_COUNTS[container.get_index()]
@@ -348,11 +348,3 @@ class TestContainer(unittest.TestCase):
       handler = PiggybackLoadHandler()
       container.load_blocks(handler)
       handler.check(container_index=index, num_headers=num_piggyback_headers)
-  def test_piggyback_headers_large_headers(self):
-    # Test that if we are trying to piggyback large headers, they would be
-    # refused by the container.
-    for i in range(65):
-      container = self.storage.create_container()
-    self.assertEquals(64, container.get_index())
-    self.assert_(container.can_add_piggyback_header("h" * 100))
-    self.failIf(container.can_add_piggyback_header("h" * 1000000))
