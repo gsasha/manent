@@ -56,12 +56,13 @@ class SymlinkNode(Node):
   def read(self, size=None):
     return self.contents.read(size)
 
-def make_root(backup, name, fs_digest, fs_level):
+def make_root(backup, name, fs_digest, fs_level, fs_stats):
   n = DirectoryNode(backup)
   n.node = Nodes.Directory(backup, None, "$$$/")
   n.node.set_stats(Nodes.NULL_STAT)
   n.node.set_digest(fs_digest)
   n.node.set_level(fs_level)
+  n.node.set_stats(fs_stats)
   n.node.read_child_nodes()
   return n
 
@@ -135,6 +136,7 @@ class IncrementDescriptorFile(Node):
         stat.ST_GID: 0,
         stat.ST_UID: 0,
         stat.ST_SIZE: 0,
+        stat.ST_MTIME: 0,
         }
     return stats
   def close(self):
@@ -162,11 +164,12 @@ class IncrementNode(Node):
     return True
   def get_stats(self):
     stats = {
-        stat.ST_MODE: 01000,
+        stat.ST_MODE: 040000,
         stat.ST_NLINK: 0,
         stat.ST_GID: 0,
         stat.ST_UID: 0,
         stat.ST_SIZE: 0,
+        stat.ST_MTIME: 0,
         }
     return stats
   def get_child_node(self, name):
@@ -177,7 +180,8 @@ class IncrementNode(Node):
     elif self.increments.has_key(name):
       increment = self.increments[name]
       return make_root(self.backup, name,
-          increment.get_fs_digest(), increment.get_fs_level())
+          increment.get_fs_digest(), increment.get_fs_level(),
+          increment.get_fs_stats())
     else:
       raise OSError(1, "File not found: %s" % name)
   def get_child_names(self):
@@ -260,7 +264,7 @@ class ManentFilesystem(ftpserver.AbstractedFS):
           stats[stat.ST_UID],
           stats[stat.ST_GID],
           stats[stat.ST_SIZE],
-          stats[stat.ST_ATIME],
+          stats[stat.ST_MTIME],
           name)
   def format_list(self, basedir, listing, ignore_err=True):
     print "********** format_list %s, %s" % (str(basedir), str(listing))

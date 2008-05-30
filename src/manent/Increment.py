@@ -9,6 +9,7 @@ import socket
 import time
 
 import Container
+import Nodes
 import utils.Digest as Digest
 import utils.IntegerEncodings as IE
 
@@ -28,6 +29,9 @@ class Increment:
     return self.attributes["fs_digest"]
   def get_fs_level(self):
     return int(self.attributes["fs_level"])
+  def get_fs_stats(self):
+    return Nodes.unserialize_stats(
+        StringIO.StringIO(self.attributes["fs_stats"]))
   def get_attribute(self, key):
     return self.attributes[key]
 
@@ -48,14 +52,16 @@ class Increment:
         "hostname": socket.gethostname()[0],
         "fs_digest": None,
         "fs_level": None,
+        "fs_stats": None,
     }
 
-  def finalize(self, fs_digest, fs_level):
+  def finalize(self, fs_digest, fs_level, fs_stats):
     if self.readonly != False:
       raise Exception("Increment already finalized")
     
     self.attributes["fs_digest"] = fs_digest
     self.attributes["fs_level"] = str(fs_level)
+    self.attributes["fs_stats"] = Nodes.serialize_stats(fs_stats)
     self.attributes["ftime"] = str(time.time())
     self.readonly = True
     

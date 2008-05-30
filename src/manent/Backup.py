@@ -147,7 +147,7 @@ class Backup:
       
       # Upload the special data to the containers
       self.increment_manager.finalize_increment(root.get_digest(),
-        root.get_level())
+        root.get_level(), root.get_stats())
       self.storage_manager.flush()
       
       self.txn_handler.commit()
@@ -176,6 +176,7 @@ class Backup:
       root = Nodes.Directory(self, None, target)
       root.set_digest(increment.get_fs_digest())
       root.set_level(increment.get_fs_level())
+      root.set_stats(increment.get_fs_stats())
       ctx = RestoreContext()
       root.request_blocks(ctx)
       ctx = RestoreContext()
@@ -222,6 +223,7 @@ class Backup:
       root = Nodes.Directory(self, None, "")
       root.set_digest(increment.get_fs_digest())
       root.set_level(increment.get_fs_level())
+      root.set_stats(increment.get_fs_stats())
       ctx = RestoreContext()
       root.request_blocks(ctx)
       ctx = RestoreContext()
@@ -265,6 +267,7 @@ class Backup:
         root = Nodes.Directory(self, None, self.config_db['data_path'])
         root.set_digest(increment.get_fs_digest())
         root.set_level(increment.get_fs_level())
+        root.set_stats(increment.get_fs_stats())
         root.list_files()
       # TODO:Print info on all the storages
       # TODO:Print info on all the increments

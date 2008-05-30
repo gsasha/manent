@@ -74,12 +74,12 @@ class IncrementManager:
     increment.load(storage_idx, index)
     return increment
 
-  def finalize_increment(self, digest, level):
+  def finalize_increment(self, digest, level, stats):
     assert self.active_increment is not None
 
     logging.info("Finalizing increment %d to %s" %
         (self.active_increment.get_index(), base64.b64encode(digest)))
-    inc_digest = self.active_increment.finalize(digest, level)
+    inc_digest = self.active_increment.finalize(digest, level, stats)
     self.active_increment = None
     return inc_digest
 

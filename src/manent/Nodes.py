@@ -44,6 +44,18 @@ for s in STAT_PRESERVED_MODES:
 # NULL_STAT = {0:s for s in []}
 # NULL_STAT = {a:b for a,b in {}.iteritems()}
 
+def serialize_stats(stats):
+  file = StringIO.StringIO()
+  for mode in STAT_PRESERVED_MODES:
+    Format.write_int(file, stats[mode])
+  return file.getvalue()
+    
+def unserialize_stats(file):
+  stats = {}
+  for mode in STAT_PRESERVED_MODES:
+    stats[mode] = Format.read_int(file)
+  return stats
+
 #--------------------------------------------------------
 # CLASS:Node
 #--------------------------------------------------------
@@ -105,29 +117,6 @@ class Node:
   def get_stats(self):
     return self.stats
   
-  def serialize_stats(self, base_stats):
-    stats = self.get_stats()
-    file = StringIO.StringIO()
-    if base_stats is not None:
-      for mode in STAT_PRESERVED_MODES:
-        Format.write_int(file, stats[mode] - base_stats[mode])
-    else:
-      for mode in STAT_PRESERVED_MODES:
-        Format.write_int(file, stats[mode])
-    return file.getvalue()
-    
-  def unserialize_stats(self, file, base_stats):
-    stats = {}
-    if base_stats is not None:
-      for mode in STAT_PRESERVED_MODES:
-        val = Format.read_int(file)
-        stats[mode] = base_stats[mode] + val
-    else:
-      for mode in STAT_PRESERVED_MODES:
-        val = Format.read_int(file)
-        stats[mode] = val
-    return stats
-  
   #-----------------------------------------------------
   # Support for scanning hard links:
   # 
@@ -179,7 +168,7 @@ class Node:
         prev_level = IntegerEncodings.binary_read_int_varlen(prev_data_is)
         prev_type = IntegerEncodings.binary_read_int_varlen(prev_data_is)
         #print "prev_stat_data->", base64.b64encode(prev_data_is.read())
-        prev_stat = self.unserialize_stats(prev_data_is, None)
+        prev_stat = unserialize_stats(prev_data_is)
       else:
         ctx.changed_nodes += 1
         return False
@@ -254,6 +243,7 @@ class File(Node):
   # Scanning and restoring
   #
   def scan(self, ctx, prev_num):
+    self.compute_stats()
     #
     # Check if we have encountered this file during this scan already
     #
@@ -292,7 +282,7 @@ class File(Node):
       encoded = (self.digest +
           IntegerEncodings.binary_encode_int_varlen(self.level) +
           IntegerEncodings.binary_encode_int_varlen(self.get_type()) +
-          self.serialize_stats(None))
+          serialize_stats(self.get_stats()))
 
       if not cndb.has_key(path_digest) or cndb[path_digest] != encoded:
         cndb[path_digest] = encoded
@@ -369,6 +359,8 @@ class Symlink(Node):
   def get_type(self):
     return NODE_TYPE_SYMLINK
   def scan(self, ctx, prev_num):
+    self.compute_stats()
+
     if self.scan_hlink(ctx):
       return
 
@@ -429,6 +421,7 @@ class Directory(Node):
     """Scan the node, considering data in all the previous increments
     """
     logging.debug("Scanning directory " + self.path())
+    self.compute_stats()
     #
     # Process data from previous increments.
     #
@@ -455,7 +448,7 @@ class Directory(Node):
         prev_level = IntegerEncodings.binary_read_int_varlen(prev_data_is)
         prev_type = IntegerEncodings.binary_read_int_varlen(prev_data_is)
         #print "prev_stat_data->", base64.b64encode(prev_data_is.read())
-        prev_stat = self.unserialize_stats(prev_data_is, None)
+        prev_stat = unserialize_stats(prev_data_is)
         if prev_type != self.get_type():
           logging.debug("Node from cndb is not a directory!")
           prev_digest = None
@@ -464,13 +457,12 @@ class Directory(Node):
       dir_stream = PackerStream.PackerIStream(self.backup, prev_digest,
         prev_level)
       for node_type, node_name, node_stat, node_digest, node_level in\
-            self.read_directory_entries(dir_stream, prev_stat):
+            self.read_directory_entries(dir_stream):
         if node_type == NODE_TYPE_DIR:
           subdirs.append(node_name)
         prev_name_data[node_name] = ((node_type, node_stat,
                                       node_digest, node_level))
 
-    
     #
     # Scan the directory
     #
@@ -495,12 +487,10 @@ class Directory(Node):
       try:
         if stat.S_ISLNK(file_mode):
           node = Symlink(self.backup, self, name)
-          node.compute_stats()
           node.scan(ctx, cur_prev)
           self.children.append(node)
         elif stat.S_ISREG(file_mode):
           node = File(self.backup, self, name)
-          node.compute_stats()
           node.scan(ctx, cur_prev)
           self.children.append(node)
         else:
@@ -535,7 +525,6 @@ class Directory(Node):
           # The order is different here, and it's all because directory can
           # produce temporary digest of its contents during scanning
           #
-          node.compute_stats()
           self.children.append(node)
           child_ep = exclusion_processor.descend(name)
           node.scan(ctx, cur_prev, child_ep)
@@ -576,7 +565,7 @@ class Directory(Node):
       encoded = (self.digest +
           IntegerEncodings.binary_encode_int_varlen(self.level) +
           IntegerEncodings.binary_encode_int_varlen(self.get_type()) +
-          self.serialize_stats(None))
+          serialize_stats(self.get_stats()))
 
       if not cndb.has_key(digest) or cndb[digest] != encoded:
         cndb[digest] = encoded
@@ -606,7 +595,7 @@ class Directory(Node):
       Format.write_string(packer, child.get_name())
       packer.write(child.get_digest())
       packer.write(IntegerEncodings.binary_encode_int_varlen(child.get_level()))
-      stats_str = child.serialize_stats(self.get_stats())
+      stats_str = serialize_stats(child.get_stats())
       packer.write(stats_str)
     
     self.digest = packer.get_digest()
@@ -619,7 +608,7 @@ class Directory(Node):
     packer = PackerStream.PackerIStream(self.backup, self.get_digest(),
       self.get_level())
     for (node_type, node_name, node_stat, node_digest, node_level) in\
-      self.read_directory_entries(packer, self.stats):
+      self.read_directory_entries(packer):
       if node_type == NODE_TYPE_DIR:
         node = Directory(self.backup, self, node_name)
       elif node_type == NODE_TYPE_FILE:
@@ -641,7 +630,7 @@ class Directory(Node):
     packer = PackerStream.PackerIStream(self.backup, self.get_digest(),
       self.get_level())
     for (node_type, node_name, node_stat, node_digest, node_level) in\
-      self.read_directory_entries(packer, self.stats):
+      self.read_directory_entries(packer):
       if node_type == NODE_TYPE_DIR:
         node = Directory(self.backup, self, node_name)
       elif node_type == NODE_TYPE_FILE:
@@ -662,7 +651,7 @@ class Directory(Node):
     packer = PackerStream.PackerIStream(self.backup, self.get_digest(),
       self.get_level())
     for (node_type, node_name, node_stat, node_digest, node_level) in\
-      self.read_directory_entries(packer, self.stats):
+      self.read_directory_entries(packer):
       if node_type == NODE_TYPE_DIR:
         node = Directory(self.backup, self, node_name)
       elif node_type == NODE_TYPE_FILE:
@@ -679,7 +668,7 @@ class Directory(Node):
     packer = PackerStream.PackerIStream(self.backup, self.get_digest(),
       self.get_level())
     for (node_type, node_name, node_stat, node_digest, node_level) in\
-      self.read_directory_entries(packer, self.stats):
+      self.read_directory_entries(packer):
       if node_type == NODE_TYPE_DIR:
         node = Directory(self.backup, self, node_name)
       elif node_type == NODE_TYPE_FILE:
@@ -697,7 +686,7 @@ class Directory(Node):
     packer = PackerStream.PackerIStream(self.backup, self.get_digest(),
       self.get_level())
     for (node_type, node_name, node_stat, node_digest, node_level) in\
-        self.read_directory_entries(packer, self.stats):
+        self.read_directory_entries(packer):
       self.children_nodes_data[node_name] = (node_type, node_stat,
                                    node_digest, node_level)
   def get_child_node(self, name):
@@ -722,7 +711,7 @@ class Directory(Node):
   def get_child_node_names(self):
     return self.children_nodes_data.keys()
 
-  def read_directory_entries(self, file, base_stats):
+  def read_directory_entries(self, file):
     while True:
       node_type = Format.read_int(file)
       if node_type is None:
@@ -730,5 +719,5 @@ class Directory(Node):
       node_name = Format.read_string(file)
       node_digest = file.read(Digest.dataDigestSize())
       node_level = IntegerEncodings.binary_read_int_varlen(file)
-      node_stat = self.unserialize_stats(file, base_stats)
+      node_stat = unserialize_stats(file)
       yield (node_type, node_name, node_stat, node_digest, node_level)

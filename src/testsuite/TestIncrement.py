@@ -17,6 +17,7 @@ import manent.Config as Config
 import manent.Database as Database
 import manent.Increment as Increment
 import manent.IncrementManager as IncrementManager
+import manent.Nodes as Nodes
 import manent.utils.Digest as Digest
 
 import Mock
@@ -40,7 +41,7 @@ class TestIncrement(unittest.TestCase):
     increment1 = Increment.Increment(blockDB, db)
     increment2 = Increment.Increment(blockDB, db)
     increment1.start(0, 1, "backup1", "test increment 1")
-    increment1.finalize(Digest.dataDigest("aaaaaa"), 0)
+    increment1.finalize(Digest.dataDigest("aaaaaa"), 0, Nodes.NULL_STAT)
     increment2.load(0, 1)
     
     for attr in ["comment", "fs_digest", "ctime", "ftime", "index",
@@ -57,7 +58,8 @@ class TestIncrement(unittest.TestCase):
     # create the increment
     increment1 = Increment.Increment(blockDB, db)
     increment1.start(0, 1, "backup1", "test increment 1")
-    digest1 = increment1.finalize(Digest.dataDigest("aaaaa"), 1)
+    digest1 = increment1.finalize(Digest.dataDigest("aaaaa"),
+                                  1, Nodes.NULL_STAT)
     
     # Reconstruct the increment from the digest
     increment2 = Increment.Increment(blockDB, db)
@@ -88,7 +90,7 @@ class TestIncrement(unittest.TestCase):
 
     fs1_digest = Digest.dataDigest("data1")
     fs1_level = 0
-    idb.finalize_increment(fs1_digest, fs1_level)
+    idb.finalize_increment(fs1_digest, fs1_level, Nodes.NULL_STAT)
     bases2, level2 = idb.start_increment("test increment 2")
     # Unfinalized increment is not returned
     self.assertEqual(bases2, fs1_digest)
