@@ -17,7 +17,7 @@ import Backup
 import Container
 import manent.utils.IntegerEncodings as IntegerEncodings
 
-VERSION = "0.11.0"
+VERSION = "0.10.3"
 
 print "This is Manent version %s" % VERSION
 
