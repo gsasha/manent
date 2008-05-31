@@ -49,7 +49,7 @@ class Increment:
         "backup_label": backup_label,
         "comment": comment,
         "ctime": str(time.time()),
-        "hostname": socket.gethostname()[0],
+        "hostname": socket.gethostname(),
         "fs_digest": None,
         "fs_level": None,
         "fs_stats": None,
