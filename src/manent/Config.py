@@ -38,6 +38,8 @@ EXCLUSION_RULES_DOC = """
 #   the earlier ones.
 #
 # PATTERN is the path pattern, using "*" and "?" as wildcards.
+# The "/" character can serve as a separator also on Windows, e.g.:
+# c:/Temp/*
 
 """
 
@@ -158,8 +160,7 @@ class Paths:
         pass
       return self.temp_area_path
     if os.name == "nt":
-      self.temp_area_path = tempfile.mkdtemp(
-          prefix=os.path.join(os.environ["TEMP"], ""))
+      self.temp_area_path = tempfile.mkdtemp()
     else:
       self.temp_area_path = tempfile.mkdtemp(
           prefix=os.path.join("/tmp", ""))

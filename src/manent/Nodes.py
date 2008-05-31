@@ -124,6 +124,9 @@ class Node:
   # that has already been scanned. If so, reuse it.
   #
   def scan_hlink(self, ctx):
+    if os.name == 'nt':
+      # Inode numbers not reported, so we canot detect hard links.
+      return False
     if self.stats[stat.ST_NLINK] == 1:
       return False
     inode_num = self.stats[stat.ST_INO]
@@ -134,6 +137,7 @@ class Node:
       return True
     return False
   def update_hlink(self, ctx):
+    return
     if self.stats[stat.ST_NLINK] == 1:
       return
     inode_num = self.stats[stat.ST_INO]
@@ -142,6 +146,7 @@ class Node:
     ctx.inodes_db[inode_num] = self.digest +\
       IntegerEncodings.binary_encode_int_varlen(self.level)
   def restore_hlink(self, ctx, dryrun=False):
+    return False
     if self.stats[stat.ST_NLINK] == 1:
       return False
     if not ctx.inodes_db.has_key(self.digest):
@@ -215,11 +220,9 @@ class Node:
     ctx.changed_nodes += 1
     return False
   def restore_stats(self,
-                  restore_chmod=True,
-            restore_chown=True,
-                  restore_utime=True):
-    if restore_chmod:
-      os.chmod(self.path(), self.stats[stat.ST_MODE])
+                    restore_chmod=True,
+                    restore_chown=True,
+                    restore_utime=True):
     if restore_chown:
       if os.name != 'nt':
         os.lchown(self.path(), self.stats[stat.ST_UID],
@@ -228,8 +231,14 @@ class Node:
       # Was: first parameter = stat.ST_ATIME, but we canceled it
       # because atime changes all the time and we don't want to
       # back it up.
-      os.utime(self.path(), (self.stats[stat.ST_MTIME],
-                           self.stats[stat.ST_MTIME]))
+      if os.name == 'nt' and self.get_type() == NODE_TYPE_DIR:
+        # Windows can't set utime on directories.
+        pass
+      else:
+        os.utime(self.path(), (self.stats[stat.ST_MTIME],
+                               self.stats[stat.ST_MTIME]))
+    if restore_chmod:
+      os.chmod(self.path(), self.stats[stat.ST_MODE])
 
 #--------------------------------------------------------
 # CLASS:File
@@ -643,9 +652,7 @@ class Directory(Node):
       node.set_digest(node_digest)
       node.set_level(node_level)
       node.restore(ctx)
-    if self.stats is not None:
-      # Root node has no stats
-      self.restore_stats()
+    self.restore_stats()
 
   def request_blocks(self, ctx):
     packer = PackerStream.PackerIStream(self.backup, self.get_digest(),

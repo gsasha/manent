@@ -5,7 +5,9 @@
 
 import logging
 import os
+import os.path
 import shutil
+import stat
 import sys
 import tempfile
 import unittest
@@ -39,6 +41,14 @@ class TestStorage(unittest.TestCase):
     self.txn = None
     self.env.close()
     self.env = None
+    def set_writable(arg, dirname, names):
+      # Set the files back to writable, otherwise, rmtree can't remove them on
+      # native Windows.
+      for name in names:
+        # on windows, for which this is written, there's no os.S_IWRITE :(
+        os.chmod(os.path.join(dirname, name), stat.S_IWRITE)
+    if os.name == 'nt':
+      os.path.walk(self.scratch_path, set_writable, None)
     shutil.rmtree(self.scratch_path)
     Config.paths.clean_temp_area()
   def test_params_stored(self):
@@ -233,4 +243,7 @@ class TestStorage(unittest.TestCase):
     storage1.close()
     storage2.close()
 
+suite = unittest.TestLoader().loadTestsFromTestCase(TestStorage)
+if __name__ == "__main__":
+  unittest.TextTestRunner(verbosity=2).run(suite)
 

@@ -108,3 +108,8 @@ class TestIncrement(unittest.TestCase):
     bases4, level4 = idb.start_increment("test increment 4")
     self.assertEqual(bases4, fs1_digest)
     self.assertEqual(level4, fs1_level)
+
+suite = unittest.TestLoader().loadTestsFromTestCase(TestIncrement)
+if __name__ == "__main__":
+  unittest.TextTestRunner(verbosity=2).run(suite)
+    

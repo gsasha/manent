@@ -348,3 +348,8 @@ class TestContainer(unittest.TestCase):
       handler = PiggybackLoadHandler()
       container.load_blocks(handler)
       handler.check(container_index=index, num_headers=num_piggyback_headers)
+
+suite = unittest.TestLoader().loadTestsFromTestCase(TestContainer)
+if __name__ == "__main__":
+  unittest.TextTestRunner(verbosity=2).run(suite)
+

@@ -13,7 +13,6 @@ import Config
 import Container
 import Database
 import ExclusionProcessor
-import FTPServer
 import IncrementManager
 import Nodes
 import StorageManager
@@ -195,6 +194,7 @@ class Backup:
   #
   def serve(self, args):
     try:
+      import FTPServer
       self.__open_all()
       self.__open_storage()
 

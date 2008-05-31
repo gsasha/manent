@@ -7,10 +7,18 @@ import logging
 import os, os.path
 import sys
 import shutil
+import stat
 import subprocess
+import tarfile
 import tempfile
 
 import manent.Config as Config
+
+def set_writable(arg, dirname, names):
+  # Set the files back to writable, otherwise, rmtree can't remove them on
+  # native Windows.
+  for name in names:
+    os.chmod(os.path.join(dirname, name), stat.S_IWRITE)
 
 tempdir = Config.paths.temp_area()
 homedir = os.path.join(tempdir, "home")
@@ -48,9 +56,9 @@ backup1.configure(("set data_path=%s" % (scratchdir)).split())
 # Step 1. Test backup&restore of the first data pack.
 #
 logging.info(" - Step 1 ---------------- Testing pack 1")
-retcode = subprocess.call("tar xvf testdata/pack1.tar -C %s" % scratchdir,
-    shell=True)
-assert retcode == 0
+tar = tarfile.open("testdata/pack1.tar")
+tar.extractall(scratchdir)
+
 backup1.scan(["comment=scan1"])
 # TODO(gsasha): check that one container has been added
 logging.info(" - Step 1 ---------------- Restoring from the backup and"
@@ -60,6 +68,8 @@ retcode = subprocess.call("diff -r %s %s" % (scratchdir, restoredir),
     shell=True)
 assert retcode == 0
 for dir in [scratchdir, restoredir]:
+  if os.name == 'nt':
+    os.path.walk(dir, set_writable, None)
   shutil.rmtree(dir)
   os.mkdir(dir)
 #
@@ -67,7 +77,8 @@ for dir in [scratchdir, restoredir]:
 # has been added.
 #
 logging.info("Testing second data pack")
-os.system("tar xvf testdata/pack2.tar -C %s" % scratchdir)
+tar = tarfile.open("testdata/pack2.tar")
+tar.extractall(scratchdir)
 backup1.scan(["comment=scan2"])
 # TODO(gsasha): check that one more container has been added.
 logging.info("Restoring from the backup and comparing the results")
@@ -76,6 +87,8 @@ retcode = subprocess.call("diff -r %s %s" % (scratchdir, restoredir),
     shell=True)
 assert retcode == 0
 for dir in [scratchdir, restoredir]:
+  if os.name == 'nt':
+    os.path.walk(dir, set_writable, None)
   shutil.rmtree(dir)
   os.mkdir(dir)
 
@@ -83,7 +96,8 @@ for dir in [scratchdir, restoredir]:
 # Step3. Open third pack (which adds one large image file), check that
 # one container has been added.
 #
-os.system("tar xvf testdata/pack3.tar -C %s" % scratchdir)
+tar = tarfile.open("testdata/pack3.tar")
+tar.extractall(scratchdir)
 backup1.scan(["comment=scan3"])
 # TODO(gsasha): check that one moore container has been added.
 logging.info("Restoring from the backup and comparing the results")
@@ -92,6 +106,8 @@ retcode = subprocess.call("diff -r %s %s" % (scratchdir, restoredir),
     shell=True)
 assert retcode == 0
 for dir in [scratchdir, restoredir]:
+  if os.name == 'nt':
+    os.path.walk(dir, set_writable, None)
   shutil.rmtree(dir)
   os.mkdir(dir)
 
@@ -108,6 +124,8 @@ retcode = subprocess.call("diff -r %s %s" % (scratchdir, restoredir),
     shell=True)
 assert retcode == 0
 for dir in [scratchdir, restoredir]:
+  if os.name == 'nt':
+    os.path.walk(dir, set_writable, None)
   shutil.rmtree(dir)
   os.mkdir(dir)
 
@@ -131,6 +149,8 @@ retcode = subprocess.call("diff -r %s %s" % (scratchdir, restoredir),
     shell=True)
 assert retcode == 0
 for dir in [scratchdir, restoredir]:
+  if os.name == 'nt':
+    os.path.walk(dir, set_writable, None)
   shutil.rmtree(dir)
   os.mkdir(dir)
 

@@ -9,6 +9,16 @@ import fnmatch
 RULE_EXCLUDE = 0
 RULE_INCLUDE = 1
 
+def splitpath(path):
+  elements = []
+  while path != "":
+    path, element = os.path.split(path)
+    if element == "":
+      elements = [path] + elements
+      break
+    elements = [element] + elements
+  return elements
+
 class FileListFilter:
 	"""Filters a given list of files with a given wildcard pattern"""
 	def __init__(self, action, pattern):
@@ -61,7 +71,7 @@ class ExclusionProcessor:
 		if os.path.isabs(pattern):
 			raise Exception("Regular rules must be relative")
 		
-		steps = pattern.split(os.path.sep)
+		steps = splitpath(pattern)
 		if len(steps) == 0:
 			raise Exception("Empty pattern rule")
 		
@@ -71,8 +81,8 @@ class ExclusionProcessor:
 		pattern = os.path.expanduser(pattern)
 		assert os.path.isabs(pattern)
 		
-		root_steps = self.root.split(os.path.sep)
-		patt_steps = pattern.split(os.path.sep)
+		root_steps = splitpath(self.root)
+		patt_steps = splitpath(pattern)
 		
 		while True:
 			if len(patt_steps) == 0:
@@ -91,7 +101,8 @@ class ExclusionProcessor:
 	def add_wildcard_rule(self, action, pattern):
 		(dir_pattern, file_pattern) = os.path.split(pattern)
 		if dir_pattern != "":
-			raise Exception("Global rule must be either an absolute path or a file wildcard")
+			raise Exception("Global rule must be either an absolute path or a file"
+                      " wildcard")
 		self.wildcard_rules.append((action, file_pattern))
 		
 	def filter_files(self):
