@@ -128,6 +128,7 @@ class Node:
       # Inode numbers not reported, so we canot detect hard links.
       return False
     if self.stats[stat.ST_NLINK] == 1:
+      logging.debug("File %s has NLINK=1, can't be hard link", self.path())
       return False
     inode_num = self.stats[stat.ST_INO]
     if ctx.inodes_db.has_key(inode_num):
@@ -137,7 +138,8 @@ class Node:
       return True
     return False
   def update_hlink(self, ctx):
-    return
+    if os.name == 'nt':
+      return
     if self.stats[stat.ST_NLINK] == 1:
       return
     inode_num = self.stats[stat.ST_INO]
@@ -146,11 +148,14 @@ class Node:
     ctx.inodes_db[inode_num] = self.digest +\
       IntegerEncodings.binary_encode_int_varlen(self.level)
   def restore_hlink(self, ctx, dryrun=False):
-    return False
+    if os.name == 'nt':
+      return False
     if self.stats[stat.ST_NLINK] == 1:
+      logging.debug("According to NLINK, file %s is not HLINK", self.path())
       return False
     if not ctx.inodes_db.has_key(self.digest):
       ctx.inodes_db[self.digest] = self.path()
+      logging.debug("Hlink not found in inodes_db")
       return False
     if not dryrun:
       otherFile = ctx.inodes_db[self.digest]

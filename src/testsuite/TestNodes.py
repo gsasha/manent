@@ -67,6 +67,9 @@ class TestNodes(unittest.TestCase):
     file2_node.compute_stats()
     file1_stat = file1_node.get_stats()
     file2_stat = file2_node.get_stats()
+
+    # Hardlinked files should have the same stat.
+    self.assertEquals(file1_stat, file2_stat)
     #
     # Scan the files...
     #
@@ -166,12 +169,14 @@ class TestNodes(unittest.TestCase):
     basedir.scan(ctx, None, ep)
     digest = basedir.get_digest()
     level = basedir.get_level()
+    stats = basedir.get_stats()
     
     # Try to restore
     self.fsc.reset()
     restore_dir = Nodes.Directory(backup, None, self.fsc.get_home())
     restore_dir.set_digest(digest)
     restore_dir.set_level(level)
+    restore_dir.set_stats(stats)
     restore_dir.restore(ctx)
 
     self.failUnless(self.fsc.test_files(file_data))
