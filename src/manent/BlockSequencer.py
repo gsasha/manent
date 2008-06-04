@@ -142,7 +142,7 @@ class BlockSequencer:
     # container tells us it's summary.
     if self.num_containers_created != 0:
       for i in range(4):
-        container = self.storage_manager.create_container()
+        container = self.open_container()
         if (container.index + 1) % 4 == 0:
           self.write_container(container)
           break

@@ -151,8 +151,11 @@ class SFTPHandler(RemoteFSHandler):
   def connect(self):
     if self.channel is not None:
       return
-    privatekeyfile = os.path.expanduser(self.pkey_file)
-    mykey = paramiko.RSAKey.from_private_key_file(privatekeyfile)
+    if self.pkey_file is not None:
+      privatekeyfile = os.path.expanduser(self.pkey_file)
+      mykey = paramiko.RSAKey.from_private_key_file(privatekeyfile)
+    else:
+      mykey = None
     self.transport = paramiko.Transport((self.host, 22))
     self.transport.connect(username=self.username, password=self.password,
         pkey=mykey)

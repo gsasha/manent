@@ -217,6 +217,10 @@ class Storage:
       containers.reverse()
       loaded_containers = {} 
       for index in containers:
+        KEY = sequence_id + str(index)
+        if self.loaded_headers_db.has_key(KEY):
+          logging.debug("Skipping container %d: header piggybacked" % index)
+          continue
         # If a summary container gets full before it can accomodate all the
         # appointed headers, it can make us try to load a container that is
         # non-summary. We want to avoid this, and thus we walk upwards to find a
@@ -224,12 +228,11 @@ class Storage:
         # There is a danger of infinite looping if we somehow get to a header
         # that fills a container single-handedly, but I think that is highly
         # unlikely and won't handle it for now.
-        while (index + 1) % 4 != 0 and (index + 1) in containers:
+        while ((index + 1) % 4 != 0 and (index + 1) in containers and
+            not self.loaded_headers_db.has_key(KEY)):
+          logging.debug("Do not want to read non-piggyback container %d" %
+              index)
           index += 1
-        KEY = sequence_id + str(index)
-        if self.loaded_headers_db.has_key(KEY):
-          logging.debug("Skipping container %d: header piggybacked" % index)
-          continue
         logging.info("Reading container %s:%d for piggybacked headers" %
             (base64.urlsafe_b64encode(sequence_id), index))
         container = self.get_container(sequence_id, index)
@@ -245,9 +248,12 @@ class Storage:
             self.block_handler = block_handler
             self.headers = {}
           def is_requested(self, digest, code):
+            logging.debug("Seeing block code=%s, digest=%s" %
+                (Container.code_name(code), base64.b64encode(digest)))
             if self.block_handler.is_requested(
                 self.sequence_id, self.container_idx, digest, code):
               return True
+            logging.debug("Seeing block of code %s" % Container.code_name(code))
             return code == Container.CODE_HEADER
           def loaded(self, digest, code, data):
             if self.block_handler.is_requested(
@@ -261,7 +267,7 @@ class Storage:
         container.load_blocks(pb_handler)
         logging.info("Container %s:%d piggybacks headers %s" %
             (base64.urlsafe_b64encode(sequence_id), index,
-              str(pb_handler.headers.keys())))
+              str(sorted(pb_handler.headers.keys()))))
         for index, header in pb_handler.headers.iteritems():
           KEY = sequence_id + str(index)
           self.loaded_headers_db[KEY] = header
@@ -443,7 +449,7 @@ class FTPStorage(Storage):
   def list_container_files(self):
     logging.info("Scanning containers:")
     file_list = self.get_fs_handler().list_files()
-    logging.info("listed files " + str(file_list))
+    logging.info("listed files " + str(sorted(file_list)))
     return file_list
 
   def open_header_file(self, sequence_id, index):

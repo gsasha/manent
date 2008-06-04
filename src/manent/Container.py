@@ -731,6 +731,7 @@ class Container:
       password=self.storage.get_encryption_key())
     body_dump_loader.load_blocks(handler)
   def _load_header(self, header_file):
+    logging.debug("****************************** loading header")
     magic = header_file.read(len(MAGIC))
     if MAGIC != magic:
       raise Exception("Manent: magic number not found")
@@ -760,6 +761,7 @@ class Container:
       def is_requested(self, digest, code):
         if code == CODE_BLOCK_TABLE:
           return True
+        return False
       def loaded(self, digest, code, data):
         assert code == CODE_BLOCK_TABLE
         self.body_table_str = data
