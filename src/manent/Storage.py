@@ -414,7 +414,8 @@ class FTPStorage(Storage):
   def get_fs_handler(self):
     if self.fs_handler is None:
       self.fs_handler = self.RemoteHandlerClass(self.get_host(),
-        self.get_user(), self.get_password(), self.get_path())
+        self.get_user(), self.get_password(), self.get_pkey_file(),
+        self.get_path())
     return self.fs_handler
 
   def get_host(self):
@@ -424,8 +425,15 @@ class FTPStorage(Storage):
     return self.config["user"]
   
   def get_password(self):
+    if not self.config.has_key("password"):
+      return None
     return self.config["password"]
   
+  def get_pkey_file(self):
+    if not self.config.has_key("pkey_file"):
+      return None
+    return self.config["pkey_file"]
+
   def get_path(self):
     return self.config["path"]
 
