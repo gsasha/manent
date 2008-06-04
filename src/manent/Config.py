@@ -186,16 +186,18 @@ def init_logging():
   #print "Logging initialized"
   if os.environ.has_key("MANENT_LOGGING_LEVEL"):
     level = os.environ["MANENT_LOGGING_LEVEL"]
-    LEVELS = { "NOTSET": logging.NOTSET,
-           "DEBUG": logging.DEBUG,
-           "INFO": logging.INFO,
-           "ERROR": logging.ERROR,
-           "CRITICAL": logging.CRITICAL }
-    if LEVELS.has_key(level):
-      logging.getLogger("").setLevel(LEVELS[level])
-      logging.info("Setting logging level to " + level)
-    else:
-      print "Bad logging level env: MANENT_LOGGING_LEVEL=%s", level
+  else:
+    level = "INFO"
+  LEVELS = { "NOTSET": logging.NOTSET,
+             "DEBUG": logging.DEBUG,
+             "INFO": logging.INFO,
+             "ERROR": logging.ERROR,
+             "CRITICAL": logging.CRITICAL }
+  if LEVELS.has_key(level):
+    logging.getLogger("").setLevel(LEVELS[level])
+    logging.info("Setting logging level to " + level)
+  else:
+    print "Bad logging level env: MANENT_LOGGING_LEVEL=%s", level
 
 init_logging()
 
