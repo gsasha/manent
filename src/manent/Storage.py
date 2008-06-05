@@ -455,11 +455,11 @@ class FTPStorage(Storage):
   def open_header_file(self, sequence_id, index):
     logging.debug("Starting container header %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))
-    return tempfile.TemporaryFile(dir=Config.paths.staging_area())
+    return StringIO.StringIO()
   def open_body_file(self, sequence_id, index):
     logging.debug("Starting container body %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))
-    return tempfile.TemporaryFile(dir=Config.paths.staging_area())
+    return StringIO.StringIO()
   
   def load_body_file(self, sequence_id, index):
     logging.debug("Loading container body %s %d" %
@@ -519,11 +519,11 @@ class DirectoryStorage(Storage):
   def open_header_file(self, sequence_id, index):
     logging.debug("Starting container header %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))
-    return tempfile.TemporaryFile(dir=Config.paths.staging_area())
+    return StringIO.StringIO()
   def open_body_file(self, sequence_id, index):
     logging.debug("Starting container body %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))
-    return tempfile.TemporaryFile(dir=Config.paths.staging_area())
+    return StringIO.StringIO()
   def upload_container(self, sequence_id, index, header_file, body_file):
     # Write the header file to summary header
     assert sequence_id == self.active_sequence_id
