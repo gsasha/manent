@@ -12,6 +12,14 @@ import stat
 import sys
 import tarfile
 import time
+import traceback
+
+# On Windows, these modules are not supported.
+try:
+  import pwd
+  import grp
+except ImportError:
+  pwd = grp = None
 
 import Backup
 import Nodes
@@ -29,10 +37,12 @@ class Node:
     raise OSError(1, "operation not permitted")
 
 class FileNode(Node):
-  def __init__(self, backup):
+  def __init__(self, backup, name, node):
     Node.__init__(self, backup)
+    self.name = name
+    self.node = node
     self.closed = False
-    self.contents = StringIO.StringIO("kakamaika")
+    self.contents = None
   def is_file(self):
     return True
   def get_stats(self):
@@ -41,6 +51,12 @@ class FileNode(Node):
   def close(self):
     pass
   def read(self, size=None):
+    if self.contents is None:
+      self.contents = StringIO.StringIO()
+      self.node.request_blocks(None)
+      self.node.retrieve(self.contents)
+      self.contents.seek(0)
+
     return self.contents.read(size)
 
 class SymlinkNode(Node):
@@ -94,8 +110,7 @@ class DirectoryNode(Node):
       node.set_stats(node_stat)
       node.set_digest(node_digest)
       node.set_level(node_level)
-      n = FileNode(self.backup)
-      n.node = node
+      n = FileNode(self.backup, name, node)
       return n
     elif node_type == Nodes.NODE_TYPE_SYMLINK:
       node = Nodes.Symlink(self.backup, self.node, name)
@@ -107,10 +122,11 @@ class DirectoryNode(Node):
       return n
 
 class IncrementDescriptorFile(Node):
-  def __init__(self, backup, increment):
+  def __init__(self, backup, increment, name):
     Node.__init__(self, backup)
     self.closed = False
     self.increment = increment
+    self.name = name
     self.contents = StringIO.StringIO()
     self.contents.write("Manent backup increment\n")
     self.contents.write("started: %s\n" %
@@ -126,16 +142,17 @@ class IncrementDescriptorFile(Node):
         self.increment.get_attribute("backup_label"))
     self.contents.write("comment: %s\n" %
         self.increment.get_attribute("comment"))
+    self.size = self.contents.tell()
     self.contents.seek(0)
   def is_file(self):
     return True
   def get_stats(self):
     stats = {
-        stat.ST_MODE: 0400,
+        stat.ST_MODE: 0444,
         stat.ST_NLINK: 1,
         stat.ST_GID: 0,
         stat.ST_UID: 0,
-        stat.ST_SIZE: 0,
+        stat.ST_SIZE: self.size,
         stat.ST_MTIME: 0,
         }
     return stats
@@ -176,7 +193,7 @@ class IncrementNode(Node):
     logging.info("IncrementNode getting child %s" % name)
     if self.increment_descriptors.has_key(name):
       return IncrementDescriptorFile(self.backup,
-          self.increment_descriptors[name])
+          self.increment_descriptors[name], name)
     elif self.increments.has_key(name):
       increment = self.increments[name]
       return make_root(self.backup, name,
@@ -209,7 +226,7 @@ class ManentFilesystem(ftpserver.AbstractedFS):
     # All paths begin with a "/"
     node = self.__get_node(path)
     if not node.is_file():
-      raise OSError("%s is not a file" % element)
+      raise OSError("%s is not a file" % path)
     return node
   def chdir(self, path):
     path = self.fs2ftp(path)
@@ -259,12 +276,28 @@ class ManentFilesystem(ftpserver.AbstractedFS):
       stats = node.get_child_node(name).get_stats()
       perms = tarfile.filemode(stats[stat.ST_MODE])
       nlink = stats[stat.ST_NLINK]
-      yield "%s:%d %d %d %d %d %d %s\r\n" % (perms, stats[stat.ST_MODE],
+      if pwd and grp:
+        print "QUERYING PWD"
+        try:
+          user_name = pwd.getpwuid(stats[stat.ST_UID]).pw_name
+          group_name = grp.getgrgid(stats[stat.ST_GID]).gr_name
+        except:
+          traceback.print_exc()
+          user_name = str(stats[stat.ST_UID])
+          group_name = str(stats[stat.ST_GID])
+      else:
+        user_name = str(stats[stat.ST_UID])
+        group_name = str(stats[stat.ST_GID])
+      time_str = time.strftime("%b %d %H:%M",
+          time.localtime(stats[stat.ST_MTIME]))
+
+      yield "%s %3d %-8s %-8s %8d %s %s\r\n" % (
+          perms,
           nlink,
-          stats[stat.ST_UID],
-          stats[stat.ST_GID],
+          user_name,
+          group_name,
           stats[stat.ST_SIZE],
-          stats[stat.ST_MTIME],
+          time_str,
           name)
   def format_list(self, basedir, listing, ignore_err=True):
     print "********** format_list %s, %s" % (str(basedir), str(listing))

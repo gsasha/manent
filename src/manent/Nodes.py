@@ -340,6 +340,17 @@ class File(Node):
     
     self.restore_stats()
   
+  def retrieve(self, stream):
+    """
+    Recreate the data from the information stored in the backup into the given
+    stream
+    """
+    logging.info("Retrieving file " + self.path())
+    packer = PackerStream.PackerIStream(self.backup, self.digest,
+        self.level)
+    for data in FileIO.read_blocks(packer, Digest.dataDigestSize()):
+      stream.write(data)
+
   def request_blocks(self, ctx):
     """
     Put requests for the blocks of the file into the blocks cache
@@ -348,7 +359,7 @@ class File(Node):
     # Check if the file has already been processed
     # during this pass
     #
-    if self.restore_hlink(ctx, dryrun=True):
+    if ctx is not None and self.restore_hlink(ctx, dryrun=True):
       return
 
     logging.info("Requesting blocks for " + self.path())

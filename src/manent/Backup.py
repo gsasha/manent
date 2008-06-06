@@ -199,7 +199,10 @@ class Backup:
       self.__open_storage()
 
       params = parse_to_keys(args)
-      port = int(params['port'])
+      if params.has_key('port'):
+        port = int(params['port'])
+      else:
+        port = 2221
       logging.info("Serving FTP on port " + str(port))
       FTPServer.serve(self, port)
     except:
