@@ -10,6 +10,7 @@
 # - remember to destroy the database environment if the program exits normally.
 #
 
+import locale
 import logging
 import os, os.path
 import sys
@@ -19,6 +20,12 @@ import manent.Config as Config
 
 config = Config.GlobalConfig()
 config.load()
+
+locale.setlocale(locale.LC_ALL, '')
+if locale.getlocale() == (None, None):
+  logging.warn("User locale does  not support Unicode names. "
+      "Switching locale to en_US.utf8")
+  locale.setlocale(locale.LC_ALL, 'en_US.utf8')
 
 #
 #  Print help message

@@ -36,7 +36,8 @@ class TestNodes(unittest.TestCase):
   def setUp(self):
     self.fsc = FSC.FilesystemCreator()
   def tearDown(self):
-    self.fsc.cleanup()
+    #self.fsc.cleanup()
+    pass
 
   def test_path(self):
     # Test that path is computed correctly
@@ -47,6 +48,21 @@ class TestNodes(unittest.TestCase):
     self.assertEquals(n1.path(), "kuku")
     self.assertEquals(n2.path(), os.path.join("kuku", "bebe"))
     self.assertEquals(n3.path(), os.path.join("kuku", "bebe", "mumu.txt"))
+
+  def test_unicode_path(self):
+    backup = Mock.MockBackup(self.fsc.get_home())
+    s1 = ('\xd7\x90\xd7\x99\xd7\x9f \xd7\x96\xd7\x95'
+          ' \xd7\x90\xd7\x92\xd7\x93\xd7\x94')
+    s2 = ('\xd0\x9f\xd0\xbe\xd0\xbf\xd1\x8b\xd1\x82\xd0\xba\xd0\xb0'
+        '\xd0\xbd\xd0\xb5 \xd0\xbf\xd1\x8b\xd1\x82\xd0\xba\xd0\xb0')
+    s3 = 'I \xd1\x81\xd1\x80\xd1\x83 \xd7\xa4\xd7\x94 \xc3\xbc\xc3\xb6\xc3\xa4'
+    n1 = Nodes.Node(backup, None, s1)
+    n2 = Nodes.Node(backup, n1, s2)
+    n3 = Nodes.Node(backup, n2, s3)
+    self.assertEquals(n1.path(), s1)
+    self.assertEquals(n2.path(), os.path.join(s1, s2))
+    self.assertEquals(n3.path(), os.path.join(s1, s2, s3))
+
   def test_hlink(self):
     # Test that hard links are correctly identified and restored
     if not FSC.supports_hard_links():
@@ -211,6 +227,41 @@ class TestNodes(unittest.TestCase):
 
     self.failUnless(self.fsc.test_files(file_data))
 
+  def test_directory_unicode(self):
+    # Test that unicode directories are scanned and restored correctly
+    backup = Mock.MockBackup(self.fsc.get_home())
+    ctx = backup.start_increment("for restoring")
+
+    file1 = '\xd1\x85\xd1\x83\xd0\xb9' 
+    file2 = '\xd0\xb0\xc3\xa4a\xd7\x90'
+    file3 = '\xd7\xa9\xd7\x93\xd7\x92\xd7\x9b'
+    dir1 = '\xd0\xb0\xd1\x81\xd0\xb4\xd1\x84'
+    # Create the directory structure
+    file_data = {file1 : FSC.FSCFile("kuku"),
+      dir1: {file2 : FSC.FSCFile("kuku"),
+      file3 : FSC.FSCFile("bebe")}}
+    print file_data
+    self.fsc.reset()
+    self.fsc.add_files(file_data)
+    self.failUnless(self.fsc.test_files(file_data))
+
+    # Scan the directory structure
+    basedir = Nodes.Directory(backup, None, self.fsc.get_home())
+    ep = EP.ExclusionProcessor(self.fsc.get_home())
+    basedir.scan(ctx, None, ep)
+    digest = basedir.get_digest()
+    level = basedir.get_level()
+    stats = basedir.get_stats()
+
+    # Try to restore
+    self.fsc.reset()
+    restore_dir = Nodes.Directory(backup, None, self.fsc.get_home())
+    restore_dir.set_digest(digest)
+    restore_dir.set_level(level)
+    restore_dir.set_stats(stats)
+    restore_dir.restore(ctx)
+
+    self.failUnless(self.fsc.test_files(file_data))
   def test_prev(self):
     # Test that the information from previous versions is taken into account
     backup = Mock.MockBackup(self.fsc.get_home())
