@@ -550,9 +550,11 @@ class Directory(Node):
           # The order is different here, and it's all because directory can
           # produce temporary digest of its contents during scanning
           #
-          self.children.append(node)
           child_ep = exclusion_processor.descend(name)
           node.scan(ctx, cur_prev, child_ep)
+          # TODO(gsasha): this is a temporary hack. This statement should be two
+          # lines above, as the comment says.
+          self.children.append(node)
         else:
           logging.error("Ignoring unrecognized file type " + path)
       except OSError:
