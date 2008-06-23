@@ -714,4 +714,4 @@ def decode_container_name(name):
     return (sequence_id, index, extension)
   except:
     # File name unparseable. Can be junk coming from something else
-    return (None, None)
+    return (None, None, None)
