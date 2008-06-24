@@ -86,8 +86,6 @@ FEATURES PLANNED FOR 1.X
 
 - Provide a more accurate estimate of progress
 
-- Add executable to create summary headers over existing backup
-
 - Create compiled executables out of the Python source
 
 - Add a filesystem interface for Linux (FUSE)
@@ -125,9 +123,13 @@ CHANGELOG V0.9.7:
 
 - Make sure that all aside blocks are saved in the end
 
-- Make sure that aside blocks registered in BlockManager are always sent out to a container. Possible solution: have a database of blocks that were put aside. For that, move BlockManager to within StorageManager (which makes sense anyway).
+- Make sure that aside blocks registered in BlockManager are always sent out to
+  a container. Possible solution: have a database of blocks that were put aside.
+  For that, move BlockManager to within StorageManager (which makes sense
+  anyway).
 
-- Write the caching of hash(path)->digest for directories for faster restart of scanning
+- Write the caching of hash(path)->digest for directories for faster restart of
+  scanning
 
 - Reconstruct the list of increments.
 
