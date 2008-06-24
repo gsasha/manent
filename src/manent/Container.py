@@ -204,12 +204,16 @@ class DataDumper:
   def __init__(self,file):
     self.file = file
     self.blocks = []
+    self.pending_compression_start_block = None
 
     self.total_size = 0
     
     self.encryptor = None
     self.compressor = None
   def add_block(self, digest, code, data):
+    if self.pending_compression_start_block is not None:
+      self.blocks.append(self.pending_compression_start_block)
+      self.pending_compression_start_block = None
     self.blocks.append((digest, len(data), code))
     if self.compressor is not None:
       data = self.__compress(data)
@@ -254,7 +258,7 @@ class DataDumper:
     assert self.compressor is None
 
     digest = Digest.dataDigest(str(len(self.blocks)))
-    self.blocks.append((digest, 0, algorithm_code))
+    self.pending_compression_start_block = (digest, 0, algorithm_code)
     if algorithm_code == CODE_COMPRESSION_BZ2:
       self.compressor = bz2.BZ2Compressor(9)
     elif algorithm_code == CODE_COMPRESSION_GZIP:
@@ -265,6 +269,13 @@ class DataDumper:
     self.uncompressed_size = 0
     self.compressed_size = 0
   def stop_compression(self):
+    if self.pending_compression_start_block is not None:
+      # No block was added between start_compression and stop_compression;
+      # in this case, the start block wasn't added, and the stop block shouldn't
+      # be added either.
+      self.compressor = None
+      self.pending_compression_start_block = None
+      return
     assert self.compressor is not None
     tail = self.compressor.flush()
     self.compressed_size += len(tail)
