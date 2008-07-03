@@ -364,9 +364,6 @@ class Storage:
   def get_block_size(self):
     return 256*1024
   
-  def get_compression_block_size(self):
-    return 2*1024*1024
-
 # Used only for testing
 class MemoryStorage(Storage):
   # NOTE: global var. It doesn't matter, since it's for testing only.
