@@ -1,8 +1,0 @@
-Version 0.10.5:
-
-Features:
-
-- FTP serving can retrieve files through command line!
-- Added tests for unicode filenames, locale checks.
-
-

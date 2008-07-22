@@ -5,6 +5,7 @@
 
 import FileIO
 import ftplib
+import logging
 import paramiko
 import os, os.path
 import time
@@ -119,7 +120,11 @@ class SFTPHandler(RemoteFSHandler):
     remote_path = os.path.join(self.path, remote_name)
     remote_path = remote_path.replace("\\", "/")
     handle = self.channel.file(remote_path, "wb")
+    uploaded = 0
+    print
     for block in FileIO.read_blocks(file, 128<<10):
+      print "Uploaded", uploaded, "          \r",
+      uploaded += len(block)
       handle.write(block)
     handle.close()
     

@@ -90,6 +90,9 @@ class BlockSequencer:
     self.piggyback_headers_db.close()
     self.aside_block_db.close()
     self.loaded = None
+  def enable_compression(self, enable):
+    # TODO(gsasha): implement me
+    pass
   def add_block(self, digest, code, data):
     # Check if we need to put the current block aside.
     if BlockManager.is_cached(code):
