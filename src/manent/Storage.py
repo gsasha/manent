@@ -492,7 +492,7 @@ class FTPStorage(Storage):
     tmpfile.seek(0)
     self.get_fs_handler().upload(tmpfile, tmp_file_name)
     self.get_fs_handler().rename(tmp_file_name, file_name)
-    self.get_fs_handler().chmod(file_name, 0444)
+    self.get_fs_handler().chmod(file_name, 0440)
 
 class DirectoryStorage(Storage):
   """
