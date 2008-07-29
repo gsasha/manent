@@ -177,7 +177,6 @@ class Backup:
       root.set_level(increment.get_fs_level())
       root.set_stats(increment.get_fs_stats())
       ctx = RestoreContext()
-      root.request_blocks(ctx)
       ctx = RestoreContext()
       root.restore(ctx)
       
@@ -228,7 +227,6 @@ class Backup:
       root.set_level(increment.get_fs_level())
       root.set_stats(increment.get_fs_stats())
       ctx = RestoreContext()
-      root.request_blocks(ctx)
       ctx = RestoreContext()
       root.test(ctx)
       
@@ -289,8 +287,6 @@ class Backup:
     return self.storage_manager.add_block(digest, code, data)
   def load_block(self, digest):
     return self.storage_manager.load_block(digest)
-  def request_block(self, digest):
-    return self.storage_manager.request_block(digest)
   def get_block_code(self, digest):
     return self.storage_manager.get_block_code(digest)
   def get_completed_nodes_db(self):

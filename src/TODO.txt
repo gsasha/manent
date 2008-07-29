@@ -57,7 +57,9 @@ FEATURES PLANNED
   but its parent's information has changed, then its values, which are encoded
   as diffs from parents, might silently change.
 
-- Add a filesystem interface as a http or ftp server
+- Add a filesystem interface as a http
+
+- Add statistics reporting, especially through http interface.
 
 - Report compression rate, # of bytes changed vs # of bytes scanned and other
   statistics...

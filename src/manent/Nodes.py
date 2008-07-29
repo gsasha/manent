@@ -351,26 +351,6 @@ class File(Node):
     for data in FileIO.read_blocks(packer, Digest.dataDigestSize()):
       stream.write(data)
 
-  def request_blocks(self, ctx):
-    """
-    Put requests for the blocks of the file into the blocks cache
-    """
-    #
-    # Check if the file has already been processed
-    # during this pass
-    #
-    if ctx is not None and self.restore_hlink(ctx, dryrun=True):
-      return
-
-    logging.info("Requesting blocks for " + self.path())
-    #digest_lister = PackerStream.PackerDigestLister(self.backup,
-      #self.get_digest())
-    #for digest in digest_lister:
-      #print "  ", base64.b64encode(digest)
-    digest_lister = PackerStream.PackerDigestLister(self.backup,
-      self.get_digest(), self.level)
-    for digest in digest_lister:
-      self.backup.request_block(digest)
   def list_files(self):
     logging.info("F " + base64.b64encode(self.get_digest())[:8] +
         "..." + self.path())
@@ -425,11 +405,6 @@ class Symlink(Node):
     # and no way to restore the times of the link itself
     self.restore_stats(restore_chmod=False, restore_utime=False)
 
-  def request_blocks(self, ctx):
-    digest_lister = PackerStream.PackerDigestLister(self.backup,
-      self.get_digest(), self.level)
-    for digest in digest_lister:
-      self.backup.request_block(digest)
   def list_files(self):
     logging.info("S " + base64.b64encode(self.get_digest())[:8] +
         '...' + self.path())
@@ -671,22 +646,6 @@ class Directory(Node):
       node.set_level(node_level)
       node.restore(ctx)
     self.restore_stats()
-
-  def request_blocks(self, ctx):
-    packer = PackerStream.PackerIStream(self.backup, self.get_digest(),
-      self.get_level())
-    for (node_type, node_name, node_stat, node_digest, node_level) in\
-      self.read_directory_entries(packer):
-      if node_type == NODE_TYPE_DIR:
-        node = Directory(self.backup, self, node_name)
-      elif node_type == NODE_TYPE_FILE:
-        node = File(self.backup, self, node_name)
-      elif node_type == NODE_TYPE_SYMLINK:
-        node = Symlink(self.backup, self, node_name)
-      node.set_stats(node_stat)
-      node.set_digest(node_digest)
-      node.set_level(node_level)
-      node.request_blocks(ctx)
 
   def list_files(self):
     print "D", base64.b64encode(self.digest)[:8]+'...', self.path()

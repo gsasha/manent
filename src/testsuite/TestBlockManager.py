@@ -60,15 +60,12 @@ class TestBlockManager(unittest.TestCase):
   def test_add_block(self):
     # Test that blocks of different types can be added and restored.
     bm = BlockManager.BlockManager(self.env, None)
-    bm.request_block(Digest.dataDigest("aaa"))
     bm.add_block(Digest.dataDigest("aaa"), Container.CODE_DATA, "aaa")
     bm.add_block(Digest.dataDigest("bbb"), Container.CODE_DATA_PACKER, "bbb")
     bm.add_block(Digest.dataDigest("ccc"), Container.CODE_DIR, "ccc")
     bm.add_block(Digest.dataDigest("ddd"), Container.CODE_DIR_PACKER, "ddd")
 
-    # Even though aaa was requested, it will be stored only if added by
-    # handle_block().
-    self.failIf(bm.has_block(Digest.dataDigest("aaa")))
+    self.assertEqual(bm.load_block(Digest.dataDigest("aaa")), "aaa")
     # bbb is not a data block. It should be there always
     self.assertEqual(bm.load_block(Digest.dataDigest("bbb")), "bbb")
     # ccc and ddd are non-data blocks, so they should be cached.
@@ -79,28 +76,65 @@ class TestBlockManager(unittest.TestCase):
     # Test that blockks that have been added by handle_block() are later found.
     bm = BlockManager.BlockManager(self.env, None)
 
-    # aaa is Data block. It is requested twice, so it should be available twice
-    # in load_block.
-    bm.request_block(Digest.dataDigest("aaa"))
-    bm.request_block(Digest.dataDigest("aaa"))
     bm.handle_block(Digest.dataDigest("aaa"), Container.CODE_DATA, "aaa")
-    # bbb is Data block. It is not requested, so it should not be available at
-    # all.
     bm.handle_block(Digest.dataDigest("bbb"), Container.CODE_DATA, "bbb")
-    # ccc is non-data block. It is not requested, but it should be available.
     bm.handle_block(Digest.dataDigest("ccc"), Container.CODE_DIR, "ccc")
-    # ddd is non-data block. It is requested, and it should be available.
-    bm.request_block(Digest.dataDigest("ddd"))
     bm.handle_block(Digest.dataDigest("ddd"), Container.CODE_DATA_PACKER, "ddd")
 
     # Loading the blocks.
-    for i in range(2):
-      self.assertEqual(bm.load_block(Digest.dataDigest("aaa")), "aaa")
-    self.failIf(bm.has_block(Digest.dataDigest("aaa")))
-
-    self.failIf(bm.has_block(Digest.dataDigest("bbb")))
-
     for i in range(5):
+      self.assertEqual(bm.load_block(Digest.dataDigest("aaa")), "aaa")
+      self.assertEqual(bm.load_block(Digest.dataDigest("bbb")), "bbb")
       self.assertEqual(bm.load_block(Digest.dataDigest("ccc")), "ccc")
       self.assertEqual(bm.load_block(Digest.dataDigest("ddd")), "ddd")
-   
+  def test_epoch(self):
+    # Test that when we increment the epoch, some blocks are gone
+    bm = BlockManager.BlockManager(self.env, None)
+    # There are 4 blocks: aaa, bbb, ccc, ddd.
+    # - aaa is CODE_DATA, but is not used, so it must go away after a certain
+    #   number of epochs
+    # - bbb is CODE_DATA, and is used once, so it will not go away for a long
+    #   time.
+    # - ccc is CODE_DATA, and is used 10 times, so it will not go away for a
+    #   very long time.
+    # - ddd is CODE_DIR, so it is never supposed to go away, although it's never
+    #   used.
+    aaa_d = Digest.dataDigest("aaa")
+    bbb_d = Digest.dataDigest("bbb")
+    ccc_d = Digest.dataDigest("ccc")
+    ddd_d = Digest.dataDigest("ddd")
+
+    bm.add_block(aaa_d, Container.CODE_DATA, "aaa")
+    bm.add_block(bbb_d, Container.CODE_DATA, "bbb")
+    bm.add_block(ccc_d, Container.CODE_DATA, "ccc")
+    bm.add_block(ddd_d, Container.CODE_DIR, "ddd")
+
+    self.assert_(bm.has_block(aaa_d))
+    self.assert_(bm.has_block(bbb_d))
+    self.assert_(bm.has_block(ccc_d))
+    self.assert_(bm.has_block(ddd_d))
+
+    bm.load_block(bbb_d)
+    for i in range(10):
+      bm.load_block(ccc_d)
+
+    for i in range(5):
+      bm.increment_epoch()
+    self.failIf(bm.has_block(aaa_d))
+    self.assert_(bm.has_block(bbb_d))
+    self.assert_(bm.has_block(ccc_d))
+    self.assert_(bm.has_block(ddd_d))
+
+    for i in range(100):
+      bm.increment_epoch()
+    self.failIf(bm.has_block(aaa_d))
+    self.failIf(bm.has_block(bbb_d))
+    self.assert_(bm.has_block(ccc_d))
+    self.assert_(bm.has_block(ddd_d))
+
+    for i in range(1000):
+      bm.increment_epoch()
+    self.failIf(bm.has_block(aaa_d))
+    self.failIf(bm.has_block(bbb_d))
+    self.failIf(bm.has_block(ccc_d))
+    self.assert_(bm.has_block(ddd_d))

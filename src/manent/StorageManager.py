@@ -120,9 +120,7 @@ class StorageManager:
     self.seq_to_index[sequence_id] = (storage_idx, sequence_idx)
     self.index_to_seq[sequence_idx] = (storage_idx, sequence_id)
   class BlockScanningHandler:
-    """This handler is used for loading blocks in new containers. At this point,
-    there can be no requested blocks in the BlockManager, and therefore, we do
-    not ask it if the blocks are requested"""
+    """This handler is used for loading blocks in new containers."""
     def __init__(self, storage_manager, storage_idx):
       self.storage_manager = storage_manager
       self.storage_idx = storage_idx
@@ -244,6 +242,7 @@ class StorageManager:
         def loaded(self, digest, code, data):
           self.block_manager.handle_block(digest, code, data)
       container = storage.get_container(sequence_id, container_idx)
+      self.block_manager.increment_epoch()
       container.load_blocks(Handler(self.block_manager))
     return self.block_manager.load_block(digest)
   def load_blocks_for(self, digest, handler):
@@ -256,9 +255,6 @@ class StorageManager:
     container = storage.get_container(sequence_id, container_idx)
     container.load_blocks(handler)
 
-  def request_block(self, digest):
-    logging.debug("SM requesting block " + base64.b64encode(digest))
-    self.block_manager.request_block(digest)
   def get_block_code(self, digest):
     logging.debug("SM getting code for " + base64.b64encode(digest))
     return self.block_manager.get_block_code(digest)
@@ -277,4 +273,5 @@ class StorageManager:
     encoded = _encode_block_info(seq_idx, container_idx)
     for digest, code in container.list_blocks():
       self.block_container_db[digest] = encoded
+    self.block_manager.increment_epoch()
     self.txn_manager.commit()
