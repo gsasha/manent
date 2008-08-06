@@ -3,6 +3,7 @@
 #    License: see LICENSE.txt
 #
 
+import filecmp
 import logging
 import os, os.path
 import sys
@@ -13,6 +14,19 @@ import tarfile
 import tempfile
 
 import manent.Config as Config
+
+def cmpdirs(dir1, dir2):
+  for name in os.listdir(dir1):
+    if name == '.' or name == '..': continue
+    file1 = os.path.join(dir1, name)
+    file2 = os.path.join(dir2, name)
+    if os.path.isfile(file1) and not filecmp.cmp(file1, file2):
+      print "File %s differs in %s,%s" % (name, dir1, dir2)
+      return False
+    if os.path.isdir(file1):
+      if not cmpdirs(file1, file2):
+        return False
+  return True
 
 def set_writable(arg, dirname, names):
   # Set the files back to writable, otherwise, rmtree can't remove them on
@@ -64,9 +78,7 @@ backup1.scan(["comment=scan1"])
 logging.info(" - Step 1 ---------------- Restoring from the backup and"
     "comparing the results")
 backup1.restore(("storage=0 increment=0 target=%s" % restoredir).split())
-retcode = subprocess.call("diff -r %s %s" % (scratchdir, restoredir),
-    shell=True)
-assert retcode == 0
+assert(cmpdirs(scratchdir, restoredir))
 for dir in [scratchdir, restoredir]:
   if os.name == 'nt':
     os.path.walk(dir, set_writable, None)
@@ -83,9 +95,7 @@ backup1.scan(["comment=scan2"])
 # TODO(gsasha): check that one more container has been added.
 logging.info("Restoring from the backup and comparing the results")
 backup1.restore(("storage=0 increment=1 target=%s" % restoredir).split())
-retcode = subprocess.call("diff -r %s %s" % (scratchdir, restoredir),
-    shell=True)
-assert retcode == 0
+assert(cmpdirs(scratchdir, restoredir))
 for dir in [scratchdir, restoredir]:
   if os.name == 'nt':
     os.path.walk(dir, set_writable, None)
@@ -102,9 +112,7 @@ backup1.scan(["comment=scan3"])
 # TODO(gsasha): check that one moore container has been added.
 logging.info("Restoring from the backup and comparing the results")
 backup1.restore(("storage=0 increment=2 target=%s" % restoredir).split())
-retcode = subprocess.call("diff -r %s %s" % (scratchdir, restoredir),
-    shell=True)
-assert retcode == 0
+assert(cmpdirs(scratchdir, restoredir))
 for dir in [scratchdir, restoredir]:
   if os.name == 'nt':
     os.path.walk(dir, set_writable, None)
@@ -120,9 +128,7 @@ for i in range(30):
   file.close()
 backup1.scan(["comment=scan4"])
 backup1.restore(("storage=0 increment=3 target=%s" % restoredir).split())
-retcode = subprocess.call("diff -r %s %s" % (scratchdir, restoredir),
-    shell=True)
-assert retcode == 0
+assert(cmpdirs(scratchdir, restoredir))
 for dir in [scratchdir, restoredir]:
   if os.name == 'nt':
     os.path.walk(dir, set_writable, None)
@@ -145,9 +151,7 @@ backup2.configure(("set data_path=%s" % (scratchdir)).split())
 
 backup2.scan(["comment=scan1"])
 backup2.restore(("storage=0 increment=0 target=%s" % restoredir).split())
-retcode = subprocess.call("diff -r %s %s" % (scratchdir, restoredir),
-    shell=True)
-assert retcode == 0
+assert(cmpdirs(scratchdir, restoredir))
 for dir in [scratchdir, restoredir]:
   if os.name == 'nt':
     os.path.walk(dir, set_writable, None)

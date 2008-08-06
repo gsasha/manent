@@ -9,6 +9,7 @@ import os
 import os.path
 import re
 import shutil
+import stat
 import sys
 import tempfile
 
@@ -166,6 +167,12 @@ class Paths:
           prefix=os.path.join("/tmp", ""))
     return self.temp_area_path
   def clean_temp_area(self):
+    # 1. Make sure we have permissioons to delete everything
+    for path, dirs, files in os.walk(self.temp_area(), topdown=False):
+      for fname in dirs + files:
+        fullpath = os.path.join(path, fname)
+	os.chmod(fullpath, stat.S_IWRITE | stat.S_IRWXU)
+    # 2. And now delete it!
     shutil.rmtree(self.temp_area())
 
 paths = Paths()
