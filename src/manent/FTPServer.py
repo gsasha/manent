@@ -97,7 +97,7 @@ class DirectoryNode(Node):
     node_type, node_stat, node_digest, node_level =\
         self.node.get_child_node_data(name)
     if node_type == Nodes.NODE_TYPE_DIR:
-      node = Nodes.Directory(self.backup, self.node, unicode(name, 'utf8'))
+      node = Nodes.Directory(self.backup, self.node, name)
       node.set_stats(node_stat)
       node.set_digest(node_digest)
       node.set_level(node_level)
@@ -106,14 +106,14 @@ class DirectoryNode(Node):
       n.node.read_child_nodes()
       return n
     elif node_type == Nodes.NODE_TYPE_FILE:
-      node = Nodes.File(self.backup, self.node, unicode(name, 'utf8'))
+      node = Nodes.File(self.backup, self.node, name)
       node.set_stats(node_stat)
       node.set_digest(node_digest)
       node.set_level(node_level)
       n = FileNode(self.backup, name, node)
       return n
     elif node_type == Nodes.NODE_TYPE_SYMLINK:
-      node = Nodes.Symlink(self.backup, self.node, unicode(name, 'utf8'))
+      node = Nodes.Symlink(self.backup, self.node, name)
       node.set_stats(node_stat)
       node.set_digest(node_digest)
       node.set_level(node_level)
@@ -218,7 +218,7 @@ class ManentFilesystemGenerator:
 class ManentFilesystem(ftpserver.AbstractedFS):
   def __init__(self, backup):
     self.backup = backup
-    self.cwd = "/"
+    self.cwd = u"/"
     self.root_node = IncrementNode(self.backup)
   def open(self, path, mode):
     path = self.fs2ftp(path)
@@ -298,7 +298,7 @@ class ManentFilesystem(ftpserver.AbstractedFS):
           group_name,
           stats[stat.ST_SIZE],
           time_str,
-          name)
+          name.encode('utf8'))
   def format_list(self, basedir, listing, ignore_err=True):
     print "********** format_list %s, %s" % (str(basedir), str(listing))
   def get_stat_dir(self, rawline):
