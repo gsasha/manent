@@ -65,7 +65,9 @@ class Node:
   """
   def __init__(self, backup, parent, name):
     self.backup = backup
+    print "------------", name
     self.parent = parent
+    assert type(name) == type(u'')
     self.name = name
     self.stats = None
     self.cached_path = None
@@ -171,7 +173,7 @@ class Node:
     ctx.total_nodes += 1
     if prev_num is None:
       cndb = self.backup.get_completed_nodes_db()
-      path_digest = Digest.dataDigest(self.path())
+      path_digest = Digest.dataDigest(self.path().encode('utf8'))
       if cndb.has_key(path_digest):
         prev_data_is = StringIO.StringIO(cndb[path_digest])
         prev_digest = prev_data_is.read(Digest.dataDigestSize())
@@ -441,7 +443,7 @@ class Directory(Node):
         prev_digest = None
     else:
       cndb = self.backup.get_completed_nodes_db()
-      path_digest = Digest.dataDigest(self.path())
+      path_digest = Digest.dataDigest(self.path().encode('utf8'))
       if cndb.has_key(path_digest):
         prev_data_is = StringIO.StringIO(cndb[path_digest])
         prev_digest = prev_data_is.read(Digest.dataDigestSize())
@@ -563,7 +565,7 @@ class Directory(Node):
       # Stats are empty for the root node, but we don't want to store
       # it in the cndb, because at this point we're already done with the
       # increment anyway
-      digest = Digest.dataDigest(self.path())
+      digest = Digest.dataDigest(self.path().encode('utf8'))
       encoded = (self.digest +
           IntegerEncodings.binary_encode_int_varlen(self.level) +
           IntegerEncodings.binary_encode_int_varlen(self.get_type()) +
@@ -594,7 +596,7 @@ class Directory(Node):
     # (probably will with a btree db)
     for child in self.children:
       Format.write_int(packer, child.get_type())
-      Format.write_string(packer, child.get_name())
+      Format.write_string(packer, child.get_name().encode('utf8'))
       packer.write(child.get_digest())
       packer.write(IntegerEncodings.binary_encode_int_varlen(child.get_level()))
       stats_str = serialize_stats(child.get_stats())
@@ -700,7 +702,7 @@ class Directory(Node):
       node_type = Format.read_int(file)
       if node_type is None:
         raise StopIteration
-      node_name = Format.read_string(file)
+      node_name = unicode(Format.read_string(file), 'utf8')
       node_digest = file.read(Digest.dataDigestSize())
       node_level = IntegerEncodings.binary_read_int_varlen(file)
       node_stat = unserialize_stats(file)

@@ -42,7 +42,7 @@ def supports_symbolic_links():
 
 class FilesystemCreator:
   def __init__(self):
-    self.home = tempfile.mkdtemp("", "manent.test.scratch",
+    self.home = tempfile.mkdtemp(u"", "manent.test.scratch",
       Config.paths.temp_area())
     #print "*** Selected homedir %s " % self.home
     try:

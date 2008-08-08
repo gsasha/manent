@@ -134,7 +134,8 @@ class Backup:
 
       last_fs_digest, last_fs_level = self.increment_manager.start_increment(
           comment)
-      root = Nodes.Directory(self, None, self.config_db['data_path'])
+      root = Nodes.Directory(self, None,
+          unicode(self.config_db['data_path'], 'utf8'))
       root.set_weight(1.0)
       ctx = ScanContext(self, root)
 
@@ -169,7 +170,7 @@ class Backup:
       params = parse_to_keys(args)
       storage = int(params['storage'])
       idx = int(params['increment'])
-      target = params['target']
+      target = unicode(params['target'], 'utf8')
       
       increment = self.increment_manager.get_increment(storage, idx)
       root = Nodes.Directory(self, None, target)
@@ -222,7 +223,7 @@ class Backup:
       idx = int(params['increment'])
       
       increment = self.increment_manager.get_increment(storage, idx)
-      root = Nodes.Directory(self, None, "")
+      root = Nodes.Directory(self, None, u"")
       root.set_digest(increment.get_fs_digest())
       root.set_level(increment.get_fs_level())
       root.set_stats(increment.get_fs_stats())
@@ -304,7 +305,7 @@ class Backup:
 
   def __open_exclusion_processor(self):
     self.exclusion_processor = ExclusionProcessor.ExclusionProcessor(
-      self.config_db['data_path'])
+      unicode(self.config_db['data_path'], 'utf8'))
     
     # Function that imports the rule into the rules processor
     def process_rule(type_str, action_str, pattern):

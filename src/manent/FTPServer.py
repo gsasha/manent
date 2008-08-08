@@ -74,7 +74,7 @@ class SymlinkNode(Node):
 
 def make_root(backup, name, fs_digest, fs_level, fs_stats):
   n = DirectoryNode(backup)
-  n.node = Nodes.Directory(backup, None, "$$$/")
+  n.node = Nodes.Directory(backup, None, u"$$$/")
   n.node.set_stats(Nodes.NULL_STAT)
   n.node.set_digest(fs_digest)
   n.node.set_level(fs_level)
@@ -97,7 +97,7 @@ class DirectoryNode(Node):
     node_type, node_stat, node_digest, node_level =\
         self.node.get_child_node_data(name)
     if node_type == Nodes.NODE_TYPE_DIR:
-      node = Nodes.Directory(self.backup, self.node, name)
+      node = Nodes.Directory(self.backup, self.node, unicode(name, 'utf8'))
       node.set_stats(node_stat)
       node.set_digest(node_digest)
       node.set_level(node_level)
@@ -106,14 +106,14 @@ class DirectoryNode(Node):
       n.node.read_child_nodes()
       return n
     elif node_type == Nodes.NODE_TYPE_FILE:
-      node = Nodes.File(self.backup, self.node, name)
+      node = Nodes.File(self.backup, self.node, unicode(name, 'utf8'))
       node.set_stats(node_stat)
       node.set_digest(node_digest)
       node.set_level(node_level)
       n = FileNode(self.backup, name, node)
       return n
     elif node_type == Nodes.NODE_TYPE_SYMLINK:
-      node = Nodes.Symlink(self.backup, self.node, name)
+      node = Nodes.Symlink(self.backup, self.node, unicode(name, 'utf8'))
       node.set_stats(node_stat)
       node.set_digest(node_digest)
       node.set_level(node_level)
