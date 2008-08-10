@@ -161,7 +161,7 @@ class Paths:
         pass
       return self.temp_area_path
     if os.name == "nt":
-      self.temp_area_path = tempfile.mkdtemp()
+      self.temp_area_path = tempfile.mkdtemp(u'')
     else:
       self.temp_area_path = tempfile.mkdtemp(
           prefix=os.path.join("/tmp", ""))

@@ -65,7 +65,7 @@ class Node:
   """
   def __init__(self, backup, parent, name):
     self.backup = backup
-    print "------------", name
+    # print "------------", name
     self.parent = parent
     assert type(name) == type(u'')
     self.name = name
