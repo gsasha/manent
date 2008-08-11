@@ -145,8 +145,7 @@ label2 = "backup2"
 backup2 = config.create_backup(label2)
 config.save()
 backup2.configure(
-    ("add_storage type=directory path=%s encryption_key=kukuriku" %
-      (storagedir)).split())
+    ["add_storage", "type=directory", "path=%s" % storagedir, "encryption_key=kukuriku"])
 backup2.configure(("set data_path=%s" % (scratchdir)).split())
 
 backup2.scan(["comment=scan1"])

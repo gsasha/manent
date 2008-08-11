@@ -37,7 +37,9 @@ class PrivateDatabaseManager:
   def __init__(self):
     self.dbenv = db.DBEnv()
     self.dbenv.set_cachesize(0, 100*1024*1024, 1)
-    self.dbenv.open(Config.paths.temp_area(),
+    temp_area = Config.paths.temp_area().encode('utf8')
+    print "TEMP_AREA=======================", temp_area, type(temp_area)
+    self.dbenv.open(temp_area,
         db.DB_PRIVATE|db.DB_CREATE|db.DB_INIT_TXN|
         db.DB_INIT_MPOOL|db.DB_INIT_LOCK|db.DB_THREAD)
   def close(self):
@@ -150,7 +152,6 @@ class DatabaseManager:
     #
     full_fname = self.__db_fname(filename)
     d = db.DB(self.dbenv)
-    print "Removing database", filename, tablename
     d.remove(full_fname, tablename)
   def remove_scratch_database(self, filename, tablename=None):
     #
@@ -162,16 +163,17 @@ class DatabaseManager:
     d.remove(fname, tablename)
   
   def __dbenv_dir(self):
-    home_area = self.path_config.backup_home_area(self.db_file_prefix)
+    home_area = self.path_config.backup_home_area(self.db_file_prefix).encode('utf8')
     return home_area
   
   def __db_fname(self, filename):
-    return os.path.join(
-      self.path_config.backup_home_area(self.db_file_prefix), filename)
+    home_area = self.path_config.backup_home_area(self.db_file_prefix).encode('utf8')
+    result = os.path.join(home_area, filename)
+    return result
   def __scratch_db_fname(self, filename):
-    return os.path.join(
-      self.path_config.backup_staging_area(self.db_file_prefix),
-      filename)
+    staging_area = self.path_config.backup_staging_area(self.db_file_prefix).encode('utf8')
+    result = os.path.join(staging_area, filename)
+    return result
 
 class TransactionHandler:
   """

@@ -170,7 +170,7 @@ class Backup:
       params = parse_to_keys(args)
       storage = int(params['storage'])
       idx = int(params['increment'])
-      target = unicode(params['target'], 'utf8')
+      target = params['target']
       
       increment = self.increment_manager.get_increment(storage, idx)
       root = Nodes.Directory(self, None, target)

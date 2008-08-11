@@ -10,6 +10,7 @@ import shutil
 import stat
 import sys
 import tempfile
+import traceback
 import unittest
 
 # Point to the code location so that it is found when unit tests
@@ -27,7 +28,7 @@ class TestStorage(unittest.TestCase):
   def setUp(self):
     self.env = Database.PrivateDatabaseManager()
     self.txn = Database.TransactionHandler(self.env)
-    self.scratch_path = tempfile.mkdtemp(".storage", "manent.",
+    self.scratch_path = tempfile.mkdtemp(u".storage", "manent.",
       Config.paths.temp_area())
     self.CONFIGURATION = {"path": self.scratch_path, "encryption_key": "kuku"}
     self.config_db = self.env.get_database_btree("a", None, None)
@@ -215,11 +216,9 @@ class TestStorage(unittest.TestCase):
   def test_new_containers_in_active_sequence_caught(self):
     # Test that if new containers appear unexpectedly in the active sequence,
     # it is actually discovered.
-    logging.debug("----------------1")
     storage1 = Storage.DirectoryStorage(self.storage_params)
     storage1.configure(self.CONFIGURATION, None)
     seq_id1 = storage1.create_sequence()
-    logging.debug("----------------2")
     config_db2 = self.env.get_database_btree("b", None, None)
     self.storage_params.config_db = config_db2
     storage2 = Storage.DirectoryStorage(self.storage_params)
@@ -234,14 +233,18 @@ class TestStorage(unittest.TestCase):
       c.finish_dump()
       c.upload()
     try:
-      logging.debug("----------------3")
       storage1.load_sequences(None)
     except:
+      traceback.print_exc()
       pass
     else:
       self.fail("Expected load_sequences to discover the unexpected container")
-    storage1.close()
-    storage2.close()
+    try:
+      storage1.close()
+      storage2.close()
+    except:
+      # Ok, we can't. just pass.
+      pass
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestStorage)
 if __name__ == "__main__":

@@ -700,15 +700,16 @@ def encode_container_name(sequence_id, index, extension):
       IE.ascii_encode_int_varlen(index), extension)
 
 def decode_container_name(name):
-  name_re = re.compile("([^.]+).([^.]+).([^.]+)")
+  name_re = re.compile("([^.]+).([^.]+).([^.]+)", re.UNICODE)
   match = name_re.match(name)
   if not match:
     return (None, None, None)
   try:
-    sequence_id = base64.urlsafe_b64decode(match.groups()[0])
-    index = IE.ascii_decode_int_varlen(match.groups()[1])
+    sequence_id = base64.urlsafe_b64decode(match.groups()[0].encode('utf8'))
+    index = IE.ascii_decode_int_varlen(match.groups()[1].encode('utf8'))
     extension = match.groups()[2]
     return (sequence_id, index, extension)
   except:
     # File name unparseable. Can be junk coming from something else
+    traceback.print_exc()
     return (None, None, None)
