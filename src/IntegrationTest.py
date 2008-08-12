@@ -77,7 +77,9 @@ backup1.scan(["comment=scan1"])
 # TODO(gsasha): check that one container has been added
 logging.info(" - Step 1 ---------------- Restoring from the backup and"
     "comparing the results")
-backup1.restore(("storage=0 increment=0 target=%s" % restoredir).split())
+backup1.restore(["storage=0",
+  "increment=0",
+  "target=%s" % restoredir])
 assert(cmpdirs(scratchdir, restoredir))
 for dir in [scratchdir, restoredir]:
   if os.name == 'nt':

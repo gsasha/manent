@@ -38,7 +38,6 @@ class PrivateDatabaseManager:
     self.dbenv = db.DBEnv()
     self.dbenv.set_cachesize(0, 100*1024*1024, 1)
     temp_area = Config.paths.temp_area().encode('utf8')
-    print "TEMP_AREA=======================", temp_area, type(temp_area)
     self.dbenv.open(temp_area,
         db.DB_PRIVATE|db.DB_CREATE|db.DB_INIT_TXN|
         db.DB_INIT_MPOOL|db.DB_INIT_LOCK|db.DB_THREAD)

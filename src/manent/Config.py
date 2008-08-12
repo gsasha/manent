@@ -161,11 +161,11 @@ class Paths:
         pass
       return self.temp_area_path
     if os.name == "nt":
-      self.temp_area_path = tempfile.mkdtemp(u'')
+      self.temp_area_path = tempfile.mkdtemp()
     else:
       self.temp_area_path = tempfile.mkdtemp(
           prefix=os.path.join("/tmp", ""))
-    return self.temp_area_path
+    return unicode(self.temp_area_path, 'utf8')
   def clean_temp_area(self):
     # 1. Make sure we have permissioons to delete everything
     for path, dirs, files in os.walk(self.temp_area(), topdown=False):
