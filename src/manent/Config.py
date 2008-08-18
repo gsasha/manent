@@ -176,6 +176,10 @@ class Paths:
     shutil.rmtree(self.temp_area())
 
 paths = Paths()
+if os.name =='nt':
+  # Switch the codepage to Utf-8, so that files with unicode names will print
+  # correctly.
+  os.system("chcp 65001")
 
 def init_logging():
   import logging.config
