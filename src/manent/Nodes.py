@@ -294,7 +294,7 @@ class File(Node):
           self.path())
       cndb = self.backup.get_completed_nodes_db()
       assert self.stats is not None
-      path_digest = Digest.dataDigest(self.path())
+      path_digest = Digest.dataDigest(self.path().encode('utf8'))
       encoded = (self.digest +
           IntegerEncodings.binary_encode_int_varlen(self.level) +
           IntegerEncodings.binary_encode_int_varlen(self.get_type()) +
@@ -558,7 +558,7 @@ class Directory(Node):
     cndb = self.backup.get_completed_nodes_db()
     for subdir in subdirs:
       subdir_path = os.path.join(self.path(), subdir)
-      subdir_path_digest = Digest.dataDigest(subdir_path)
+      subdir_path_digest = Digest.dataDigest(subdir_path.encode('utf8'))
       if cndb.has_key(subdir_path_digest):
         del cndb[subdir_path_digest]
     if self.stats is not None:
