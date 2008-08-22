@@ -1,3 +1,11 @@
+#!/usr/bin/env python
+
+#
+#    Copyright (C) 2008 Alex Gontmakher <gsasha@gmail.com>
+#    License: see LICENSE.txt
+#
+
+
 import logging
 import unittest
 

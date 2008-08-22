@@ -1,6 +1,0 @@
-TODO:
-1. Add unit tests for repository
-2. Add unit tests for storage
-3. Complete intermediate increment cleaning???
-4. Add unit tests for increment
-5. Add unit tests for IncrementDatabase
