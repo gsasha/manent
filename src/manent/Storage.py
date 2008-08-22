@@ -88,7 +88,6 @@ class Storage:
   def close(self):
     self.loaded_headers_db.close()
     self.config_db.close()
-    print "Closed everything!!!!"
 
   def _key(self, suffix):
     return "%s" % (suffix)
