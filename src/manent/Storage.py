@@ -3,13 +3,6 @@
 #    License: see LICENSE.txt
 #
 
-# CURRENT TASK:
-# Implementing summary headers.
-# The following things must be done:
-# - collecting the data for the summary header file and uploading it
-# - When scanning, recognize the summary headers and handle them correctly
-# - When flushing the increment, write the summary header
-
 import base64
 import cStringIO as StringIO
 import logging
@@ -95,6 +88,7 @@ class Storage:
   def close(self):
     self.loaded_headers_db.close()
     self.config_db.close()
+    print "Closed everything!!!!"
 
   def _key(self, suffix):
     return "%s" % (suffix)
@@ -181,6 +175,7 @@ class Storage:
     for name in container_files:
       sequence_id, index, extension = decode_container_name(name)
       if extension != CONTAINER_EXT:
+	# This is not a Manent container file.
         continue
       if not self.sequence_next_container.has_key(sequence_id):
         logging.info("Found new sequence %s " %
@@ -192,6 +187,14 @@ class Storage:
         sequence_new_containers[sequence_id].append(index)
 
     for sequence_id, containers in sequence_new_containers.iteritems():
+      if (sequence_id == self.active_sequence_id and
+          containers != []):
+         # TODO(gsasha): Instead of crashing, abort this sequence and start a new one.
+	 # We have seen that somebody else has added a container into sequence we're
+	 # supposed to be writing exclusively.
+	 raise Exception("Unexpected new containers %s in sequence %s",
+			 (", ".join([str(i) for i in containers]),
+                         base64.b64encode(sequence_id)))
       containers.sort()
       logging.debug("New containers in sequence %s: %s" %
           (base64.urlsafe_b64encode(sequence_id), str(containers)))

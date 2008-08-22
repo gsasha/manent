@@ -302,7 +302,7 @@ class TestContainer(unittest.TestCase):
     for i in range(63, 128, 64):
       EXPECTED_HEADER_COUNTS[i] = i % 256
     for index in range(max(EXPECTED_HEADER_COUNTS.keys()) + 1):
-      logging.info("++++ Testing container %d" % index)
+      logging.debug("++++ Testing container %d" % index)
       container = self.storage.create_container()
       if EXPECTED_HEADER_COUNTS.has_key(container.get_index()):
         exp_headers = EXPECTED_HEADER_COUNTS[container.get_index()]
