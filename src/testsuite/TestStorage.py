@@ -235,7 +235,7 @@ class TestStorage(unittest.TestCase):
     try:
       storage1.load_sequences(None)
     except:
-      traceback.print_exc()
+      logging.info("Got an expected exception:\n" + traceback.format_exc())
       pass
     else:
       self.fail("Expected load_sequences to discover the unexpected container")
