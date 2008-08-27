@@ -402,10 +402,14 @@ class Symlink(Node):
     packer = PackerStream.PackerIStream(self.backup, self.digest,
       self.level)
     self.link = packer.read()
-    os.symlink(self.link, self.path())
-    # on Linux, there is no use of the mode of a symlink
-    # and no way to restore the times of the link itself
-    self.restore_stats(restore_chmod=False, restore_utime=False)
+    try:
+      os.symlink(self.link, self.path())
+      # on Linux, there is no use of the mode of a symlink
+      # and no way to restore the times of the link itself
+      self.restore_stats(restore_chmod=False, restore_utime=False)
+    except:
+      logging.info("Failed restoring symlink ", self.path(), " to ", self.link)
+
 
   def list_files(self):
     logging.info("S " + base64.b64encode(self.get_digest())[:8] +
@@ -629,7 +633,11 @@ class Directory(Node):
   def restore(self, ctx):
     logging.info("Restoring " + self.path())
     if self.parent != None:
-      os.mkdir(self.path())
+      try:
+        os.mkdir(self.path())
+      except:
+        logging.error("Failed creating directory " + self.path())
+        return
 
     packer = PackerStream.PackerIStream(self.backup, self.get_digest(),
       self.get_level())
@@ -647,7 +655,11 @@ class Directory(Node):
       node.set_digest(node_digest)
       node.set_level(node_level)
       node.restore(ctx)
-    self.restore_stats()
+    try:
+      self.restore_stats()
+    except:
+      logging.error("Failed restoring stats for " + self.path())
+      return
 
   def list_files(self):
     print "D", base64.b64encode(self.digest)[:8]+'...', self.path()

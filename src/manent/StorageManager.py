@@ -238,7 +238,7 @@ class StorageManager:
           if BlockManager.is_cached(code):
             # Blocks that are supposed to be cached are already there
             return False
-          return self.block_manager.is_requested(digest)
+          return True
         def loaded(self, digest, code, data):
           self.block_manager.handle_block(digest, code, data)
       container = storage.get_container(sequence_id, container_idx)

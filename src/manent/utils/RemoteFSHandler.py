@@ -17,7 +17,7 @@ import traceback
 def retry_decorator(retries, message):
   def impl(func):
     def retrier(self, *args, **kwargs):
-      print "calling", message, "with params", args, kwargs, "...",
+      print "calling", message, "with params", args, kwargs, "..."
       start = time.time()
       for i in range(retries):
         try:
@@ -121,7 +121,6 @@ class SFTPHandler(RemoteFSHandler):
     remote_path = remote_path.replace("\\", "/")
     handle = self.channel.file(remote_path, "wb")
     uploaded = 0
-    print
     for block in FileIO.read_blocks(file, 128<<10):
       print "Uploaded", uploaded, "          \r",
       uploaded += len(block)
@@ -133,7 +132,10 @@ class SFTPHandler(RemoteFSHandler):
     remote_path = os.path.join(self.path, remote_name)
     remote_path = remote_path.replace("\\", "/")
     handle = self.channel.file(remote_path, "rb")
+    downloaded = 0
     for block in FileIO.read_blocks(handle, 16<<10):
+      print "Downloaded", downloaded, "           \r",
+      downloaded += len(block)
       file.write(block)
     handle.close()
   
