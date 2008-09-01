@@ -714,8 +714,12 @@ class Directory(Node):
       node_type = Format.read_int(file)
       if node_type is None:
         raise StopIteration
-      node_name = unicode(Format.read_string(file), 'utf8')
+      node_name = Format.read_string(file)
       node_digest = file.read(Digest.dataDigestSize())
       node_level = IntegerEncodings.binary_read_int_varlen(file)
       node_stat = unserialize_stats(file)
-      yield (node_type, node_name, node_stat, node_digest, node_level)
+      try:
+        node_name_decoded = unicode(node_name, 'utf8')
+        yield (node_type, node_name, node_stat, node_digest, node_level)
+      except:
+        logging.info("Encountered bad file name in " + self.path())

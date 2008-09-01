@@ -127,6 +127,10 @@ class ExclusionProcessor:
 		in_files = []
 		in_dirs = []
 		for file in os.listdir(self.root):
+      if type(file) == type(u''):
+        logging.warn("Cannot convert file %s/%s to Unicode" %
+            (self.root.encode('utf8'), file))
+        continue
 			file_path = os.path.join(self.root, file)
 			if os.path.isdir(file_path) and not os.path.islink(file_path):
 				in_dirs.append(file)
