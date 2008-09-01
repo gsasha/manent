@@ -128,7 +128,7 @@ class ExclusionProcessor:
     in_files = []
     in_dirs = []
     for file in os.listdir(self.root):
-      if type(file) == type(u''):
+      if type(file) != type(u''):
         logging.warn("Cannot convert file %s/%s to Unicode" %
             (self.root.encode('utf8'), file))
         continue

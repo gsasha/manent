@@ -35,10 +35,10 @@ class BlockManager:
     self.block_codes = self.db_manager.get_database("storage.db",
       "bm-block-types", self.txn_handler)
     # Temporarily cached blocks.
-    self.tmp_blocks = self.db_manager.get_database("storage.db",
-      "bm-tmp-blocks", self.txn_handler)
-    self.block_longevity_data = self.db_manager.get_database("storage.db",
-      "bm-longevity", self.txn_handler)
+    #self.tmp_blocks = self.db_manager.get_database("storage.db",
+    #  "bm-tmp-blocks", self.txn_handler)
+    #self.block_longevity_data = self.db_manager.get_database("storage.db",
+    #  "bm-longevity", self.txn_handler)
 
     # Data structure controlling the lifetime of every block. For every cached
     # block, we keep its starting epoch (when it was loaded from container or
@@ -46,14 +46,15 @@ class BlockManager:
     # accessed.
     self.block_epoch = {}
     self.block_longevity = {}
+    self.tmp_blocks = {}
     self.epoch = 0
     self.load_epoch_data()
 
   def close(self):
     self.save_epoch_data()
 
-    self.block_longevity_data.close()
-    self.tmp_blocks.close()
+    #self.block_longevity_data.close()
+    #self.tmp_blocks.close()
     self.cached_blocks.close()
     self.block_codes.close()
   #
@@ -72,6 +73,9 @@ class BlockManager:
       del self.block_longevity[digest]
       del self.tmp_blocks[digest]
   def load_epoch_data(self):
+    # So far, the cache is too resource-intensive.
+    # Avoid keeping it persistently.
+    return
     if not self.block_longevity_data.has_key("epoch"):
       self.epoch = 0
       return
@@ -86,6 +90,9 @@ class BlockManager:
       self.block_longevity[digest] = longevity
       self.block_epoch[digest] = epoch
   def save_epoch_data(self):
+    # So far, the cache is too resource-intensive.
+    # Avoid keeping it persistently until it's better optimized.
+    return
     longevity_os = StringIO.StringIO()
     for digest, longevity in self.block_longevity.iteritems():
       longevity_os.write(digest)
@@ -103,8 +110,15 @@ class BlockManager:
       self._update_cached_blocks(digest, data)
       self._update_block_codes(digest, code)
     else:
-      self._start_block_epoch(digest)
-      self.tmp_blocks[digest] = data
+      # Storing blocks that are added is too expensive. We'll cache only those
+      # that we have loaded.
+      # OPTIMIZE(gsasha): this can be improved by holding in memory the blocks
+      # for the last epoch and saving them once before we finish a scan. This
+      # would avoid the expensive business of putting blocks to db and deleting
+      # them soon thereafter.
+      # self._start_block_epoch(digest)
+      # self.tmp_blocks[digest] = data
+      pass
   def handle_block(self, digest, code, data):
     # Handle a loaded block.
     if is_cached(code):
