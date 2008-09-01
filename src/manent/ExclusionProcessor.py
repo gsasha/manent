@@ -3,8 +3,9 @@
 #    License: see LICENSE.txt
 #
 
-import os, os.path
 import fnmatch
+import logging
+import os
 
 RULE_EXCLUDE = 0
 RULE_INCLUDE = 1
