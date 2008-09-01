@@ -720,6 +720,6 @@ class Directory(Node):
       node_stat = unserialize_stats(file)
       try:
         node_name_decoded = unicode(node_name, 'utf8')
-        yield (node_type, node_name, node_stat, node_digest, node_level)
+        yield (node_type, node_name_decoded, node_stat, node_digest, node_level)
       except:
         logging.info("Encountered bad file name in " + self.path())

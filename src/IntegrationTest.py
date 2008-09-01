@@ -81,7 +81,7 @@ logging.info(" - Step 1 ---------------- Restoring from the backup and"
     "comparing the results")
 backup1.restore(["storage=0",
   "increment=0",
-  "target=%s" % restoredir])
+  "target=%s" % restoredir.encode('utf8')])
 assert(cmpdirs(scratchdir, restoredir))
 for dir in [scratchdir, restoredir]:
   if os.name == 'nt':
@@ -98,7 +98,8 @@ tar.extractall(scratchdir)
 backup1.scan(["comment=scan2"])
 # TODO(gsasha): check that one more container has been added.
 logging.info("Restoring from the backup and comparing the results")
-backup1.restore(("storage=0 increment=1 target=%s" % restoredir).split())
+backup1.restore(("storage=0 increment=1 target=%s" %
+  restoredir.encode('utf8')).split())
 assert(cmpdirs(scratchdir, restoredir))
 for dir in [scratchdir, restoredir]:
   if os.name == 'nt':
@@ -115,7 +116,8 @@ tar.extractall(scratchdir)
 backup1.scan(["comment=scan3"])
 # TODO(gsasha): check that one moore container has been added.
 logging.info("Restoring from the backup and comparing the results")
-backup1.restore(("storage=0 increment=2 target=%s" % restoredir).split())
+backup1.restore(("storage=0 increment=2 target=%s" %
+  restoredir.encode('utf8')).split())
 assert(cmpdirs(scratchdir, restoredir))
 for dir in [scratchdir, restoredir]:
   if os.name == 'nt':
@@ -131,7 +133,8 @@ for i in range(30):
   file.write(os.urandom(1024*1024))
   file.close()
 backup1.scan(["comment=scan4"])
-backup1.restore(("storage=0 increment=3 target=%s" % restoredir).split())
+backup1.restore(("storage=0 increment=3 target=%s" %
+  restoredir.encode('utf8')).split())
 assert(cmpdirs(scratchdir, restoredir))
 for dir in [scratchdir, restoredir]:
   if os.name == 'nt':
@@ -153,7 +156,8 @@ backup2.configure(
 backup2.configure(("set data_path=%s" % (scratchdir)).split())
 
 backup2.scan(["comment=scan1"])
-backup2.restore(("storage=0 increment=0 target=%s" % restoredir).split())
+backup2.restore(("storage=0 increment=0 target=%s" %
+  restoredir.encode('utf8')).split())
 assert(cmpdirs(scratchdir, restoredir))
 for dir in [scratchdir, restoredir]:
   if os.name == 'nt':

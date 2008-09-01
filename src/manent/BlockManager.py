@@ -112,10 +112,6 @@ class BlockManager:
     else:
       # Storing blocks that are added is too expensive. We'll cache only those
       # that we have loaded.
-      # OPTIMIZE(gsasha): this can be improved by holding in memory the blocks
-      # for the last epoch and saving them once before we finish a scan. This
-      # would avoid the expensive business of putting blocks to db and deleting
-      # them soon thereafter.
       # self._start_block_epoch(digest)
       # self.tmp_blocks[digest] = data
       pass

@@ -65,7 +65,9 @@ class TestBlockManager(unittest.TestCase):
     bm.add_block(Digest.dataDigest("ccc"), Container.CODE_DIR, "ccc")
     bm.add_block(Digest.dataDigest("ddd"), Container.CODE_DIR_PACKER, "ddd")
 
-    self.assertEqual(bm.load_block(Digest.dataDigest("aaa")), "aaa")
+    # aaa is data block. It is not cached.
+    self.failIf(bm.has_block(Digest.dataDigest("aaa")))
+    # self.assertEqual(bm.load_block(Digest.dataDigest("aaa")), "aaa")
     # bbb is not a data block. It should be there always
     self.assertEqual(bm.load_block(Digest.dataDigest("bbb")), "bbb")
     # ccc and ddd are non-data blocks, so they should be cached.
@@ -104,10 +106,10 @@ class TestBlockManager(unittest.TestCase):
     ccc_d = Digest.dataDigest("ccc")
     ddd_d = Digest.dataDigest("ddd")
 
-    bm.add_block(aaa_d, Container.CODE_DATA, "aaa")
-    bm.add_block(bbb_d, Container.CODE_DATA, "bbb")
-    bm.add_block(ccc_d, Container.CODE_DATA, "ccc")
-    bm.add_block(ddd_d, Container.CODE_DIR, "ddd")
+    bm.handle_block(aaa_d, Container.CODE_DATA, "aaa")
+    bm.handle_block(bbb_d, Container.CODE_DATA, "bbb")
+    bm.handle_block(ccc_d, Container.CODE_DATA, "ccc")
+    bm.handle_block(ddd_d, Container.CODE_DIR, "ddd")
 
     self.assert_(bm.has_block(aaa_d))
     self.assert_(bm.has_block(bbb_d))
