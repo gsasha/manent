@@ -18,10 +18,6 @@ import Backup
 import Container
 import manent.utils.IntegerEncodings as IntegerEncodings
 
-VERSION = "0.10.14"
-
-print "This is Manent version %s" % VERSION
-
 EXCLUSION_RULES_DOC = """
 
 # Exclusion rules come in the form:

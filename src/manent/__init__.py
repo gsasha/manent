@@ -3,6 +3,6 @@
 #    License: see LICENSE.txt
 #
 
-__version__ = "0.10.12"
+__version__ = "0.10.14"
 __author__ = "gsasha@gmail.com"
 

@@ -1,0 +1,142 @@
+           License Agreement for Manent Backup Software
+           --------------------------------------------
+ 
+Introduction
+------------
+This "General Terms" section of the license agreement contains the general terms
+that apply to all users of the commercial version of Manent Backup Software (the
+Product).
+
+If you have any questions with regard to this license that may affect your use
+of the Product, you must stop using the Product immediately, until these
+questions are answered in a way that permits your use of this Product.
+ 
+General Terms
+-------------
+THIS LICENSE AGREEMENT IS BETWEEN YOU (THE "USER") AND ALEX GONTMAKHER (THE
+"AUTHOR"). THE MANENT BACKUP SOFTWARE (TOGETHER WITH ITS ACCOMPANYING
+DOCUMENTATION, THE "PRODUCT") IS THE PROPERTY OF THE AUTHOR AND IS PROTECTED
+BY INTERNATIONAL COPYRIGHT LAWS. THE PRODUCT IS MADE AVAILABLE TO YOU, THE
+ORIGINAL PURCHASER, SUBJECT TO THE FOLLOWING LICENSE AGREEMENT ("LICENSE").
+PLEASE READ THIS LICENSE CAREFULLY BEFORE INSTALLING OR USING THE PRODUCT.
+A COPY OF THIS LICENSE IS AVAILABLE FOR YOUR FUTURE REFERENCE IN THE
+"LICENSE.TXT" FILE PROVIDED WITH THE PRODUCT.
+ 
+This license is granted to you, if and only if you purchased this product
+directly from the author's website or through an authorized reseller and your
+name appears in the license key sent to you by the author. If you have obtained
+the product in any other way, this license does not hold for you and you may not
+use the product.
+
+The author may also provide the user the Product at no cost and/or without
+a personal license key. The terms of this license apply to such users as
+if they have purchased the license directly from the author for the price
+of US$0.00.
+
+The author grants you a non-exclusive, nontransferable license to use one copy
+of the product for your personal use on the understanding that a single person
+uses each licensed copy. Purchasers of this product are therefore licensed to
+use it themselves on one computer at a time and to make a single backup copy
+for their own use. Purchasers of this product may also install the product for
+unattended operation on a computer network, provided an "unattended use" license
+is acquired for each machine on the network. The actual number on "unattended
+use" licenses is specified in the purchase order and/or in the invoice. No other
+license is given. In particular, the product may not be used by more than one
+person unless a corresponding number of valid licenses is acquired.
+
+You acknowledge and agree that: (a) the product is protected under international
+and U.S. copyright and other laws; (b) the author retains all copyrights and
+other intellectual property rights in the product. You may not: (a) modify,
+adapt, alter, translate, or create derivative works of the product or merge the
+product with other software other than under the terms of the "Source code
+availability" section; (b) lease, rent or loan the product to any third party;
+(c) sublicense, distribute or otherwise transfer the product or any component
+thereof to any third party without an explicit written permission from the
+author; (d) remove, alter, or obscure any confidentiality or proprietary notices
+(including copyright and trademark notices) that appear in the product and its
+documentation; or (e) disclose or publish license keys that enable product
+functionality.
+ 
+The author provides no warranty or guarantee of any kind with regard to the
+product's operation. All defects in the product, if there are any, should be
+identified by you during the standard evaluation period. By accepting the
+license you agree that the product that may contain known and unknown defects.
+The author will correct the reported defects on a best effort basis, and makes
+no guarantee about whether these defects will be fixed or the time frame of
+their correction.
+ 
+THE PRODUCT IS PROVIDED "AS IS" AND WITHOUT WARRANTY OF ANY KIND. THE AUTHOR
+HEREBY EXCLUDES AND DISCLAIMS ALL IMPLIED OR STATUTORY WARRANTIES, INCLUDING
+ANY WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, QUALITY,
+NON-INFRINGEMENT, TITLE, RESULTS, EFFORTS OR QUIET ENJOYMENT. THERE IS NO
+WARRANTY THAT THE PRODUCT WILL BE ERROR-FREE OR WILL FUNCTION WITHOUT
+INTERRUPTION. YOU ASSUME THE ENTIRE RISK FOR THE RESULTS OBTAINED USING THE
+PRODUCT. TO THE EXTENT THAT THE AUTHOR MAY NOT DISCLAIM ANY WARRANTY AS A MATTER
+OF APPLICABLE LAW, THE SCOPE AND DURATION OF SUCH WARRANTY WILL BE THE MINIMUM
+PERMITTED UNDER SUCH LAW.
+ 
+IN NO EVENT THE AUTHOR WILL BE LIABLE TO ANY PARTY FOR ANY INDIRECT, INCIDENTAL,
+CONSEQUENTIAL, EXEMPLARY, SPECIAL OR PUNITIVE DAMAGES, INCLUDING ANY COSTS OF
+PROGRAM ERRORS, LOSS OF PROFIT, REVENUE, BUSINESS OPPORTUNITY OR DATA,
+NON-COMPLIANCE WITH APPLICABLE LAWS OR UNAVAILABILITY AND INTERRUPTION OF
+OPERATIONS, ARISING FROM OR RELATING TO THIS LICENSE OR THE PRODUCT, WHETHER
+IN CONTRACT, IN TORT OR OTHERWISE, EVEN IF THE AUTHOR KNEW, SHOULD HAVE KNOWN
+OR HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+ 
+The product is not intended for use, and you may not use or allow others to use
+the product, in connection with any application requiring fail-safe performance
+such as the operation of nuclear power facilities, air traffic control or
+navigation systems, weapons control systems, life support systems, or any other
+system whose failure could lead to injury, death, environmental damage or mass
+destruction. You agree that the author will have no liability of any nature,
+and you are solely responsible, for any expense, loss, injury or damage incurred
+as a result of such use of the product.
+ 
+This License will be governed by and construed in accordance with the laws of
+the State of Israel. You agree that all claims and disputes shall be brought
+exclusively to the Jurisdiction of the Peace Court of Tel Aviv, Israel.
+ 
+Source code availability
+------------------------
+This section applies to the source code of the product that you have received.
+Throughout this section, "Source code" refers to all parts of the product that
+are distributed in a human readable format, including, but not limited to,
+Python source files (with .py extension), scripts and batch files.
+ 
+Under the terms of this license you may execute the source code to achieve
+product functionality only as described in the accompanying documentation.
+You may read the source code for the sake of learning and debugging.
+You may not: (a) share the source code of the product with another person
+or organization; (b) discuss the implementation details of the product found
+in the source code with another person or (c) publish any information related
+to product functionality that can be obtained by reading the code; (d) reverse
+engineer, decompile, disassemble, or otherwise attempt to derive the source code
+of parts of the products that were not distributed in the form of source code;
+ 
+You acknowledge that although parts of the program were provided to you in the
+form of source code, the author retains all the copyrights of the Product.
+ 
+Based on your understanding of the source code and product's functionality you
+may create scripts and introduce minor modifications to the source code, as long
+as they do not affect the product's intended functionality and purpose. You
+may not share such scripts or modifications with any person or organization,
+except the product's author.
+ 
+Contributing patches
+--------------------
+You can send your source code modifications to the Author to introduce
+improvements and fixes to the Product. By sending such modifications to the
+Author you (a) assign him full, non-exclusive, copyright ownership of the
+modified code; (b) declare that the modifications do not violate the
+intellectual property rights and/or copyrights of another person or organization
+and in case of such violation (c) will cover Author's legal expenses, payments
+to any 3rd party and other associated charges.
+
+Special Terms Regarding Evaluation Licenses
+-------------------------------------------
+The evaluation version of the product is covered by the same license terms as
+the commercial version, with the following exceptions: (a) The evaluation
+version is provided to you at no cost for the purpose of evaluating the product;
+(b) You may use the product only during the evaluation term that is provided to
+you by the author.
+

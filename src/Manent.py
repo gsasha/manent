@@ -17,8 +17,11 @@ import logging
 import os, os.path
 import sys
 
+import manent
 import manent.Backup as Backup
 import manent.Config as Config
+
+print "This is Manent version %s" % manent.__version__
 
 config = Config.GlobalConfig()
 config.load()

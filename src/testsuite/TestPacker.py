@@ -16,7 +16,6 @@ import unittest
 mydir = os.path.dirname(os.path.abspath(sys.modules[__name__].__file__))
 sys.path.append(os.path.normpath(os.path.join(mydir, "..")))
 
-
 import manent.PackerStream as PackerStream
 import manent.Container as Container
 
