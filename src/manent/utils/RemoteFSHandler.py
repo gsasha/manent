@@ -111,7 +111,9 @@ class SFTPHandler(RemoteFSHandler):
   
   @retry_decorator(10, "list")
   def list_files(self):
-    return self.channel.listdir(self.path)
+    result = self.channel.listdir(self.path)
+    self.cleanup_connection()
+    return result
   
   @retry_decorator(10, "upload")
   def upload(self, file, remote_name):
@@ -126,6 +128,7 @@ class SFTPHandler(RemoteFSHandler):
       uploaded += len(block)
       handle.write(block)
     handle.close()
+    self.cleanup_connection()
     
   @retry_decorator(10, "download")
   def download(self, file, remote_name):
@@ -138,6 +141,7 @@ class SFTPHandler(RemoteFSHandler):
       downloaded += len(block)
       file.write(block)
     handle.close()
+    self.cleanup_connection()
   
   @retry_decorator(10, "rename")
   def rename(self, old_name, new_name):
@@ -146,12 +150,14 @@ class SFTPHandler(RemoteFSHandler):
     new_path = os.path.join(self.path, new_name)
     new_path = new_path.replace("\\", "/")
     self.channel.rename(old_path, new_path)
+    self.cleanup_connection()
   
   @retry_decorator(10, "chmod")
   def chmod(self, remote_name, mode):
     remote_path = os.path.join(self.path, remote_name)
     remote_path = remote_path.replace("\\", "/")
     self.channel.chmod(remote_path, mode)
+    self.cleanup_connection()
   #
   # Internal implementation
   #
@@ -168,5 +174,9 @@ class SFTPHandler(RemoteFSHandler):
         pkey=mykey)
     self.channel = paramiko.SFTPClient.from_transport(self.transport)
   def cleanup_connection(self):
+    if self.channel is not None:
+      self.channel.close()
+    if self.transport is not None:
+      self.transport.close()
     self.transport = None
     self.channel = None
