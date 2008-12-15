@@ -256,21 +256,23 @@ class Backup:
           print "Storage", storage, "has increments:", increment_idxs
           for idx in increment_idxs:
             increment = self.increment_manager.get_increment(storage, idx)
-            print '  increment', idx, 'comment:', increment.comment,\
-              'fs:', base64.b64encode(increment.get_fs_digest())
+            print '  increment', idx,\
+                'comment:', increment.get_attribute("comment"),\
+                'fs:', base64.b64encode(increment.get_fs_digest())
       elif detail == 'fs':
         increments = self.increment_manager.get_increments()
-        storage = int(params['storage'])
-        idx = int(params['increment'])
-        increment = self.increment_manager.get_increment(storage, idx)
-        print "  increment comment:", increment.comment
-        print "  increment fs     :", base64.b64encode(increment.get_fs_digest())
-        print "  increment time   :", increment.ctime
-        root = Nodes.Directory(self, None, self.config_db['data_path'])
-        root.set_digest(increment.get_fs_digest())
-        root.set_level(increment.get_fs_level())
-        root.set_stats(increment.get_fs_stats())
-        root.list_files()
+        for storage, increment_idxs in increments.iteritems():
+          for idx in increment_idxs:
+            increment = self.increment_manager.get_increment(storage, idx)
+            print "  increment comment:", increment.get_attribute("comment")
+            print "  increment fs     :", base64.b64encode(increment.get_fs_digest())
+            print "  increment time   :", increment.get_attribute("ctime")
+            root_path = unicode(self.config_db['data_path'], 'utf8')
+            root = Nodes.Directory(self, None, root_path)
+            root.set_digest(increment.get_fs_digest())
+            root.set_level(increment.get_fs_level())
+            root.set_stats(increment.get_fs_stats())
+            root.list_files()
       # TODO:Print info on all the storages
       # TODO:Print info on all the increments
       

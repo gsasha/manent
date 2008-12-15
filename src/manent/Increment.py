@@ -88,6 +88,7 @@ class Increment:
     for key, val in self.db.iteritems_prefix(PREFIX):
       self.attributes[key[len(PREFIX):]] = val
     
+    print '-----------' , index, self.attributes
     assert self.attributes["index"] == str(index)
 
     self.readonly = True
