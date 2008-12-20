@@ -7,6 +7,7 @@ import base64
 import logging
 import os
 import os.path
+import time
 import traceback
 
 import Config
@@ -256,9 +257,12 @@ class Backup:
           print "Storage", storage, "has increments:", increment_idxs
           for idx in increment_idxs:
             increment = self.increment_manager.get_increment(storage, idx)
-            print '  increment', idx,\
-                'comment:', increment.get_attribute("comment"),\
-                'fs:', base64.b64encode(increment.get_fs_digest())
+            print ('  increment %3d:%s machine: %s time:%s comment:%s' %
+                (idx,
+                base64.b64encode(increment.get_attribute('sequence_id')),
+                increment.get_attribute('hostname'),
+                time.ctime(float(increment.get_attribute('ctime'))),
+                increment.get_attribute('comment')))
       elif detail == 'fs':
         increments = self.increment_manager.get_increments()
         for storage, increment_idxs in increments.iteritems():
@@ -358,9 +362,9 @@ class Backup:
     logging.debug("Opening storage")
     self.storage_manager = StorageManager.StorageManager(self.db_manager,
       self.txn_handler)
-    self.storage_manager.load_storages()
     self.increment_manager = IncrementManager.IncrementManager(
       self.db_manager, self.txn_handler, self.label, self.storage_manager)
+    self.storage_manager.load_storages()
     self.storage_opened = True
   def __close_all(self):
     if self.storage_opened:

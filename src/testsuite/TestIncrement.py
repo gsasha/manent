@@ -6,6 +6,7 @@
 import logging
 import os
 import sys
+import traceback
 import unittest
 
 # Point to the code location so that it is found when unit tests
@@ -51,6 +52,7 @@ class TestIncrement(unittest.TestCase):
 
   def test_reconstruct(self):
     """Test that increment can reconstruct itself"""
+    # TODO(gsasha): make reconstruct accept seq id and test it.
     repository = Mock.MockRepository()
     blockDB = Mock.MockBlockDatabase(repository)
     db = self.env.get_database_btree("a", None, None)
@@ -60,10 +62,11 @@ class TestIncrement(unittest.TestCase):
     increment1.start(0, 1, "backup1", "test increment 1")
     digest1 = increment1.finalize(Digest.dataDigest("aaaaa"),
                                   1, Nodes.NULL_STAT)
+    data1 = increment1.compute_message()
     
     # Reconstruct the increment from the digest
     increment2 = Increment.Increment(blockDB, db)
-    increment2.reconstruct(digest1)
+    increment2.reconstruct("seq_id1", data1)
 
     for attr in ["comment", "fs_digest", "ctime", "ftime", "index",
         "storage_index"]:
@@ -78,12 +81,16 @@ class TestIncrement(unittest.TestCase):
     class MockStorageManager:
       def __init__(self):
         self.blocks = {}
+        self.listeners = []
       def get_active_storage_index(self):
         return 0
       def add_block(self, digest, code, data):
         self.blocks[digest] = (code, data)
+      def add_block_listener(self, listener):
+        self.listeners.append(listener)
     msm = MockStorageManager()
     idb = IncrementManager.IncrementManager(self.env, self.txn, "backup1", msm)
+
     bases1, level1 = idb.start_increment("test increment 1")
     self.assertEqual(bases1, None)
     self.assertEqual(level1, None)
@@ -95,6 +102,7 @@ class TestIncrement(unittest.TestCase):
     # Unfinalized increment is not returned
     self.assertEqual(bases2, fs1_digest)
     self.assertEqual(level2, fs1_level)
+    idb.close()
     #
     # Emulate restart of the program: IncrementDB is recreated from
     # the databases
@@ -103,11 +111,13 @@ class TestIncrement(unittest.TestCase):
     bases3, level3 = idb.start_increment("test increment 3")
     self.assertEqual(bases3, fs1_digest)
     self.assertEqual(level3, fs1_level)
+    idb.close()
     
     idb = IncrementManager.IncrementManager(self.env, self.txn, "backup1", msm)
     bases4, level4 = idb.start_increment("test increment 4")
     self.assertEqual(bases4, fs1_digest)
     self.assertEqual(level4, fs1_level)
+    idb.close()
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestIncrement)
 if __name__ == "__main__":

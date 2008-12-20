@@ -115,6 +115,14 @@ class BlockManager:
       # self._start_block_epoch(digest)
       # self.tmp_blocks[digest] = data
       pass
+  def get_listener(self):
+    # Block Manager implements all the interface of a proper listener, so it can
+    # be a listener itself.
+    return self
+  def is_requested(self, digest, code):
+    return not is_cached(code)
+  def loaded(self, digest, code, data):
+    self.handle_block(digest, code, data)
   def handle_block(self, digest, code, data):
     # Handle a loaded block.
     if is_cached(code):

@@ -174,7 +174,7 @@ class Storage:
     for name in container_files:
       sequence_id, index, extension = decode_container_name(name)
       if extension != CONTAINER_EXT:
-	# This is not a Manent container file.
+        # This is not a Manent container file.
         continue
       if not self.sequence_next_container.has_key(sequence_id):
         logging.info("Found new sequence %s " %
@@ -189,11 +189,11 @@ class Storage:
       if (sequence_id == self.active_sequence_id and
           containers != []):
          # TODO(gsasha): Instead of crashing, abort this sequence and start a new one.
-	 # We have seen that somebody else has added a container into sequence we're
-	 # supposed to be writing exclusively.
-	 raise Exception("Unexpected new containers %s in sequence %s",
-			 (", ".join([str(i) for i in containers]),
-                         base64.b64encode(sequence_id)))
+         # We have seen that somebody else has added a container into sequence we're
+         # supposed to be writing exclusively.
+         raise Exception("Unexpected new containers %s in sequence %s",
+                         (", ".join([str(i) for i in containers]),
+                          base64.b64encode(sequence_id)))
       containers.sort()
       logging.debug("New containers in sequence %s: %s" %
           (base64.urlsafe_b64encode(sequence_id), str(containers)))
@@ -203,7 +203,7 @@ class Storage:
     # Process the new containers
     # 1. Read the new containers that have piggyback headers - this way we get
     # all the headers without actually reading them.
-    logging.debug("Loading sequences for storage %d:"
+    logging.debug("Loading sequences for storage %d: "
         "reading new containers for headers" %
         self.index)
     for sequence_id, containers in sequence_new_containers.iteritems():
@@ -260,7 +260,7 @@ class Storage:
           def loaded(self, digest, code, data):
             if self.block_handler.is_requested(
                 self.sequence_id, self.container_idx, digest, code):
-              self.block_handler.loaded(digest, code, data)
+              self.block_handler.loaded(sequence_id, digest, code, data)
             if code == Container.CODE_HEADER:
               index = Container.decode_piggyback_container_index(digest)
               self.headers[index] = data
@@ -304,7 +304,7 @@ class Storage:
           def loaded(self, digest, code, data):
             if self.block_handler.is_requested(
                 self.sequence_id, self.container_idx, digest, code):
-              self.block_handler.loaded(digest, code, data)
+              self.block_handler.loaded(self.sequence_id, digest, code, data)
         handler = BlockLoadHandler(sequence_id, index, new_block_handler)
         container.load_blocks(handler)
       self.txn_manager.checkpoint()

@@ -7,15 +7,26 @@ import base64
 import logging
 import re
 
+import Container
 import Increment
 import utils.IntegerEncodings as IE
 
 # TODO: reconstruction of IncrementManager
 
+class NewBlockListener:
+  def __init__(self, increment_manager):
+    self.increment_manager = increment_manager
+  def is_requested(self, sequence_id, container_idx, digest, code):
+    return code == Container.CODE_INCREMENT_DESCRIPTOR
+  def loaded(self, sequence_id, digest, code, data):
+    self.increment_manager.reconstruct_increment(
+        sequence_id, digest, code, data)
+
 class IncrementManager:
   def __init__(self, db_manager, txn_handler, backup_label, storage_manager):
     self.backup_label = backup_label
     self.storage_manager = storage_manager
+    self.storage_manager.add_block_listener(NewBlockListener(self))
     self.config_db = db_manager.get_database_btree("config.db", "increments",
       txn_handler)
     assert self.config_db is not None
@@ -83,17 +94,11 @@ class IncrementManager:
     self.active_increment = None
     return inc_digest
 
-  def reconstruct(self):
-    class Handler:
-      """Handler reports all increment-related data"""
-      def __init__(self, increment_manager):
-        self.increment_manager = increment_manager
-      def block_loaded(self, digest, data, code):
-        if code != CODE_INCREMENT_DESCRIPTOR:
-          return
-        increment = Increment.Increment(self.increment_manager,
-          self.increment_manager.block_manager, self.increment_manager.db)
-        increment.reconstruct(digest)
-    
-    handler = Handler(self)
-    self.storage_manager.reconstruct(handler)
+  def reconstruct_increment(self, sequence_id, digest, code, data):
+    if code != Container.CODE_INCREMENT_DESCRIPTOR:
+      return
+    increment = Increment.Increment(self.storage_manager, self.config_db)
+    increment.reconstruct(sequence_id, data)
+    logging.info("Reconstructing increment %d from block" %
+        increment.get_index())
+

@@ -307,10 +307,10 @@ class DataDumper:
     return self.blocks
 
 class DataDumpLoader:
-  """The only mode of loading blocks from a container is through a handler.
-  The handler can determine, given a digest and a code, whether a given block
-  should be loaded. If the block is loaded, the handler returns it back to the
-  handler through callback."""
+  """The only mode of loading blocks from a container is through a listener.
+  The listener can determine, given a digest and a code, whether a given block
+  should be loaded. If the block is loaded, the listener returns it back to the
+  listener through callback."""
   def __init__(self, file, blocks, password):
     self.file = file
     self.blocks = blocks
@@ -318,7 +318,7 @@ class DataDumpLoader:
 
     self.uncompressor = None
     self.decryptor = None
-  def load_blocks(self, handler):
+  def load_blocks(self, listener):
     total_offset = 0
     uncompressed_offset = 0
     skip_until = None
@@ -335,12 +335,12 @@ class DataDumpLoader:
           (s_digest, s_size, s_code) = self.blocks[j]
           if s_code == CODE_ENCRYPTION_END:
             break
-          if is_user_code(s_code) and handler.is_requested(s_digest,
-                                                         s_code):
+          if (is_user_code(s_code) and
+              listener.is_requested(s_digest, s_code)):
             requested = True
         else:
           raise Exception("Block table error: encryption start "
-                            "without end")
+                          "without end")
 
         if not requested:
           skip_until = CODE_ENCRYPTION_END
@@ -380,8 +380,8 @@ class DataDumpLoader:
           if s_code == CODE_COMPRESSION_END:
             self.uncompress_bytes = s_size
             break
-          if is_user_code(s_code) and handler.is_requested(s_digest,
-                                                         s_code):
+          if (is_user_code(s_code) and
+              listener.is_requested(s_digest, s_code)):
             requested = True
         else:
           raise Exception("Block table error: compression start "
@@ -404,7 +404,8 @@ class DataDumpLoader:
           if s_code == CODE_COMPRESSION_END:
             self.uncompress_bytes = s_size
             break
-          if is_user_code(s_code) and handler.is_requested(s_digest, s_code):
+          if (is_user_code(s_code) and
+              listener.is_requested(s_digest, s_code)):
             requested = True
         else:
           raise Exception("Block table error: compression start without end")
@@ -473,8 +474,8 @@ class DataDumpLoader:
             self.decryptor_data_digest.update(data)
             self.decrypted_bytes += len(data)
 
-        if is_user_code(code) and handler.is_requested(digest, code):
-          handler.loaded(digest, code, data)
+        if is_user_code(code) and listener.is_requested(digest, code):
+          listener.loaded(digest, code, data)
 
 class Container:
   """
@@ -704,7 +705,7 @@ class Container:
       if listener.is_requested(digest, code):
         return True
     return False
-  def load_blocks(self, handler):
+  def load_blocks(self, listener):
     # Header could be already available without reading the container file,
     # if it was piggybacked in another container that was already read.
     # In such case, it will be supplied in header_file. If the header was
@@ -723,7 +724,7 @@ class Container:
     
     body_needed = False
     for (digest, size, code) in body_blocks:
-      if is_user_code(code) and handler.is_requested(digest, code):
+      if is_user_code(code) and listener.is_requested(digest, code):
         body_needed = True
         logging.debug("Container %d requests block %s:%s. Body is needed" %
             (self.index, base64.b64encode(digest), code_name(code)))
@@ -738,9 +739,10 @@ class Container:
       body_file = self.storage.load_body_file(self.sequence_id, self.index)
       body_file.seek(header_size)
 
-    body_dump_loader = DataDumpLoader(body_file, body_blocks,
-      password=self.storage.get_encryption_key())
-    body_dump_loader.load_blocks(handler)
+    body_dump_loader = DataDumpLoader(
+        body_file, body_blocks,
+        password=self.storage.get_encryption_key())
+    body_dump_loader.load_blocks(listener)
   def _load_header(self, header_file):
     logging.debug("****************************** loading header")
     magic = header_file.read(len(MAGIC))
@@ -766,24 +768,22 @@ class Container:
     header_table_io = StringIO.StringIO(header_table_str)
     header_blocks = unserialize_blocks(header_table_io)
 
-    class Handler:
+    class BlockTableListener:
       def __init__(self):
         self.body_table_str = None
       def is_requested(self, digest, code):
-        if code == CODE_BLOCK_TABLE:
-          return True
-        return False
+        return code == CODE_BLOCK_TABLE
       def loaded(self, digest, code, data):
         assert code == CODE_BLOCK_TABLE
         self.body_table_str = data
 
-    handler = Handler()
+    listener = BlockTableListener()
     header_dump_str_io = StringIO.StringIO(header_dump_str)
     header_dump_loader = DataDumpLoader(header_dump_str_io, header_blocks,
       password=self.storage.get_encryption_key())
-    header_dump_loader.load_blocks(handler)
+    header_dump_loader.load_blocks(listener)
 
-    body_table_io = StringIO.StringIO(handler.body_table_str)
+    body_table_io = StringIO.StringIO(listener.body_table_str)
     blocks = unserialize_blocks(body_table_io)
     return blocks
 

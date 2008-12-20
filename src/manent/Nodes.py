@@ -659,6 +659,7 @@ class Directory(Node):
       self.restore_stats()
     except:
       logging.error("Failed restoring stats for " + self.path())
+      traceback.print_exc()
       return
 
   def list_files(self):

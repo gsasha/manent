@@ -60,6 +60,7 @@ class StorageManager:
         self.db_manager, self.txn_manager)
     self.block_sequencer = BlockSequencer.BlockSequencer(
         self.db_manager, self.txn_manager, self, self.block_manager)
+    self.block_listeners = []
 
     self.config_db = db_manager.get_database_btree("config.db", "storage",
       txn_manager)
@@ -102,6 +103,52 @@ class StorageManager:
     self.config_db.close()
     self.block_sequencer.close()
     self.block_manager.close()
+  class BlockScanningListener:
+    """This listener is used for loading blocks in new containers."""
+    def __init__(self, storage_manager, storage_idx):
+      self.storage_manager = storage_manager
+      self.storage_idx = storage_idx
+    def is_requested(self, sequence_id, container_idx, digest, code):
+      # See if this block belongs to a previously unseen sequence.
+      if not self.storage_manager.has_sequence(sequence_id):
+        self.storage_manager.register_sequence(self.storage_idx, sequence_id)
+      storage_idx, sequence_idx = self.storage_manager.seq_to_index[sequence_id]
+      # Record to which container does this block belong.
+      encoded = _encode_block_info(sequence_idx, container_idx)
+      if not self.storage_manager.block_container_db.has_key(digest):
+        if BlockManager.is_indexed(code):
+          self.storage_manager.block_container_db[digest] = encoded
+      # Check if we want the data of this block.
+      return BlockManager.is_cached(code)
+    def loaded(self, sequence_id, digest, code, data):
+      self.storage_manager.block_manager.handle_block(digest, code, data)
+  def add_block_listener(self, listener):
+    self.block_listeners.append(listener)
+  def create_block_listener(self, storage_idx):
+    listener = StorageManager.BlockScanningListener(self, storage_idx)
+    if self.block_listeners == []:
+      return listener
+
+    class CompositeBlockListener:
+      def __init__(self):
+        self.listeners = []
+      def add_listener(self, listener):
+        self.listeners.append(listener)
+      def is_requested(self, sequence_id, container_idx, digest, code):
+        result = False
+        for l in self.listeners:
+          if l.is_requested(sequence_id, container_idx, digest, code):
+            result = True
+        return result
+      def loaded(self, sequence_id, digest, code, data):
+        for l in self.listeners:
+          l.loaded(sequence_id, digest, code, data)
+
+    composed_listener = CompositeBlockListener()
+    for l in self.block_listeners:
+      composed_listener.add_listener(l)
+    composed_listener.add_listener(listener)
+    return composed_listener
   def _key(self, suffix):
     return PREFIX + suffix
 
@@ -119,25 +166,6 @@ class StorageManager:
       
     self.seq_to_index[sequence_id] = (storage_idx, sequence_idx)
     self.index_to_seq[sequence_idx] = (storage_idx, sequence_id)
-  class BlockScanningHandler:
-    """This handler is used for loading blocks in new containers."""
-    def __init__(self, storage_manager, storage_idx):
-      self.storage_manager = storage_manager
-      self.storage_idx = storage_idx
-    def is_requested(self, sequence_id, container_idx, digest, code):
-      # See if this block belongs to a previously unseen sequence.
-      if not self.storage_manager.has_sequence(sequence_id):
-        self.storage_manager.register_sequence(self.storage_idx, sequence_id)
-      storage_idx, sequence_idx = self.storage_manager.seq_to_index[sequence_id]
-      # Record to which container does this block belong.
-      encoded = _encode_block_info(sequence_idx, container_idx)
-      if not self.storage_manager.block_container_db.has_key(digest):
-        if BlockManager.is_indexed(code):
-          self.storage_manager.block_container_db[digest] = encoded
-      # Check if we want the data of this block.
-      return BlockManager.is_cached(code)
-    def loaded(self, digest, code, data):
-      self.storage_manager.block_manager.handle_block(digest, code, data)
   def add_storage(self, storage_params):
     # When we add a storage, the following algorithm is executed:
     # 1. If the storage is already in the shared db, it is just added
@@ -146,9 +174,9 @@ class StorageManager:
     #    base storages, and a new one is created.
     storage_idx = self.assign_storage_idx()
 
-    handler = StorageManager.BlockScanningHandler(self, storage_idx)
+    listener = self.create_block_listener(storage_idx)
     storage = Storage.create_storage(self.db_manager, self.txn_manager,
-      storage_idx, storage_params, handler)
+      storage_idx, storage_params, listener)
     self.storages[storage_idx] = storage
     return storage_idx
   def load_storages(self):
@@ -163,7 +191,7 @@ class StorageManager:
     self.active_storage_idx = None
     for storage_idx in self.get_storage_idxs():
       logging.debug("StorageManager loading storage %d" % storage_idx)
-      handler = StorageManager.BlockScanningHandler(self, storage_idx)
+      handler = self.create_block_listener(storage_idx)
       storage = Storage.load_storage(self.db_manager, self.txn_manager,
         storage_idx, handler)
       self.storages[storage_idx] = storage
@@ -231,19 +259,9 @@ class StorageManager:
           (base64.b64encode(digest), sequence_idx,
           base64.urlsafe_b64encode(sequence_id), container_idx))
 
-      class Handler:
-        def __init__(self, block_manager):
-          self.block_manager = block_manager
-        def is_requested(self, digest, code):
-          if BlockManager.is_cached(code):
-            # Blocks that are supposed to be cached are already there
-            return False
-          return True
-        def loaded(self, digest, code, data):
-          self.block_manager.handle_block(digest, code, data)
       container = storage.get_container(sequence_id, container_idx)
       self.block_manager.increment_epoch()
-      container.load_blocks(Handler(self.block_manager))
+      container.load_blocks(self.block_manager.get_listener())
     return self.block_manager.load_block(digest)
   def load_blocks_for(self, digest, handler):
     # This method exists only for testing.

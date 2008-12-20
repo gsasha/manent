@@ -5,6 +5,7 @@
 
 import base64
 import cStringIO as StringIO
+import logging
 import socket
 import time
 
@@ -70,7 +71,7 @@ class Increment:
         self.attributes["index"])
     for key, val in self.attributes.iteritems():
       self.db[PREFIX + key] = val
-    message = self.__compute_message()
+    message = self.compute_message()
     digest = Digest.dataDigest(message)
     self.block_database.add_block(
         digest, Container.CODE_INCREMENT_DESCRIPTOR, message)
@@ -88,7 +89,6 @@ class Increment:
     for key, val in self.db.iteritems_prefix(PREFIX):
       self.attributes[key[len(PREFIX):]] = val
     
-    print '-----------' , index, self.attributes
     assert self.attributes["index"] == str(index)
 
     self.readonly = True
@@ -96,28 +96,28 @@ class Increment:
   #
   # Restoring an increment from backup to db
   #
-  def reconstruct(self, digest):
+  def reconstruct(self, sequence_id, data):
     if self.readonly != None:
       raise "Attempt to restore an existing increment"
 
     #
     # Parse the message from the storage
     #
-    storage_index = self.block_database.get_storage_index(digest)
-    message = self.block_database.load_block(digest)
-    self.attributes = self.__parse_message(message)
-    assert self.attributes["storage_index"] == str(storage_index)
+    self.attributes = self.__parse_message(data)
 
     #
     # Update the data in the db
     #
     PREFIX = "Increment.%s.%s." % (self.attributes["storage_index"],
         self.attributes["index"])
+    self.attributes["sequence_id"] = sequence_id
+    logging.info("Reconstructed increment %d in sequence %s" %
+        (self.get_index(), base64.b64encode(sequence_id)))
     for key, val in self.attributes.iteritems():
       self.db[PREFIX + key] = val
 
     self.readonly = True
-  def __compute_message(self):
+  def compute_message(self):
     m = StringIO.StringIO()
     for key, val in self.attributes.iteritems():
       m.write("%s=%s\n" % (key, base64.b64encode(val)))
