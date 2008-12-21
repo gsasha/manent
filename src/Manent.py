@@ -5,7 +5,10 @@
 #    License: see LICENSE.txt
 #
 
-#
+# NOTE: for Windows compatibility reasons, the contents of Manent.py and
+# scripts/manent are supposed to be the same. Make sure to keep them in sync
+# until a better solution is found.
+
 # TODO:
 # - optimize the scanning: read each file information just once and do queries
 #   on the results of stat rather than asking several questions on the same filename
