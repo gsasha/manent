@@ -9,7 +9,7 @@ setup(
     packages = ['manent', 'manent/utils'],
     py_modules = ['manent'],
     requires = ['paramiko'],
-    scripts = ['Manent'],
+    scripts = ['scripts/manent'],
     )
 
 
