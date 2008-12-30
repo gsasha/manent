@@ -17,6 +17,7 @@ sys.path.append(os.path.join(sys.path[0], ".."))
 
 import manent.Container as Container
 import manent.Nodes as Nodes
+import manent.Reporting as Reporting
 
 class MockContainerConfig:
   def blockSize(self):
@@ -72,6 +73,31 @@ class MockScanCtx(MockBlockCtx, MockHlinkCtx, MockChangeCtx):
     MockBlockCtx.__init__(self, backup)
     MockHlinkCtx.__init__(self)
     MockChangeCtx.__init__(self)
+    self.num_visited_files_reporter = Reporting.DummyReporter()
+    self.num_visited_dirs_reporter = Reporting.DummyReporter()
+    self.num_visited_symlinks_reporter = Reporting.DummyReporter()
+    self.num_scanned_files_reporter = Reporting.DummyReporter()
+    self.num_scanned_dirs_reporter = Reporting.DummyReporter()
+    self.num_scanned_symlinks_reporter = Reporting.DummyReporter()
+    self.num_prev_files_reporter = Reporting.DummyReporter()
+    self.num_prev_symlinks_reporter = Reporting.DummyReporter()
+    self.num_prev_dirs_reporter = Reporting.DummyReporter()
+    self.num_changed_files_reporter = Reporting.DummyReporter()
+    self.num_changed_symlinks_reporter = Reporting.DummyReporter()
+    self.num_changed_dirs_reporter = Reporting.DummyReporter()
+
+    self.changed_files_reporter = Reporting.DummyReporter()
+    self.changed_dirs_reporter = Reporting.DummyReporter()
+    self.changed_symlinks_reporter = Reporting.DummyReporter()
+
+    self.num_new_blocks_reporter = Reporting.DummyReporter()
+    self.size_new_blocks_reporter = Reporting.DummyReporter()
+
+    self.unrecognized_files_reporter = Reporting.DummyReporter()
+    self.oserror_files_reporter = Reporting.DummyReporter()
+    self.ioerror_files_reporter = Reporting.DummyReporter()
+
+    self.current_scanned_file_reporter = Reporting.DummyReporter()
   def get_level(self):
     # Assume that backup filled that in
     return self.level

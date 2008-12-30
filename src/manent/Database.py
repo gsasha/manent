@@ -42,6 +42,10 @@ class PrivateDatabaseManager:
     self.dbenv.open(temp_area,
         db.DB_PRIVATE|db.DB_CREATE|db.DB_INIT_TXN|
         db.DB_INIT_MPOOL|db.DB_INIT_LOCK|db.DB_THREAD)
+    self.num_puts_reporter = Reporting.DummyReporter()
+    self.num_gets_reporter = Reporting.DummyReporter()
+    self.num_dels_reporter = Reporting.DummyReporter()
+    self.num_has_keys_reporter = Reporting.DummyReporter()
   def close(self):
     #
     # Close up the db environment. The user should have been
@@ -101,6 +105,19 @@ class DatabaseManager:
     #self.checkpoint_thread = CheckpointThread(self.dbenv, self.done_event,
     #                                          self.checkpoint_finished)
     #self.checkpoint_thread.start()
+    self.num_puts_reporter = Reporting.DummyReporter()
+    self.num_gets_reporter = Reporting.DummyReporter()
+    self.num_dels_reporter = Reporting.DummyReporter()
+    self.num_has_keys_reporter = Reporting.DummyReporter()
+  def set_report_manager(self, report_manager):
+    self.num_puts_reporter = report_manager.find_reporter(
+        "database.total.put", 0)
+    self.num_gets_reporter = report_manager.find_reporter(
+        "database.total.get", 0)
+    self.num_dels_reporter = report_manager.find_reporter(
+        "database.total.del", 0)
+    self.num_has_keys_reporter = report_manager.find_reporter(
+        "database.total.has_key", 0)
   def txn_begin(self):
     self.dbenv.txn_checkpoint()
     return self.dbenv.txn_begin(flags=db.DB_DIRTY_READ)
@@ -190,7 +207,7 @@ class TransactionHandler:
         pass
     self.commit_reporter = Reporting.DummyReporter()
     self.abort_reporter = Reporting.DummyReporter()
-    self.checkout_reporter = Reporting.DummyReporter()
+    self.checkpoint_reporter = Reporting.DummyReporter()
   def set_report_manager(self, report_manager):
     self.commit_reporter = report_manager.find_reporter(
         "database.transactions.commits", 0)
@@ -257,10 +274,12 @@ class DatabaseWrapper:
     #print "db[%s:%s].get(%s)" % (self.filename,self.dbname,i
     #   base64.b64encode(key[0:10]))
     txn = self.__get_txn()
+    self.db_manager.num_gets_reporter.increment(1)
     return self.d.get(str(key), txn=txn)
   def put(self, key, value):
     #print "db[%s:%s].put(%s,%s)" % (self.filename,self.dbname,
     #  base64.b64encode(key[0:10]), base64.b64encode(value[0:10]))
+    self.db_manager.num_puts_reporter.increment(1)
     self.d.put(str(key), str(value), txn=self.__get_txn())
   def __getitem__(self,key):
     #print "db[%s:%s].get(%s)" % (self.filename,self.dbname,
@@ -276,6 +295,7 @@ class DatabaseWrapper:
   def __delitem__(self, key):
     #print "db[%s:%s].del(%s)" % (self.filename,self.dbname,
     # base64.b64encode(key[0:10]))
+    self.db_manager.num_dels_reporter.increment(1)
     self.d.delete(key, txn=self.__get_txn())
   def __len__(self):
     stat = self.d.stat()
@@ -283,6 +303,7 @@ class DatabaseWrapper:
   def has_key(self, key):
     #print "db[%s:%s].has_key(%s)" % (self.filename,self.dbname,
     # base64.b64encode(key[0:10]))
+    self.db_manager.num_has_keys_reporter.increment(1)
     return self.get(key) != None
   #
   # Database cleanup options

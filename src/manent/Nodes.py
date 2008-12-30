@@ -263,6 +263,9 @@ class File(Node):
     #
     # Check if we have encountered this file during this scan already
     #
+    ctx.num_visited_files_reporter.increment(1)
+    ctx.current_scanned_file_reporter.set(self.path())
+
     if self.scan_hlink(ctx):
       logging.info("File %s: HLINK" % self.path())
       return
@@ -272,6 +275,7 @@ class File(Node):
     #
     if self.scan_prev(ctx, prev_num):
       logging.debug("File %s: PREV" % self.path())
+      ctx.num_prev_files_reporter.increment(1)
       return
     
     # --- File not yet in database, process it
@@ -289,6 +293,14 @@ class File(Node):
     logging.info("Scanned file %s size:%d new_blocks:%d new_blocks_size:%d" %
         (self.path(), file_size, packer.get_num_new_blocks(),
           packer.get_size_new_blocks()))
+
+    ctx.num_scanned_files_reporter.increment(1)
+    if packer.get_num_new_blocks() != 0:
+      ctx.num_new_blocks_reporter.increment(packer.get_num_new_blocks())
+      ctx.size_new_blocks_reporter.increment(packer.get_size_new_blocks())
+      ctx.num_changed_files_reporter.increment(1)
+      ctx.changed_files_reporter.append(self.path())
+
     if file_size > 256 * 1024:
       logging.debug("File %s is big enough to register in cndb" %
           self.path())
@@ -367,6 +379,7 @@ class Symlink(Node):
     return NODE_TYPE_SYMLINK
   def scan(self, ctx, prev_num):
     self.compute_stats()
+    ctx.num_visited_symlinks_reporter.increment(1)
 
     if self.scan_hlink(ctx):
       return
@@ -386,6 +399,13 @@ class Symlink(Node):
     logging.info("Scanned symlink %s size:%d new_blocks:%d new_blocks_size:%d" %
         (self.path(), len(self.link), packer.get_num_new_blocks(),
           packer.get_size_new_blocks()))
+
+    ctx.num_scanned_symlinks_reporter.increment(1)
+    if packer.get_num_new_blocks() != 0:
+      ctx.num_new_blocks_reporter.increment(packer.get_num_new_blocks())
+      ctx.size_new_blocks_reporter.increment(packer.get_size_new_blocks())
+      ctx.num_changed_symlinks_reporter.increment(1)
+      ctx.changed_symlinks_reporter.append(self.path())
   def test(self, ctx):
     logging.info("Testing " + self.path())
 
@@ -428,6 +448,7 @@ class Directory(Node):
     """
     logging.debug("Scanning directory " + self.path())
     self.compute_stats()
+    ctx.num_visited_dirs_reporter.increment(1)
     #
     # Process data from previous increments.
     #
@@ -537,12 +558,15 @@ class Directory(Node):
           # lines above, as the comment says.
           self.children.append(node)
         else:
+          ctx.unrecognized_files_reporter.append(path)
           logging.error("Ignoring unrecognized file type " + path)
       except OSError:
         logging.error("OSError accessing " + path)
+        ctx.oserror_files_reporter.append(path)
         traceback.print_exc()
       except IOError, (errno, strerror):
         logging.error("IOError %s accessing '%s'" % (strerror, path))
+        ctx.ioerror_files_reporter.append(path)
         traceback.print_exc()
       finally:
         processed_children += 1
@@ -555,6 +579,14 @@ class Directory(Node):
       logging.info("Scanned dir %s size:%d new_blocks:%d new_blocks_size:%d" %
         (self.path(), len(self.children), num_new_blocks,
           size_new_blocks))
+
+    ctx.num_scanned_dirs_reporter.increment(1)
+    if num_new_blocks != 0:
+      ctx.num_new_blocks_reporter.increment(num_new_blocks)
+      ctx.size_new_blocks_reporter.increment(size_new_blocks)
+      ctx.num_changed_dirs_reporter.increment(1)
+      ctx.changed_dirs_reporter.append(self.path())
+
     self.children = None
     #
     # Update the current dir in completed_nodes_db

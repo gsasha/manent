@@ -7,6 +7,7 @@ import base64
 import logging
 import os
 import os.path
+import sys
 import time
 import traceback
 
@@ -49,8 +50,8 @@ class Backup:
       exclusion_file.close()
     
     logging.debug("Opening the databases")
-    self.db_manager = Database.DatabaseManager(Config.paths,
-      self.label)
+    self.db_manager = Database.DatabaseManager(Config.paths, self.label)
+    self.db_manager.set_report_manager(self.report_manager)
     self.txn_handler = Database.TransactionHandler(self.db_manager)
     self.txn_handler.set_report_manager(self.report_manager)
     logging.debug("Opening the databases done")
@@ -146,7 +147,7 @@ class Backup:
       root = Nodes.Directory(self, None,
           unicode(self.config_db['data_path'], 'utf8'))
       root.set_weight(1.0)
-      ctx = ScanContext(self, root)
+      ctx = ScanContext(self, root, self.report_manager)
 
       prev_num = (Nodes.NODE_TYPE_DIR, None, last_fs_digest, last_fs_level)
       root.scan(ctx, prev_num, self.exclusion_processor)
@@ -392,16 +393,68 @@ class Backup:
 # ScanContext
 #===============================================================================
 class ScanContext:
-  def __init__(self, backup, root_node):
+  def __init__(self, backup, root_node, report_manager):
 
     self.inodes_db = {}
 
     self.total_nodes = 0
     self.changed_nodes = 0
+    self.print_count = 0
+
+    self.num_visited_files_reporter = report_manager.find_reporter(
+        "scan.counts.visited_files", 0)
+    self.num_visited_dirs_reporter = report_manager.find_reporter(
+        "scan.counts.visited_dirs", 0)
+    self.num_visited_symlinks_reporter = report_manager.find_reporter(
+        "scan.counts.visited_symlinks", 0)
+    self.num_scanned_files_reporter = report_manager.find_reporter(
+        "scan.counts.scanned_files", 0)
+    self.num_scanned_dirs_reporter = report_manager.find_reporter(
+        "scan.counts.scanned_dirs", 0)
+    self.num_scanned_symlinks_reporter = report_manager.find_reporter(
+        "scan.counts.scanned_symlinks", 0)
+    self.num_prev_files_reporter = report_manager.find_reporter(
+        "scan.counts.prev_files", 0)
+    self.num_prev_symlinks_reporter = report_manager.find_reporter(
+        "scan.counts.prev_symlinks", 0)
+    self.num_prev_dirs_reporter = report_manager.find_reporter(
+        "scan.counts.prev_dirs", 0)
+    self.num_changed_files_reporter = report_manager.find_reporter(
+        "scan.counts.changed_files", 0)
+    self.num_changed_symlinks_reporter = report_manager.find_reporter(
+        "scan.counts.changed_symlinks", 0)
+    self.num_changed_dirs_reporter = report_manager.find_reporter(
+        "scan.counts.changed_dirs", 0)
+
+    self.changed_files_reporter = report_manager.find_reporter(
+        "scan.changed_files", [])
+    self.changed_dirs_reporter = report_manager.find_reporter(
+        "scan.changed_dirs", [])
+    self.changed_symlinks_reporter = report_manager.find_reporter(
+        "scan.changed_symlinks", [])
+
+    self.num_new_blocks_reporter = report_manager.find_reporter(
+        "scan.counts.new_blocks", 0)
+    self.size_new_blocks_reporter = report_manager.find_reporter(
+        "scan.counts.size_new_blocks", 0)
+
+    self.unrecognized_files_reporter = report_manager.find_reporter(
+        "scan.warnings.unrecognized_files", [])
+    self.oserror_files_reporter = report_manager.find_reporter(
+        "scan.warnings.oserror_files", [])
+    self.ioerror_files_reporter = report_manager.find_reporter(
+        "scan.warnings.ioerror_files", [])
+
+    self.current_scanned_file_reporter = report_manager.find_reporter(
+        "scan.current_file", "")
 
     self.root_node = root_node
   def update_scan_status(self):
-    print "Done: %f %%\r" % (100.0 * self.root_node.get_percent_done()),
+    self.print_count += 1
+    if self.print_count % 100 == 0:
+      sys.stderr.write("Done: %d %s      \r" %
+          (self.num_visited_files_reporter.value,
+            self.current_scanned_file_reporter.value[-80:]))
 
 #=========================================================
 # RestoreContext

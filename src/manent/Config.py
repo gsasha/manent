@@ -194,7 +194,7 @@ def init_logging():
   if os.environ.has_key("MANENT_LOGGING_LEVEL"):
     level = os.environ["MANENT_LOGGING_LEVEL"]
   else:
-    level = "INFO"
+    level = "ERROR"
   LEVELS = { "NOTSET": logging.NOTSET,
              "DEBUG": logging.DEBUG,
              "INFO": logging.INFO,

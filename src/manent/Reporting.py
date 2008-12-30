@@ -62,7 +62,8 @@ class ReportManager:
     self.listeners = []
   def print_report(self):
     print "------ REPORT MANAGER REPORT ------"
-    for name, reporter in self.reporters.iteritems():
+    for name in sorted(self.reporters.keys()):
+      reporter = self.reporters[name]
       print "%s: %s" % (name, str(reporter.value))
   def set(self, name, value):
     self.find_reporter(name, None).set(value)
