@@ -13,6 +13,7 @@ import time
 import traceback
 
 import Config
+import Reporting
 
 class CheckpointThread(threading.Thread):
   def __init__(self, dbenv, done_event, checkpoint_finished):
@@ -184,6 +185,19 @@ class TransactionHandler:
   def __init__(self, db_manager):
     self.db_manager = db_manager
     self.txn = None
+    class DummyReporter:
+      def increment(self,value):
+        pass
+    self.commit_reporter = Reporting.DummyReporter()
+    self.abort_reporter = Reporting.DummyReporter()
+    self.checkout_reporter = Reporting.DummyReporter()
+  def set_report_manager(self, report_manager):
+    self.commit_reporter = report_manager.find_reporter(
+        "database.transactions.commits", 0)
+    self.abort_reporter = report_manager.find_reporter(
+        "database.transactions.aborts", 0)
+    self.checkpoint_reporter = report_manager.find_reporter(
+        "database.transactions.checkpoints", 0)
   def get_txn(self):
     if self.txn is None:
       self.txn = self.db_manager.txn_begin()
@@ -191,12 +205,15 @@ class TransactionHandler:
   def commit(self):
     #print "Committing transaction", self.txn
     if self.txn is not None:
+      self.commit_reporter.increment(1)
       self.txn.commit()
     self.txn = None
   def checkpoint(self):
+    self.checkpoint_reporter.increment(1)
     self.db_manager.txn_checkpoint()
   def abort(self):
     if self.txn is not None:
+      self.abort_reporter.increment(1)
       self.txn.abort()
     self.txn = None
 

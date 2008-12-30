@@ -34,7 +34,9 @@ class Increment:
     return Nodes.unserialize_stats(
         StringIO.StringIO(self.attributes["fs_stats"]))
   def get_attribute(self, key):
-    return self.attributes[key]
+    if self.attributes.has_key(key):
+      return self.attributes[key]
+    return ""
 
   #
   # Methods for manipulating a newly created increment

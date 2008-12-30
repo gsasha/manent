@@ -16,6 +16,7 @@ import Database
 import ExclusionProcessor
 import IncrementManager
 import Nodes
+import Reporting
 import StorageManager
 
 def parse_to_keys(params):
@@ -31,6 +32,7 @@ class Backup:
   """
   def __init__(self, global_config, label):
     self.global_config = global_config
+    self.report_manager = Reporting.ReportManager()
     self.label = label
     self.storage_opened = False
 
@@ -50,7 +52,12 @@ class Backup:
     self.db_manager = Database.DatabaseManager(Config.paths,
       self.label)
     self.txn_handler = Database.TransactionHandler(self.db_manager)
+    self.txn_handler.set_report_manager(self.report_manager)
     logging.debug("Opening the databases done")
+
+  def get_report_manager(self):
+    return self.report_manager
+
   #
   # Two initialization methods:
   # Creation of new backup, loading from live DB
@@ -117,6 +124,7 @@ class Backup:
     finally:
       logging.debug("Closing everything down after create")
       self.__close_all()
+    self.report_manager.print_report()
 
   #
   # Scanning (adding a new increment)
@@ -159,6 +167,7 @@ class Backup:
     finally:
       logging.debug("Closing everythinng down after scan")
       self.__close_all()
+    self.report_manager.print_report()
 
   #
   # Restoring an increment to filesystem
@@ -189,6 +198,7 @@ class Backup:
       raise
     finally:
       self.__close_all()
+    self.report_manager.print_report()
   
   #
   # Serving the filesystem as ftp
@@ -287,6 +297,7 @@ class Backup:
       raise
     finally:
       self.__close_all()
+    self.report_manager.print_report()
   
   def get_block_size(self):
     return self.storage_manager.get_block_size()
