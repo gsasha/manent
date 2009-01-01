@@ -8,6 +8,7 @@ import logging
 import os
 import os.path
 import sys
+import tempfile
 import time
 import traceback
 
@@ -58,6 +59,22 @@ class Backup:
 
   def get_report_manager(self):
     return self.report_manager
+  def write_log(self):
+    log_dir = Config.paths.backup_home_area(self.label)
+    log_file = open(os.path.join(log_dir, "log.txt"), "a")
+    log_file.write("Performing command:\n%s\n" % " ".join(sys.argv))
+    log_detail_file, log_detail_file_name = tempfile.mkstemp(
+        prefix="report-",
+        dir=Config.paths.backup_home_area(self.label),
+        suffix=".txt")
+    log_file.write("Detailed report stored in file: %s\n" %
+        log_detail_file_name)
+    class FDFileWrapper:
+      def __init__(self, fd):
+        self.fd = fd
+      def write(self, str):
+        os.write(self.fd, str)
+    self.report_manager.write_report(FDFileWrapper(log_detail_file))
 
   #
   # Two initialization methods:
@@ -99,6 +116,7 @@ class Backup:
       self.txn_handler.commit()
     finally:
       self.__close_all()
+      self.write_log()
 
   def load(self):
     self.data_path = self.config_db["data_path"]
@@ -125,7 +143,7 @@ class Backup:
     finally:
       logging.debug("Closing everything down after create")
       self.__close_all()
-    self.report_manager.print_report()
+      self.write_log()
 
   #
   # Scanning (adding a new increment)
@@ -170,7 +188,8 @@ class Backup:
     finally:
       logging.debug("Closing everythinng down after scan")
       self.__close_all()
-    self.report_manager.print_report()
+      ctx.print_report()
+      self.write_log()
 
   #
   # Restoring an increment to filesystem
@@ -191,7 +210,6 @@ class Backup:
       root.set_level(increment.get_fs_level())
       root.set_stats(increment.get_fs_stats())
       ctx = RestoreContext()
-      ctx = RestoreContext()
       root.restore(ctx)
       
       self.txn_handler.commit()
@@ -201,7 +219,7 @@ class Backup:
       raise
     finally:
       self.__close_all()
-    self.report_manager.print_report()
+      self.write_log()
   
   #
   # Serving the filesystem as ftp
@@ -224,6 +242,7 @@ class Backup:
       self.txn_handler.abort()
     finally:
       self.__close_all()
+      self.write_log()
   #
   # Testing that an increment can be loaded
   #
@@ -242,7 +261,6 @@ class Backup:
       root.set_level(increment.get_fs_level())
       root.set_stats(increment.get_fs_stats())
       ctx = RestoreContext()
-      ctx = RestoreContext()
       root.test(ctx)
       
       self.txn_handler.commit()
@@ -252,6 +270,7 @@ class Backup:
       raise
     finally:
       self.__close_all()
+      self.write_log()
   
   #
   # Information
@@ -300,7 +319,7 @@ class Backup:
       raise
     finally:
       self.__close_all()
-    self.report_manager.print_report()
+      self.write_log()
   
   def get_block_size(self):
     return self.storage_manager.get_block_size()
@@ -453,6 +472,26 @@ class ScanContext:
         "scan.current_file", "")
 
     self.root_node = root_node
+  def print_report(self):
+    print "Backup done. Visited %d files, scanned %d, found %d changed." % (
+        self.num_visited_files_reporter.value,
+        self.num_scanned_files_reporter.value,
+        self.num_changed_files_reporter.value)
+    # TODO(gsasha): collect stats on the containers.
+    print "Created %d new blocks, for total of %d bytes." % (
+        0, 0)
+    print "Created %d new containers, for total of %d bytes." % (
+        0, 0)
+    if (self.unrecognized_files_reporter.value != [] or
+        self.oserror_files_reporter.value != [] or
+        self.ioerror_files_reporter.value != []):
+      for f in self.unrecognized_files_reporter.value:
+        print "  file type not recognized: %s" % f
+      for f in self.oserror_files_reporter.value:
+        print "  OSError accessing file  : %s" % f
+      for f in self.ioerror_files_reporter.value:
+        print "  IOError accessing file  : %s" % f
+
   def set_last_num_files(self, last_num_files):
     self.last_num_files = last_num_files
   def update_scan_status(self):

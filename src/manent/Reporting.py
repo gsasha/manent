@@ -60,11 +60,10 @@ class ReportManager:
   def __init__(self):
     self.reporters = {}
     self.listeners = []
-  def print_report(self):
-    print "------ REPORT MANAGER REPORT ------"
+  def write_report(self, file):
     for name in sorted(self.reporters.keys()):
       reporter = self.reporters[name]
-      print "%s: %s" % (name, str(reporter.value))
+      file.write("%s: %s\n" % (name, str(reporter.value)))
   def set(self, name, value):
     self.find_reporter(name, None).set(value)
   def increment(self, name, value):
