@@ -521,12 +521,15 @@ class Directory(Node):
           node.scan(ctx, cur_prev)
           self.children.append(node)
         else:
-          logging.error("Ignoring unrecognized file type " + path)
+          ctx.unrecognized_files_reporter.append(path)
+          logging.info("Ignoring unrecognized file type " + path)
       except OSError:
-        logging.error("OSError accessing " + path)
+        logging.info("OSError accessing " + path)
+        ctx.oserror_files_reporter.append(path)
         traceback.print_exc()
       except IOError, (errno, strerror):
-        logging.error("IOError %s accessing '%s' %s" % (errno, strerror, path))
+        logging.info("IOError %s accessing '%s' %s" % (errno, strerror, path))
+        ctx.ioerror_files_reporter.append(path)
         traceback.print_exc()
       finally:
         processed_children += 1
@@ -559,13 +562,13 @@ class Directory(Node):
           self.children.append(node)
         else:
           ctx.unrecognized_files_reporter.append(path)
-          logging.error("Ignoring unrecognized file type " + path)
+          logging.info("Ignoring unrecognized file type " + path)
       except OSError:
-        logging.error("OSError accessing " + path)
+        logging.info("OSError accessing " + path)
         ctx.oserror_files_reporter.append(path)
         traceback.print_exc()
       except IOError, (errno, strerror):
-        logging.error("IOError %s accessing '%s'" % (strerror, path))
+        logging.info("IOError %s accessing '%s'" % (strerror, path))
         ctx.ioerror_files_reporter.append(path)
         traceback.print_exc()
       finally:

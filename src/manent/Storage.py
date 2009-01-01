@@ -10,12 +10,14 @@ import os
 import re
 import shutil
 import tempfile
+import time
 import traceback
 
 import Config
 import Container
 import utils.IntegerEncodings as IE
 import utils.RemoteFSHandler as RemoteFSHandler
+import Reporting
 
 CONTAINER_EXT = "mf"
 CONTAINER_EXT_TMP = "mf-tmp"
@@ -84,6 +86,11 @@ class Storage:
     self.headers_loaded_total = 0
     self.headers_loaded_from_summary = 0
     self.headers_loaded_from_storage = 0
+
+    self.report_manager = Reporting.DummyReportManager()
+
+  def set_report_manager(self, report_manager):
+    self.report_manager = report_manager
 
   def close(self):
     self.loaded_headers_db.close()
@@ -421,6 +428,8 @@ class FTPStorage(Storage):
       self.fs_handler = self.RemoteHandlerClass(self.get_host(),
         self.get_user(), self.get_password(), self.get_pkey_file(),
         self.get_path())
+    self.fs_handler.set_progress_reporter(self.report_manager.find_reporter(
+      "container.progress", 0))
     return self.fs_handler
 
   def get_host(self):
@@ -474,18 +483,28 @@ class FTPStorage(Storage):
       (base64.urlsafe_b64encode(sequence_id), index))
     assert sequence_id == self.active_sequence_id
     
+    start_time = time.time()
+
     # Copy header_file + body_file > tmpfile
     tmpfile = tempfile.TemporaryFile(dir=Config.paths.staging_area())
+    total_size = 0
     header_file.seek(0)
     while True:
       block = header_file.read(64 << 10)
       if len(block) == 0: break
       tmpfile.write(block)
+      total_size += len(block)
     body_file.seek(0)
     while True:
       block = body_file.read(64 << 10)
       if len(block) == 0: break
       tmpfile.write(block)
+      total_size += len(block)
+
+    self.report_manager.set(
+        "storage.container.%s.%d.uploading.size" % (
+          base64.b64encode(sequence_id), index),
+        "%d" % total_size)
 
     # Upload tmpfile to the remote location
     tmp_file_name = encode_container_name(sequence_id, index, CONTAINER_EXT_TMP)
@@ -495,6 +514,11 @@ class FTPStorage(Storage):
     self.get_fs_handler().upload(tmpfile, tmp_file_name)
     self.get_fs_handler().rename(tmp_file_name, file_name)
     self.get_fs_handler().chmod(file_name, 0440)
+
+    self.report_manager.set(
+        "storage.container.%s.%d.uploading.time" % (
+          base64.b64encode(sequence_id), index),
+        "%f" % (time.time() - start_time))
 
 class DirectoryStorage(Storage):
   """

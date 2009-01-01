@@ -10,6 +10,7 @@ import cStringIO as StringIO
 import BlockManager
 import BlockSequencer
 import Container
+import Reporting
 import Storage
 import utils.Digest as Digest
 import utils.IntegerEncodings as IE
@@ -60,6 +61,7 @@ class StorageManager:
         self.db_manager, self.txn_manager)
     self.block_sequencer = BlockSequencer.BlockSequencer(
         self.db_manager, self.txn_manager, self, self.block_manager)
+    self.report_manager = Reporting.DummyReportManager()
     self.block_listeners = []
 
     self.config_db = db_manager.get_database_btree("config.db", "storage",
@@ -97,6 +99,8 @@ class StorageManager:
       storage_idx, sequence_idx = IE.binary_decode_int_varlen_list(val)
       self.seq_to_index[sequence_id] = (storage_idx, sequence_idx)
       self.index_to_seq[sequence_idx] = (storage_idx, sequence_id)
+  def set_report_manager(self, report_manager):
+    self.report_manager = report_manager
   def close(self):
     for index, storage in self.storages.iteritems():
       storage.close()
@@ -178,6 +182,7 @@ class StorageManager:
     listener = self.create_block_listener(storage_idx)
     storage = Storage.create_storage(self.db_manager, self.txn_manager,
       storage_idx, storage_params, listener)
+    storage.set_report_manager(self.report_manager)
     self.storages[storage_idx] = storage
     return storage_idx
   def load_storages(self):
@@ -195,6 +200,7 @@ class StorageManager:
       handler = self.create_block_listener(storage_idx)
       storage = Storage.load_storage(self.db_manager, self.txn_manager,
         storage_idx, handler)
+      storage.set_report_manager(self.report_manager)
       self.storages[storage_idx] = storage
       if storage.is_active():
         logging.debug("Storage is active")

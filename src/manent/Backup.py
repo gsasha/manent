@@ -7,6 +7,7 @@ import base64
 import logging
 import os
 import os.path
+import re
 import sys
 import tempfile
 import time
@@ -61,7 +62,8 @@ class Backup:
     return self.report_manager
   def write_log(self):
     log_dir = Config.paths.backup_home_area(self.label)
-    log_file = open(os.path.join(log_dir, "log.txt"), "a")
+    log_file_name = os.path.join(log_dir, "log.txt") 
+    log_file = open(log_file_name, "a")
     log_file.write("Performing command:\n%s\n" % " ".join(sys.argv))
     log_detail_file, log_detail_file_name = tempfile.mkstemp(
         prefix="report-",
@@ -75,6 +77,7 @@ class Backup:
       def write(self, str):
         os.write(self.fd, str)
     self.report_manager.write_report(FDFileWrapper(log_detail_file))
+    print "Added log entry to %s" % log_file_name
 
   #
   # Two initialization methods:
@@ -181,6 +184,7 @@ class Backup:
       self.storage_manager.flush()
       
       self.txn_handler.commit()
+      ctx.print_report()
     except:
       traceback.print_exc()
       self.txn_handler.abort()
@@ -188,7 +192,6 @@ class Backup:
     finally:
       logging.debug("Closing everythinng down after scan")
       self.__close_all()
-      ctx.print_report()
       self.write_log()
 
   #
@@ -395,6 +398,7 @@ class Backup:
     logging.debug("Opening storage")
     self.storage_manager = StorageManager.StorageManager(self.db_manager,
       self.txn_handler)
+    self.storage_manager.set_report_manager(self.report_manager)
     self.increment_manager = IncrementManager.IncrementManager(
       self.db_manager, self.txn_handler, self.label, self.storage_manager)
     self.storage_manager.load_storages()
@@ -423,6 +427,12 @@ class ScanContext:
     self.print_count = 0
 
     self.last_num_files = None
+    self.start_time = time.time()
+
+    self.cur_container_sequence_id = ""
+    self.cur_container_idx = ""
+    self.cur_container_key = ""
+    self.cur_container_size = ""
 
     self.num_visited_files_reporter = report_manager.find_reporter(
         "scan.counts.visited_files", 0)
@@ -471,6 +481,13 @@ class ScanContext:
     self.current_scanned_file_reporter = report_manager.find_reporter(
         "scan.current_file", "")
 
+    report_manager.add_listener(
+        Reporting.CallbackListener("container.progress",
+          self.update_container_status))
+    report_manager.add_listener(
+        Reporting.CallbackListener("storage",
+          self.update_start_container))
+
     self.root_node = root_node
   def print_report(self):
     print "Backup done. Visited %d files, scanned %d, found %d changed." % (
@@ -485,27 +502,44 @@ class ScanContext:
     if (self.unrecognized_files_reporter.value != [] or
         self.oserror_files_reporter.value != [] or
         self.ioerror_files_reporter.value != []):
+      print "Problems detected in the following files:"
       for f in self.unrecognized_files_reporter.value:
-        print "  file type not recognized: %s" % f
+        print "  %s: file type not recognized" % f
       for f in self.oserror_files_reporter.value:
-        print "  OSError accessing file  : %s" % f
+        print "  %s: OSError accessing file" % f
       for f in self.ioerror_files_reporter.value:
-        print "  IOError accessing file  : %s" % f
+        print "  %s: IOError accessing file" % f
 
   def set_last_num_files(self, last_num_files):
     self.last_num_files = last_num_files
-  def update_scan_status(self):
-    self.print_count += 1
+  def print_update_message(self, message):
     if self.last_num_files is not None and self.last_num_files != 0:
       progress = "%2.3f%%" % (self.num_visited_files_reporter.value * 100.0 /
           self.last_num_files)
     else:
       progress = "%5d" % self.num_visited_files_reporter.value
+    elapsed = "%2.3f" % (time.time() - self.start_time)
+    report_string = "%s sec: %s %80s      \r" % (
+        elapsed,
+        progress,
+        message[-80:])
+    sys.stderr.write(report_string)
+  def update_scan_status(self):
+    self.print_count += 1
     if self.print_count % 100 == 0:
-      report_string = "Done: %s %80s      \r" % (
+      self.print_update_message(self.current_scanned_file_reporter.value)
+  def update_start_container(self, name, value):
+    d1, d2, sequence_id, idx, d3, key = name.split(".")
+    self.cur_container_sequence_id = sequence_id
+    self.cur_container_idx = idx
+    self.cur_container_key = key
+    self.cur_container_size = value
+  def update_container_status(self, name, progress):
+    self.print_update_message("container %s.%s: done %d of %s" %
+        (self.cur_container_sequence_id,
+          self.cur_container_idx,
           progress,
-          self.current_scanned_file_reporter.value[-80:])
-      sys.stderr.write(report_string)
+          self.cur_container_size))
 
 #=========================================================
 # RestoreContext

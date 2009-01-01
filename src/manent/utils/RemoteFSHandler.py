@@ -17,13 +17,14 @@ import traceback
 def retry_decorator(retries, message):
   def impl(func):
     def retrier(self, *args, **kwargs):
-      print "calling", message, "with params", args, kwargs, "..."
+      logging.debug("calling %s with params %s ..." % (
+        message, str(args) + str(kwargs)))
       start = time.time()
       for i in range(retries):
         try:
           self.connect()
           result = func(self, *args, **kwargs)
-          print "", time.time() - start, "seconds"
+          logging.debug("%2.3f seconds" % (time.time() - start))
           return result
         except:
           traceback.print_exc()
@@ -43,7 +44,9 @@ class RemoteFSHandler:
   must implement.
   """
   def __init__(self):
-    pass
+    self.progress_reporter = None
+  def set_progress_reporter(self, reporter):
+    self.progress_reporter = reporter
   def list_files(self):
     pass
   def upload(self, file, remote_name):
@@ -124,8 +127,10 @@ class SFTPHandler(RemoteFSHandler):
     handle = self.channel.file(remote_path, "wb")
     uploaded = 0
     for block in FileIO.read_blocks(file, 128<<10):
-      print "Uploaded", uploaded, "          \r",
       uploaded += len(block)
+      logging.debug("Uploaded %d" % uploaded)
+      if self.progress_reporter is not None:
+        self.progress_reporter.set(uploaded)
       handle.write(block)
     handle.close()
     self.cleanup_connection()
@@ -137,8 +142,10 @@ class SFTPHandler(RemoteFSHandler):
     handle = self.channel.file(remote_path, "rb")
     downloaded = 0
     for block in FileIO.read_blocks(handle, 16<<10):
-      print "Downloaded", downloaded, "           \r",
       downloaded += len(block)
+      logging.debug("Downloaded %d" % downloaded)
+      if self.progress_reporter is not None:
+        self.progress_reporter.set(downloaded)
       file.write(block)
     handle.close()
     self.cleanup_connection()

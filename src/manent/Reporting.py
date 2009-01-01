@@ -31,6 +31,16 @@ class DummyReporter:
     pass
   def append(self, value):
     pass
+class DummyReportManager:
+  """Placeholder for a report manager that does nothing."""
+  def find_reporter(self, name, initial):
+    return DummyReporter()
+  def set(self, name, value):
+    pass
+  def increment(self, name, value):
+    pass
+  def append(self, name, value):
+    pass
 
 class Reporter:
   def __init__(self, name, initial):
