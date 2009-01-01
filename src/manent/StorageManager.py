@@ -67,7 +67,8 @@ class StorageManager:
     logging.debug("Loaded storage manager db")
     for key, val in self.config_db.iteritems():
       logging.debug("Storage manager db: [%s]->[%s]" %
-          (key, val))
+          (base64.b64encode(key),
+            (base64.b64encode(val))))
     self.block_container_db = db_manager.get_database_hash("storage.db",
       "blocks", txn_manager)
     logging.debug("********** Loaded storage manager logs")

@@ -17,6 +17,7 @@ import zlib
 import manent.utils.Digest as Digest
 import manent.utils.Format as Format
 import Increment
+import Reporting
 import StreamAdapter
 import manent.utils.BandwidthLimiter
 import manent.utils.RemoteFSHandler as RemoteFSHandler
@@ -499,12 +500,16 @@ class Container:
     self.mode = None
     
     self.body_blocks = []
+
+    self.report_manager = None
   def get_index(self):
     return self.index
   def get_sequence_id(self):
     return self.sequence_id
   def get_storage(self):
     return self.storage
+  def set_report_manager(self, report_manager):
+    self.report_manager = report_manager
   #
   # Dumping mode implementation
   #
@@ -662,6 +667,11 @@ class Container:
     self.header_file.seek(0)
     return self.header_file.read()
   def upload(self):
+    if self.report_manager is not None:
+      reporter = self.report_manager.find_reporter(
+          "storage/seq-%s/container.%d/upload_start" %
+          (self.sequence_id, self.index),
+          0)
     self.storage.upload_container(self.sequence_id, self.index,
       self.header_file, self.body_file)
     self.header_file = None

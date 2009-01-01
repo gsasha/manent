@@ -58,7 +58,7 @@ class Increment:
         "fs_stats": None,
     }
 
-  def finalize(self, fs_digest, fs_level, fs_stats):
+  def finalize(self, fs_digest, fs_level, fs_stats, num_files):
     if self.readonly != False:
       raise Exception("Increment already finalized")
     
@@ -66,6 +66,7 @@ class Increment:
     self.attributes["fs_level"] = str(fs_level)
     self.attributes["fs_stats"] = Nodes.serialize_stats(fs_stats)
     self.attributes["ftime"] = str(time.time())
+    self.attributes["num_files"] = str(num_files)
     self.readonly = True
     
     #print "Finalizing increment", self.fs_digest

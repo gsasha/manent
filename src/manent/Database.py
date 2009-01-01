@@ -304,7 +304,7 @@ class DatabaseWrapper:
     #print "db[%s:%s].has_key(%s)" % (self.filename,self.dbname,
     # base64.b64encode(key[0:10]))
     self.db_manager.num_has_keys_reporter.increment(1)
-    return self.get(key) != None
+    return self.d.get(str(key), txn=self.__get_txn()) != None
   #
   # Database cleanup options
   #

@@ -78,19 +78,24 @@ class IncrementManager:
 
     last_increment = Increment.Increment(self.storage_manager, self.config_db)
     last_increment.load(storage_index, last_index)
-    return (last_increment.get_fs_digest(), last_increment.get_fs_level())
+    last_num_files = None
+    if last_increment.get_attribute("num_files") != "":
+      last_num_files = int(last_increment.get_attribute("num_files"))
+    return (last_increment.get_fs_digest(),
+        last_increment.get_fs_level(),
+        last_num_files)
 
   def get_increment(self, storage_idx, index):
     increment = Increment.Increment(self.storage_manager, self.config_db)
     increment.load(storage_idx, index)
     return increment
 
-  def finalize_increment(self, digest, level, stats):
+  def finalize_increment(self, digest, level, stats, num_files):
     assert self.active_increment is not None
 
     logging.info("Finalizing increment %d to %s" %
         (self.active_increment.get_index(), base64.b64encode(digest)))
-    inc_digest = self.active_increment.finalize(digest, level, stats)
+    inc_digest = self.active_increment.finalize(digest, level, stats, num_files)
     self.active_increment = None
     return inc_digest
 

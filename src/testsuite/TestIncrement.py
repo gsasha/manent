@@ -42,7 +42,7 @@ class TestIncrement(unittest.TestCase):
     increment1 = Increment.Increment(blockDB, db)
     increment2 = Increment.Increment(blockDB, db)
     increment1.start(0, 1, "backup1", "test increment 1")
-    increment1.finalize(Digest.dataDigest("aaaaaa"), 0, Nodes.NULL_STAT)
+    increment1.finalize(Digest.dataDigest("aaaaaa"), 0, Nodes.NULL_STAT, 10)
     increment2.load(0, 1)
     
     for attr in ["comment", "fs_digest", "ctime", "ftime", "index",

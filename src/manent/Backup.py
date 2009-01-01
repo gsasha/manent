@@ -142,12 +142,14 @@ class Backup:
       else:
         comment = ""
 
-      last_fs_digest, last_fs_level = self.increment_manager.start_increment(
-          comment)
+      last_fs_digest, last_fs_level, last_num_files =\
+          self.increment_manager.start_increment(comment)
       root = Nodes.Directory(self, None,
           unicode(self.config_db['data_path'], 'utf8'))
       root.set_weight(1.0)
       ctx = ScanContext(self, root, self.report_manager)
+      if last_num_files is not None:
+        ctx.set_last_num_files(last_num_files)
 
       prev_num = (Nodes.NODE_TYPE_DIR, None, last_fs_digest, last_fs_level)
       root.scan(ctx, prev_num, self.exclusion_processor)
@@ -157,7 +159,7 @@ class Backup:
       
       # Upload the special data to the containers
       self.increment_manager.finalize_increment(root.get_digest(),
-        root.get_level(), root.get_stats())
+        root.get_level(), root.get_stats(), ctx.total_nodes)
       self.storage_manager.flush()
       
       self.txn_handler.commit()
@@ -401,6 +403,8 @@ class ScanContext:
     self.changed_nodes = 0
     self.print_count = 0
 
+    self.last_num_files = None
+
     self.num_visited_files_reporter = report_manager.find_reporter(
         "scan.counts.visited_files", 0)
     self.num_visited_dirs_reporter = report_manager.find_reporter(
@@ -449,12 +453,20 @@ class ScanContext:
         "scan.current_file", "")
 
     self.root_node = root_node
+  def set_last_num_files(self, last_num_files):
+    self.last_num_files = last_num_files
   def update_scan_status(self):
     self.print_count += 1
+    if self.last_num_files is not None and self.last_num_files != 0:
+      progress = "%2.3f%%" % (self.num_visited_files_reporter.value * 100.0 /
+          self.last_num_files)
+    else:
+      progress = "%5d" % self.num_visited_files_reporter.value
     if self.print_count % 100 == 0:
-      sys.stderr.write("Done: %d %s      \r" %
-          (self.num_visited_files_reporter.value,
-            self.current_scanned_file_reporter.value[-80:]))
+      report_string = "Done: %s %80s      \r" % (
+          progress,
+          self.current_scanned_file_reporter.value[-80:])
+      sys.stderr.write(report_string)
 
 #=========================================================
 # RestoreContext

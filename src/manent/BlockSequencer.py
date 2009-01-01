@@ -66,10 +66,11 @@ class BlockSequencer:
           self.aside_block_db["aside_num"])
       self.aside_block_size = int(
           self.aside_block_db["aside_size"])
-    logging.debug("%d %d %d %d %d %d" %
+    logging.debug("block sequencer vars: %d %d %d %d %d %d" %
         (self.piggyback_header_first, self.piggyback_header_last,
           self.aside_block_first, self.aside_block_last,
           self.aside_block_num, self.aside_block_size))
+    self.__check_aside_blocks()
   def _write_vars(self):
     logging.debug("BlockSequence saving vars")
     logging.debug("%d %d %d %d %d %d" %
@@ -85,6 +86,17 @@ class BlockSequencer:
     self.aside_block_db["aside_last"] = str(self.aside_block_last)
     self.aside_block_db["aside_num"] = str(self.aside_block_num)
     self.aside_block_db["aside_size"] = str(self.aside_block_size)
+  def __check_aside_blocks(self):
+    num_bad = 0
+    for block_id in range(self.aside_block_first, self.aside_block_last):
+      if not self.aside_block_db.has_key(str(block_id)):
+        logging.debug("Warning: expected aside block %d not found" % block_id)
+        num_bad += 1
+    if num_bad == 0:
+      logging.debug("Checking aside blocks DB is OK")
+    else:
+      logging.debug("%d aside blocks out of %d are bad" % 
+          (num_bad, self.aside_block_num))
   def close(self):
     self._write_vars()
     self.piggyback_headers_db.close()
@@ -126,6 +138,8 @@ class BlockSequencer:
     # Write out all the aside blocks we have and clean out the last container.
     for block_idx in range(self.aside_block_first, self.aside_block_last + 1):
       digest = self.aside_block_db[str(block_idx)]
+      if digest is None:
+        logging.error("Expected aside block %d not found" % block_idx)
       del self.aside_block_db[str(block_idx)]
       self.aside_block_first = block_idx + 1
       code = self.block_manager.get_block_code(digest)
