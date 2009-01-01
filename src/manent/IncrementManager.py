@@ -74,7 +74,7 @@ class IncrementManager:
         storage_index, next_index, self.backup_label, comment)
 
     if last_index is None:
-      return (None, None)
+      return (None, None, None)
 
     last_increment = Increment.Increment(self.storage_manager, self.config_db)
     last_increment.load(storage_index, last_index)

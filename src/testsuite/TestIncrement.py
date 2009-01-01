@@ -61,7 +61,7 @@ class TestIncrement(unittest.TestCase):
     increment1 = Increment.Increment(blockDB, db)
     increment1.start(0, 1, "backup1", "test increment 1")
     digest1 = increment1.finalize(Digest.dataDigest("aaaaa"),
-                                  1, Nodes.NULL_STAT)
+                                  1, Nodes.NULL_STAT, 1)
     data1 = increment1.compute_message()
     
     # Reconstruct the increment from the digest
@@ -91,14 +91,14 @@ class TestIncrement(unittest.TestCase):
     msm = MockStorageManager()
     idb = IncrementManager.IncrementManager(self.env, self.txn, "backup1", msm)
 
-    bases1, level1 = idb.start_increment("test increment 1")
+    bases1, level1, num_f1 = idb.start_increment("test increment 1")
     self.assertEqual(bases1, None)
     self.assertEqual(level1, None)
 
     fs1_digest = Digest.dataDigest("data1")
     fs1_level = 0
-    idb.finalize_increment(fs1_digest, fs1_level, Nodes.NULL_STAT)
-    bases2, level2 = idb.start_increment("test increment 2")
+    idb.finalize_increment(fs1_digest, fs1_level, Nodes.NULL_STAT, 1)
+    bases2, level2, num_files2 = idb.start_increment("test increment 2")
     # Unfinalized increment is not returned
     self.assertEqual(bases2, fs1_digest)
     self.assertEqual(level2, fs1_level)
@@ -108,13 +108,13 @@ class TestIncrement(unittest.TestCase):
     # the databases
     #
     idb = IncrementManager.IncrementManager(self.env, self.txn, "backup1", msm)
-    bases3, level3 = idb.start_increment("test increment 3")
+    bases3, level3, num_f3 = idb.start_increment("test increment 3")
     self.assertEqual(bases3, fs1_digest)
     self.assertEqual(level3, fs1_level)
     idb.close()
     
     idb = IncrementManager.IncrementManager(self.env, self.txn, "backup1", msm)
-    bases4, level4 = idb.start_increment("test increment 4")
+    bases4, level4, num_f4 = idb.start_increment("test increment 4")
     self.assertEqual(bases4, fs1_digest)
     self.assertEqual(level4, fs1_level)
     idb.close()
