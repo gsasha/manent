@@ -77,8 +77,10 @@ class Backup:
       def write(self, str):
         os.write(self.fd, str)
     self.report_manager.write_report(FDFileWrapper(log_detail_file))
-    print "Added log entry to %s" % log_file_name
-    print "Wrote detailed report to %s" % log_detail_file_name
+    print "Added log entry to %s" % (
+        log_file_name.encode("utf8"))
+    print "Wrote detailed report to %s" % (
+        log_detail_file_name.encode("utf8"))
 
   #
   # Two initialization methods:
