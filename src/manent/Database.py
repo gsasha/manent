@@ -46,6 +46,8 @@ class PrivateDatabaseManager:
     self.num_gets_reporter = Reporting.DummyReporter()
     self.num_dels_reporter = Reporting.DummyReporter()
     self.num_has_keys_reporter = Reporting.DummyReporter()
+
+    self.report_manager = Reporting.DummyReportManager()
   def close(self):
     #
     # Close up the db environment. The user should have been
