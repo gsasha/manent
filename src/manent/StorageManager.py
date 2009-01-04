@@ -6,6 +6,7 @@
 import base64
 import logging
 import cStringIO as StringIO
+import time
 
 import BlockManager
 import BlockSequencer
@@ -266,9 +267,22 @@ class StorageManager:
           (base64.b64encode(digest), sequence_idx,
           base64.urlsafe_b64encode(sequence_id), container_idx))
 
+      self.report_manager.increment(
+          "storage.container.download.%s.%d.data.digest" % (
+            base64.b64encode(sequence_id),
+            container_idx),
+          1)
+      start_time = time.time()
+
       container = storage.get_container(sequence_id, container_idx)
       self.block_manager.increment_epoch()
       container.load_blocks(self.block_manager.get_listener())
+
+      self.report_manager.append(
+          "storage.container.download.%s.%d.data.time" % (
+            base64.b64encode(sequence_id),
+            container_idx),
+          time.time() - start_time)
     return self.block_manager.load_block(digest)
   def load_blocks_for(self, digest, handler):
     # This method exists only for testing.

@@ -526,11 +526,11 @@ class Directory(Node):
       except OSError:
         logging.info("OSError accessing " + path)
         ctx.oserror_files_reporter.append(path)
-        traceback.print_exc()
+        # traceback.print_exc()
       except IOError, (errno, strerror):
         logging.info("IOError %s accessing '%s' %s" % (errno, strerror, path))
         ctx.ioerror_files_reporter.append(path)
-        traceback.print_exc()
+        # traceback.print_exc()
       finally:
         processed_children += 1
         self.processed_percent = processed_children / num_children
@@ -566,11 +566,11 @@ class Directory(Node):
       except OSError:
         logging.info("OSError accessing " + path)
         ctx.oserror_files_reporter.append(path)
-        traceback.print_exc()
+        # traceback.print_exc()
       except IOError, (errno, strerror):
         logging.info("IOError %s accessing '%s'" % (strerror, path))
         ctx.ioerror_files_reporter.append(path)
-        traceback.print_exc()
+        # traceback.print_exc()
       finally:
         processed_children += 1
         self.processed_percent = processed_children / num_children

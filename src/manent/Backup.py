@@ -78,6 +78,7 @@ class Backup:
         os.write(self.fd, str)
     self.report_manager.write_report(FDFileWrapper(log_detail_file))
     print "Added log entry to %s" % log_file_name
+    print "Wrote detailed report to %s" % log_detail_file_name
 
   #
   # Two initialization methods:
@@ -424,7 +425,7 @@ class ScanContext:
 
     self.total_nodes = 0
     self.changed_nodes = 0
-    self.print_count = 0
+    self.scan_timestamp = 0
 
     self.last_num_files = None
     self.start_time = time.time()
@@ -490,10 +491,12 @@ class ScanContext:
 
     self.root_node = root_node
   def print_report(self):
-    print "Backup done. Visited %d files, scanned %d, found %d changed." % (
-        self.num_visited_files_reporter.value,
-        self.num_scanned_files_reporter.value,
-        self.num_changed_files_reporter.value)
+    print ("Backup done in %2.3f sec."
+        "Visited %d files, scanned %d, found %d changed." % (
+          time.time() - self.start_time,
+          self.num_visited_files_reporter.value,
+          self.num_scanned_files_reporter.value,
+          self.num_changed_files_reporter.value))
     # TODO(gsasha): collect stats on the containers.
     print "Created %d new blocks, for total of %d bytes." % (
         0, 0)
@@ -522,24 +525,40 @@ class ScanContext:
     report_string = "%s sec: %s %80s      \r" % (
         elapsed,
         progress,
-        message[-80:])
+        message[-80:].encode('utf8'))
     sys.stderr.write(report_string)
   def update_scan_status(self):
-    self.print_count += 1
-    if self.print_count % 100 == 0:
+    timestamp = time.time()
+    if timestamp - self.scan_timestamp > 0.1:
+      # Print updates at most 10 times per second
       self.print_update_message(self.current_scanned_file_reporter.value)
+      self.scan_timestamp = timestamp
   def update_start_container(self, name, value):
-    d1, d2, sequence_id, idx, d3, key = name.split(".")
-    self.cur_container_sequence_id = sequence_id
-    self.cur_container_idx = idx
-    self.cur_container_key = key
-    self.cur_container_size = value
+    if name.startswith("storage.container.upload"):
+      storage, container, upload, sequence_id, idx, key = name.split(".")
+      self.cur_container_sequence_id = sequence_id
+      self.cur_container_idx = idx
+      self.cur_container_key = key
+      self.cur_container_operation = "upload"
+      self.cur_container_size = value
+      self.cur_container_start_time = time.time()
+    elif name.startswith("storage.container.download"):
+      storage, container, download, sequence_id, idx, why, cmd = name.split(".")
+      self.cur_container_sequence_id = sequence_id
+      self.cur_container_idx = idx
+      self.cur_container_operation = "download for " + why
+      self.cur_container_size = value
+      self.cur_container_start_time = time.time()
   def update_container_status(self, name, progress):
-    self.print_update_message("container %s.%s: done %d of %s" %
-        (self.cur_container_sequence_id,
+    speed = progress / 1024.0 / (time.time() + 1e-100 -
+        self.cur_container_start_time)
+    self.print_update_message("%s %s.%s: done %d of %s, speed: %2.2f KBps" %
+        (self.cur_container_operation,
+          self.cur_container_sequence_id,
           self.cur_container_idx,
           progress,
-          self.cur_container_size))
+          self.cur_container_size,
+          speed))
 
 #=========================================================
 # RestoreContext

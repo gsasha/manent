@@ -273,10 +273,23 @@ class Storage:
               self.headers[index] = data
         pb_handler = PiggybackHeaderLoadHandler(
             sequence_id, index, new_block_handler)
+
+        self.report_manager.increment(
+            "storage.container.download.%s.%d.piggyback_header.count" % (
+              base64.b64encode(sequence_id),
+              index),
+            1)
+        start_time = time.time()
+
         container.load_blocks(pb_handler)
         logging.info("Container %s:%d piggybacks headers %s" %
             (base64.urlsafe_b64encode(sequence_id), index,
               str(sorted(pb_handler.headers.keys()))))
+        self.report_manager.append(
+            "storage.container.download.%s.%d.piggyback_header.time" % (
+              base64.b64encode(sequence_id),
+              index),
+            time.time() - start_time)
         for index, header in pb_handler.headers.iteritems():
           KEY = sequence_id + str(index)
           self.loaded_headers_db[KEY] = header
@@ -313,7 +326,20 @@ class Storage:
                 self.sequence_id, self.container_idx, digest, code):
               self.block_handler.loaded(self.sequence_id, digest, code, data)
         handler = BlockLoadHandler(sequence_id, index, new_block_handler)
+        self.report_manager.increment(
+            "storage.container.download.%s.%d.metadata.count" % (
+              base64.b64encode(sequence_id),
+              index),
+            1)
+        start_time = time.time()
+
         container.load_blocks(handler)
+
+        self.report_manager.append(
+            "storage.container.download.%s.%d.metadata.time" % (
+              base64.b64encode(sequence_id),
+              index),
+            time.time() - start_time)
       self.txn_manager.checkpoint()
     # 3. Update the next_container information for all the sequences.
     logging.debug("Loading sequences for storage %d:"
@@ -502,7 +528,7 @@ class FTPStorage(Storage):
       total_size += len(block)
 
     self.report_manager.set(
-        "storage.container.%s.%d.uploading.size" % (
+        "storage.container.upload.%s.%d.size" % (
           base64.b64encode(sequence_id), index),
         "%d" % total_size)
 
@@ -516,7 +542,7 @@ class FTPStorage(Storage):
     self.get_fs_handler().chmod(file_name, 0440)
 
     self.report_manager.set(
-        "storage.container.%s.%d.uploading.time" % (
+        "storage.container.upload.%s.%d.time" % (
           base64.b64encode(sequence_id), index),
         "%f" % (time.time() - start_time))
 

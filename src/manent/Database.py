@@ -56,13 +56,19 @@ class PrivateDatabaseManager:
     self.dbenv = None
   def get_database(self, filename, tablename, txn_handler):
     name = filename + "." + str(tablename)
-    return DatabaseWrapper(self, name, name, txn_handler)
+    d = DatabaseWrapper(self, name, name, txn_handler)
+    d.set_report_manager(self.report_manager)
+    return d
   def get_database_btree(self, filename, tablename, txn_handler):
     name = filename + "." + str(tablename)
-    return DatabaseWrapper(self, name, name, txn_handler, db_type=db.DB_BTREE)
+    d = DatabaseWrapper(self, name, name, txn_handler, db_type=db.DB_BTREE)
+    d.set_report_manager(self.report_manager)
+    return d
   def get_database_hash(self, filename, tablename, txn_handler):
     name = filename + "." + str(tablename)
-    return DatabaseWrapper(self, name, name, txn_handler, db_type=db.DB_HASH)
+    d = DatabaseWrapper(self, name, name, txn_handler, db_type=db.DB_HASH)
+    d.set_report_manager(self.report_manager)
+    return d
   def get_scratch_database(self, filename, tablename):
     # Under Private database, the scratch database is no different from any
     # other, except that it has no transactions.
@@ -81,6 +87,8 @@ class DatabaseManager:
     
     self.open_dbs = {}
     self.scratch_dbs = {}
+
+    self.report_manager = Reporting.DummyReportManager()
 
     #
     # Configure the database environment
@@ -110,6 +118,7 @@ class DatabaseManager:
     self.num_dels_reporter = Reporting.DummyReporter()
     self.num_has_keys_reporter = Reporting.DummyReporter()
   def set_report_manager(self, report_manager):
+    self.report_manager = report_manager
     self.num_puts_reporter = report_manager.find_reporter(
         "database.total.put", 0)
     self.num_gets_reporter = report_manager.find_reporter(
@@ -142,15 +151,21 @@ class DatabaseManager:
 
   def get_database(self, filename, tablename, txn_handler):
     full_fname = self.__db_fname(filename)
-    return DatabaseWrapper(self, full_fname, tablename, txn_handler)
+    d = DatabaseWrapper(self, full_fname, tablename, txn_handler)
+    d.set_report_manager(self.report_manager)
+    return d
   def get_database_btree(self, filename, tablename, txn_handler):
     full_fname = self.__db_fname(filename)
-    return DatabaseWrapper(self, full_fname, tablename, txn_handler,
+    d = DatabaseWrapper(self, full_fname, tablename, txn_handler,
       db_type=db.DB_BTREE)
+    d.set_report_manager(self.report_manager)
+    return d
   def get_database_hash(self, filename, tablename, txn_handler):
     full_fname = self.__db_fname(filename)
-    return DatabaseWrapper(self, full_fname, tablename, txn_handler,
+    d = DatabaseWrapper(self, full_fname, tablename, txn_handler,
       db_type=db.DB_HASH)
+    d.set_report_manager(self.report_manager)
+    return d
   def get_scratch_database(self, filename, tablename):
     full_fname = self.__scratch_db_fname(filename)
     assert tablename is None
@@ -159,8 +174,10 @@ class DatabaseManager:
     except:
       # If the file doesn't exist, the better
       pass
-    return DatabaseWrapper(self, full_fname, tablename, txn_handler=None,
+    d = DatabaseWrapper(self, full_fname, tablename, txn_handler=None,
       is_scratch = True)
+    d.set_report_manager(self.report_manager)
+    return d
   def get_queue_database(self, filename, tablename):
     raise Exception("Not implemented")
   def remove_database(self, filename, tablename=None):
@@ -250,6 +267,11 @@ class DatabaseWrapper:
     self.d = db.DB(self.db_manager.dbenv)
     self.cursor = None
     
+    self.num_puts_reporter = Reporting.DummyReporter()
+    self.num_gets_reporter = Reporting.DummyReporter()
+    self.num_dels_reporter = Reporting.DummyReporter()
+    self.num_has_keys_reporter = Reporting.DummyReporter()
+
     logging.debug("Opening database filename=%s, dbname=%s" %
         (self.__get_filename(), self.__get_dbname()))
     start = time.time()
@@ -258,6 +280,21 @@ class DatabaseWrapper:
         db.DB_CREATE, txn=self.__get_txn())
     end = time.time()
     logging.debug("Opening took %f seconds" % (end - start))
+
+  def set_report_manager(self, report_manager):
+    self.report_manager = report_manager
+    self.num_puts_reporter = report_manager.find_reporter(
+        "database.%s.%s.put" % (self.filename, self.dbname),
+        0)
+    self.num_gets_reporter = report_manager.find_reporter(
+        "database.%s.%s.get" % (self.filename, self.dbname),
+        0)
+    self.num_dels_reporter = report_manager.find_reporter(
+        "database.%s.%s.del" % (self.filename, self.dbname),
+        0)
+    self.num_has_keys_reporter = report_manager.find_reporter(
+        "database.%s.%s.has_key" % (self.filename, self.dbname),
+        0)
 
   def __get_filename(self):
     return self.filename
@@ -275,11 +312,13 @@ class DatabaseWrapper:
     #   base64.b64encode(key[0:10]))
     txn = self.__get_txn()
     self.db_manager.num_gets_reporter.increment(1)
+    self.num_gets_reporter.increment(1)
     return self.d.get(str(key), txn=txn)
   def put(self, key, value):
     #print "db[%s:%s].put(%s,%s)" % (self.filename,self.dbname,
     #  base64.b64encode(key[0:10]), base64.b64encode(value[0:10]))
     self.db_manager.num_puts_reporter.increment(1)
+    self.num_puts_reporter.increment(1)
     self.d.put(str(key), str(value), txn=self.__get_txn())
   def __getitem__(self,key):
     #print "db[%s:%s].get(%s)" % (self.filename,self.dbname,
@@ -296,6 +335,7 @@ class DatabaseWrapper:
     #print "db[%s:%s].del(%s)" % (self.filename,self.dbname,
     # base64.b64encode(key[0:10]))
     self.db_manager.num_dels_reporter.increment(1)
+    self.num_dels_reporter.increment(1)
     self.d.delete(key, txn=self.__get_txn())
   def __len__(self):
     stat = self.d.stat()
@@ -304,6 +344,7 @@ class DatabaseWrapper:
     #print "db[%s:%s].has_key(%s)" % (self.filename,self.dbname,
     # base64.b64encode(key[0:10]))
     self.db_manager.num_has_keys_reporter.increment(1)
+    self.num_has_keys_reporter.increment(1)
     return self.d.get(str(key), txn=self.__get_txn()) != None
   #
   # Database cleanup options
