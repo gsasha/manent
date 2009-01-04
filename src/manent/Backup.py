@@ -426,6 +426,7 @@ class ScanContext:
     self.total_nodes = 0
     self.changed_nodes = 0
     self.scan_timestamp = 0
+    self.report_manager = report_manager
 
     self.last_num_files = None
     self.start_time = time.time()
@@ -434,6 +435,11 @@ class ScanContext:
     self.cur_container_idx = ""
     self.cur_container_key = ""
     self.cur_container_size = ""
+
+    self.num_new_containers = 0
+    self.size_new_containers = 0
+    self.num_downloaded_containers = 0
+    self.size_downloaded_containers = 0
 
     self.num_visited_files_reporter = report_manager.find_reporter(
         "scan.counts.visited_files", 0)
@@ -491,6 +497,9 @@ class ScanContext:
 
     self.root_node = root_node
   def print_report(self):
+    self.report_manager.set(
+        "scanning.total_time",
+        time.time() - self.start_time)
     print ("Backup done in %2.3f sec."
         "Visited %d files, scanned %d, found %d changed." % (
           time.time() - self.start_time,
@@ -501,7 +510,8 @@ class ScanContext:
     print "Created %d new blocks, for total of %d bytes." % (
         0, 0)
     print "Created %d new containers, for total of %d bytes." % (
-        0, 0)
+        self.num_new_containers,
+        self.size_new_containers)
     if (self.unrecognized_files_reporter.value != [] or
         self.oserror_files_reporter.value != [] or
         self.ioerror_files_reporter.value != []):
@@ -542,6 +552,9 @@ class ScanContext:
       self.cur_container_operation = "upload"
       self.cur_container_size = value
       self.cur_container_start_time = time.time()
+      if name.endswith(".size"):
+        self.num_new_containers += 1
+        self.size_new_containers += int(self.cur_container_size)
     elif name.startswith("storage.container.download"):
       storage, container, download, sequence_id, idx, why, cmd = name.split(".")
       self.cur_container_sequence_id = sequence_id
