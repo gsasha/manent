@@ -100,7 +100,14 @@ class DatabaseManager:
     self.dbenv.set_lk_max_locks(20000)
     self.dbenv.set_lk_max_objects(20000)
     self.dbenv.set_lk_detect(db.DB_LOCK_DEFAULT)
-    self.dbenv.set_flags(db.DB_LOG_AUTOREMOVE, True)
+    if hasattr(db, "DB_LOG_AUTOREMOVE"):
+      # This is the way it is defined in python up to 2.5
+      self.dbenv.set_flags(db.DB_LOG_AUTOREMOVE, True)
+    elif hasattr(db, "DB_LOG_AUTO_REMOVE"):
+      # This is the way it is defined in python 2.6
+      self.dbenv.set_flags(db.DB_LOG_AUTO_REMOVE, True)
+    else:
+      raise Exception("Can't set the database to auto remove logs")
     self.dbenv.set_flags(db.DB_TXN_WRITE_NOSYNC, True)
     self.dbenv.set_flags(db.DB_TXN_NOSYNC, True)
     self.dbenv.set_lg_bsize(2 * 1024 * 1024)
