@@ -3,7 +3,6 @@
 #    License: see LICENSE.txt
 #
 
-import md5
 import struct
 import hashlib
 
@@ -12,7 +11,6 @@ import hashlib
 #
 def dataDigest(data):
 	h = hashlib.sha256(data)
-	#h = md5.new()
 	h.update(data)
 	return h.digest()
 
