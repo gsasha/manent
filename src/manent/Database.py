@@ -156,7 +156,8 @@ class DatabaseManager:
     self.dbenv.close()
     self.dbenv = None
     dbenv = db.DBEnv()
-    dbenv.remove(self.__dbenv_dir())
+    dbenv_dir = self.__dbenv_dir()
+    dbenv.remove(dbenv_dir)
 
   def get_database(self, filename, tablename, txn_handler):
     full_fname = self.__db_fname(filename)

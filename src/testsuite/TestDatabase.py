@@ -60,7 +60,7 @@ class TestDatabase(unittest.TestCase):
     finally:
       txn.commit()
       db.close()
-      dbc.close()
+      # dbc.close()
   def testAbort(self):
     try:
       dbc = DB.DatabaseManager(self.path_config, "")
@@ -78,7 +78,7 @@ class TestDatabase(unittest.TestCase):
     finally:
       txn.abort()
       db.close()
-      dbc.close()
+      # dbc.close()
   def testIterate(self):
     try:
       dbc = DB.DatabaseManager(self.path_config, "")
@@ -95,7 +95,7 @@ class TestDatabase(unittest.TestCase):
       txn.abort()
     finally:
       db.close()
-      dbc.close()
+      # dbc.close()
   def testIteratePrefix(self):
     try:
       dbc = DB.DatabaseManager(self.path_config, "")
@@ -112,4 +112,4 @@ class TestDatabase(unittest.TestCase):
       txn.abort()
     finally:
       db.close()
-      dbc.close()
+      # dbc.close()
