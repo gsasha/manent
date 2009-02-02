@@ -94,8 +94,9 @@ class Backup:
         for k, v in self.config_db.iteritems():
           print k, '=', v
       elif args[0] == 'set':
-        if params.has_key('data_path'):
-          self.config_db['data_path'] = params['data_path']
+        for key in ['data_path']:
+          if params.has_key(key):
+            self.config_db[key] = params[key]
       elif args[0] == 'add_exclusion':
         exclusion_type = params['type']
         exclusion_action = params['action']
@@ -519,11 +520,11 @@ class ScanContext:
         self.ioerror_files_reporter.value != []):
       print "Problems detected in the following files:"
       for f in self.unrecognized_files_reporter.value:
-        print "  %s: file type not recognized" % f
+        print "  %s: file type not recognized" % f.encode('utf8')
       for f in self.oserror_files_reporter.value:
-        print "  %s: OSError accessing file" % f
+        print "  %s: OSError accessing file" % f.encode('utf8')
       for f in self.ioerror_files_reporter.value:
-        print "  %s: IOError accessing file" % f
+        print "  %s: IOError accessing file" % f.encode('utf8')
 
   def set_last_num_files(self, last_num_files):
     self.last_num_files = last_num_files
