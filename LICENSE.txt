@@ -1,0 +1,5 @@
+This software is released under dual license:
+
+GPL license, found in LICENSE-gpl.txt
+Commercial license, found in LICENSE-commercial.txt
+
