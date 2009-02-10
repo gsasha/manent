@@ -31,10 +31,8 @@ def read_version(file):
 def replace_version(file, version):
   lines = []
   for line in open(file, "r"):
-    if line.startswith("__version__"):
-      lines.append("__version__ = \"%s\"\n" % version)
-    else:
-      lines.append(line)
+    line = line.replace("DEVELOPMENT", version)
+    lines.append(line)
   fs = open(file, "w")
   for line in lines:
     fs.write(line)
@@ -49,15 +47,35 @@ system_checked(
     "git archive --format=tar --prefix=manent-%(VERSION)s/ "
     "V%(VERSION)s | tar xv -C %(SCRATCH)s" % PARAMS)
 
+# Prepare the distribution
+replace_version("%(SCRATCH)s/manent-%(VERSION)s/src/manent/__init__.py" %
+    PARAMS, VERSION)
+os.mkdir("%(SCRATCH)s/manent-%(VERSION)s/src/scripts" % PARAMS)
+shutil.copyfile(
+    "%(SCRATCH)s/manent-%(VERSION)s/src/Manent.py" % PARAMS,
+    "%(SCRATCH)s/manent-%(VERSION)s/src/scripts/manent" % PARAMS)
+
+# Create the distribution files
 PARAMS["BZIP_OUT"] = os.path.abspath(
     "releases/manent-%(VERSION)s.tar.bz2" % PARAMS)
 PARAMS["ZIP_OUT"] = os.path.abspath(
     "releases/manent-%(VERSION)s.zip" % PARAMS)
 
-replace_version("%(SCRATCH)s/manent-%(VERSION)s/src/manent/__init__.py" %
-    PARAMS, VERSION)
 system_checked(
     "tar c -C %(SCRATCH)s manent-%(VERSION)s | bzip2 > %(BZIP_OUT)s" % PARAMS)
 system_checked(
     "zip -r %(ZIP_OUT)s manent-%(VERSION)s" % PARAMS,
     cwd = SCRATCH)
+
+# Upload the distribution files
+system_checked(
+    "python scripts/googlecode_upload.py --project=manent "
+    "--user=gsasha@gmail.com --labels=Featured "
+    "%(BZIP_OUT)s --summary='Release %(VERSION)s'"
+    % PARAMS)
+system_checked(
+    "python scripts/googlecode_upload.py --project=manent "
+    "--user=gsasha@gmail.com --labels=Featured "
+    "%(ZIP_OUT)s --summary='Release %(VERSION)s'"
+    % PARAMS)
+
