@@ -32,22 +32,40 @@ class CheckpointThread(threading.Thread):
       self.dbenv.txn_checkpoint(100, 5, 0)
       #print "DONE RUNNING DATABASE CHECKPOINT"
 
+
+# A base for database managers, implementing the following common
+# functionality:
+# - Reporting
+class DatabaseManagerBase:
+  def __init__(self):
+    self.num_puts_reporter = Reporting.DummyReporter()
+    self.num_gets_reporter = Reporting.DummyReporter()
+    self.num_dels_reporter = Reporting.DummyReporter()
+    self.num_has_keys_reporter = Reporting.DummyReporter()
+    self.report_manager = Reporting.DummyReportManager()
+  def set_report_manager(self, report_manager):
+    self.report_manager = report_manager
+    self.num_puts_reporter = report_manager.find_reporter(
+        "database.total.put", 0)
+    self.num_gets_reporter = report_manager.find_reporter(
+        "database.total.get", 0)
+    self.num_dels_reporter = report_manager.find_reporter(
+        "database.total.del", 0)
+    self.num_has_keys_reporter = report_manager.find_reporter(
+        "database.total.has_key", 0)
+
+
 # A database manager that operates in memory only.
 # Used for unit testing
-class PrivateDatabaseManager:
+class PrivateDatabaseManager(DatabaseManagerBase):
   def __init__(self):
+    DatabaseManagerBase.__init__(self)
     self.dbenv = db.DBEnv()
     self.dbenv.set_cachesize(0, 100*1024*1024, 1)
     temp_area = Config.paths.temp_area().encode('utf8')
     self.dbenv.open(temp_area,
         db.DB_PRIVATE|db.DB_CREATE|db.DB_INIT_TXN|
         db.DB_INIT_MPOOL|db.DB_INIT_LOCK|db.DB_THREAD)
-    self.num_puts_reporter = Reporting.DummyReporter()
-    self.num_gets_reporter = Reporting.DummyReporter()
-    self.num_dels_reporter = Reporting.DummyReporter()
-    self.num_has_keys_reporter = Reporting.DummyReporter()
-
-    self.report_manager = Reporting.DummyReportManager()
   def close(self):
     #
     # Close up the db environment. The user should have been
@@ -82,15 +100,14 @@ class PrivateDatabaseManager:
     pass
 
 # The normal database manager class
-class DatabaseManager:
+class DatabaseManager(DatabaseManagerBase):
   def __init__(self, path_config, db_file_prefix):
+    DatabaseManagerBase.__init__(self)
     self.path_config = path_config
     self.db_file_prefix = db_file_prefix
     
     self.open_dbs = {}
     self.scratch_dbs = {}
-
-    self.report_manager = Reporting.DummyReportManager()
 
     #
     # Configure the database environment
@@ -122,20 +139,6 @@ class DatabaseManager:
     #self.checkpoint_thread = CheckpointThread(self.dbenv, self.done_event,
     #                                          self.checkpoint_finished)
     #self.checkpoint_thread.start()
-    self.num_puts_reporter = Reporting.DummyReporter()
-    self.num_gets_reporter = Reporting.DummyReporter()
-    self.num_dels_reporter = Reporting.DummyReporter()
-    self.num_has_keys_reporter = Reporting.DummyReporter()
-  def set_report_manager(self, report_manager):
-    self.report_manager = report_manager
-    self.num_puts_reporter = report_manager.find_reporter(
-        "database.total.put", 0)
-    self.num_gets_reporter = report_manager.find_reporter(
-        "database.total.get", 0)
-    self.num_dels_reporter = report_manager.find_reporter(
-        "database.total.del", 0)
-    self.num_has_keys_reporter = report_manager.find_reporter(
-        "database.total.has_key", 0)
   def txn_begin(self):
     self.dbenv.txn_checkpoint()
     return self.dbenv.txn_begin(flags=db.DB_DIRTY_READ)
@@ -207,15 +210,18 @@ class DatabaseManager:
     d.remove(fname, tablename)
   
   def __dbenv_dir(self):
-    home_area = self.path_config.backup_home_area(self.db_file_prefix).encode('utf8')
+    home_area = self.path_config.backup_home_area(self.db_file_prefix).encode(
+        'utf8')
     return home_area
   
   def __db_fname(self, filename):
-    home_area = self.path_config.backup_home_area(self.db_file_prefix).encode('utf8')
+    home_area = self.path_config.backup_home_area(self.db_file_prefix).encode(
+        'utf8')
     result = os.path.join(home_area, filename)
     return result
   def __scratch_db_fname(self, filename):
-    staging_area = self.path_config.backup_staging_area(self.db_file_prefix).encode('utf8')
+    staging_area = self.path_config.backup_staging_area(
+        self.db_file_prefix).encode('utf8')
     result = os.path.join(staging_area, filename)
     return result
 
@@ -235,6 +241,8 @@ class TransactionHandler:
     self.commit_reporter = Reporting.DummyReporter()
     self.abort_reporter = Reporting.DummyReporter()
     self.checkpoint_reporter = Reporting.DummyReporter()
+
+    self.precommit_hooks = []
   def set_report_manager(self, report_manager):
     self.commit_reporter = report_manager.find_reporter(
         "database.transactions.commits", 0)
@@ -242,12 +250,20 @@ class TransactionHandler:
         "database.transactions.aborts", 0)
     self.checkpoint_reporter = report_manager.find_reporter(
         "database.transactions.checkpoints", 0)
+
+  def add_precommit_hook(self, hook):
+    self.precommit_hooks.append(hook)
+  def remove_precommit_hook(self, hook):
+    self.precommit_hooks = [h for h in self.precommit_hooks
+        if h is not hook]
   def get_txn(self):
     if self.txn is None:
       self.txn = self.db_manager.txn_begin()
     return self.txn
   def commit(self):
     #print "Committing transaction", self.txn
+    for hook in self.precommit_hooks:
+      hook()
     if self.txn is not None:
       self.commit_reporter.increment(1)
       self.txn.commit()
@@ -382,32 +398,33 @@ class DatabaseWrapper:
   # Iteration support
   #
   class Iter:
-    def __init__(self, cursor):
+    def __init__(self, cursor, reporter_closure):
       self.cursor = cursor
+      self.reporter_closure = reporter_closure
     def __iter__(self):
       return self
     def next(self):
       if self.rec is None:
-        self.cursor.close()
-        self.cursor = None
-        raise StopIteration
+        self.stop_iteration()
       try:
+        self.reporter_closure()
         rec = self.rec
         self.rec = self.cursor.next()
         return rec
       except:
-        print "Ouch, there is some exception:"
         traceback.print_exc()
-        self.cursor.close()
-        self.cursor = None
-        raise StopIteration
+        self.stop_iteration()
+    def stop_iteration(self):
+      self.cursor.close()
+      self.cursor = None
+      raise StopIteration
   class AllIter(Iter):
-    def __init__(self, cursor):
-      DatabaseWrapper.Iter.__init__(self, cursor)
+    def __init__(self, cursor, reporter_closure):
+      DatabaseWrapper.Iter.__init__(self, cursor, reporter_closure)
       self.rec = cursor.first()
   class PrefixIter(Iter):
-    def __init__(self, cursor, prefix):
-      DatabaseWrapper.Iter.__init__(self, cursor)
+    def __init__(self, cursor, prefix, reporter_closure):
+      DatabaseWrapper.Iter.__init__(self, cursor, reporter_closure)
       self.rec = cursor.set_range(prefix)
       self.prefix = prefix
     def next(self):
@@ -426,17 +443,23 @@ class DatabaseWrapper:
 
   #def __iter__(self):
     #return self.get_all()
+  def reporter_closure(self):
+    self.num_gets_reporter.increment(1)
+    self.db_manager.num_gets_reporter.increment(1)
   def iteritems(self):
-    return DatabaseWrapper.AllIter(self.d.cursor(self.__get_txn()))
+    return DatabaseWrapper.AllIter(self.d.cursor(self.__get_txn()),
+        self.reporter_closure)
   def iterkeys(self):
-    return KeysIter(self.iteritems())
+    return DatabaseWrapper.KeysIter(self.iteritems(),
+        self.reporter_closure)
   def itervalues(self):
     pass
   #
   # Iteration over a subset of keys
   #
   def iteritems_prefix(self, prefix):
-    return DatabaseWrapper.PrefixIter(self.d.cursor(self.__get_txn()), prefix)
+    return DatabaseWrapper.PrefixIter(self.d.cursor(self.__get_txn()),
+        prefix, self.reporter_closure)
   def iterkeys_prefix(self, prefix):
     pass
   def itervalues_prefix(self, prefix):

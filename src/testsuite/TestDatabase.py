@@ -61,6 +61,18 @@ class TestDatabase(unittest.TestCase):
       txn.commit()
       db.close()
       # dbc.close()
+  def test_precommit_hook(self):
+    dbc = DB.DatabaseManager(self.path_config, "")
+    txn = DB.TransactionHandler(dbc)
+    class HookChecker:
+      def __init__(self):
+        self.called = False
+      def hook(self):
+        self.called = True
+    hook_checker = HookChecker()
+    txn.add_precommit_hook(hook_checker.hook)
+    txn.commit()
+    self.assert_(hook_checker.called)
   def testAbort(self):
     try:
       dbc = DB.DatabaseManager(self.path_config, "")
