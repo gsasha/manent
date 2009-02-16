@@ -13,6 +13,7 @@ import tempfile
 import time
 import traceback
 
+import CompletedNodesDB
 import Config
 import Container
 import Database
@@ -343,8 +344,9 @@ class Backup:
     logging.debug("Backup opening all")
     self.config_db = self.db_manager.get_database_btree(
         "config.db", "settings", self.txn_handler)
-    self.completed_nodes_db = self.db_manager.get_database(
-        "tmp-completed-nodes.db", None, self.txn_handler)
+    self.completed_nodes_db = CompletedNodesDB.CompletedNodesDB(
+        self.db_manager, self.txn_handler)
+    self.completed_nodes_db.load()
     #self.storage_manager = StorageManager.StorageManager(self.db_manager,
     #  self.txn_handler)
     #print "DATA PATH", self.config_db['data_path']

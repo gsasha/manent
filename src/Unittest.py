@@ -46,19 +46,23 @@ suite_BlockManager = test_loader.loadTestsFromTestCase(TestBlockManager)
 from testsuite.TestBlockSequencer import TestBlockSequencer
 suite_BlockSequencer = test_loader.loadTestsFromTestCase(TestBlockSequencer)
 
+from testsuite.TestCompletedNodesDB import TestCompletedNodesDB
+suite_CNDB = test_loader.loadTestsFromTestCase(TestCompletedNodesDB)
+
 suite = unittest.TestSuite([
-	suite_Packer,
-	suite_Container,
-	suite_Nodes,
-	suite_Increment,
-	suite_DB,
-	suite_Format,
-	suite_Exclusion,
-	suite_Storage,
-	suite_StorageManager,
-	suite_BlockManager,
+  suite_BlockManager,
   suite_BlockSequencer,
-	])
+  suite_CNDB,
+  suite_Container,
+  suite_DB,
+  suite_Exclusion,
+  suite_Format,
+  suite_Increment,
+  suite_Nodes,
+  suite_Packer,
+  suite_Storage,
+  suite_StorageManager,
+  ])
 
 if __name__ == "__main__":
   unittest.TextTestRunner(verbosity=2).run(suite)
