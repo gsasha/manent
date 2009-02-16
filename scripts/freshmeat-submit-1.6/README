@@ -1,0 +1,7 @@
+			freshmeat-submit
+
+freshmeat-submit is a script that supports remote submitssion of release 
+updates to Freshmeat via its XML-RPC interface.  It is intended for use
+in project release scripts.
+							Eric S, Raymond
+							December 2003

@@ -79,3 +79,10 @@ system_checked(
     "%(ZIP_OUT)s --summary='Release %(VERSION)s'"
     % PARAMS)
 
+NOTIFICATION_ADDRESSES = [
+    "update-windows@softpedia.com",
+    "update-mac@softpedia.com",
+    "update-linux@softpedia.com",
+    "manent@googlegroups.com"]
+
+print "Send notification mail to", ",".join(NOTIFICATION_ADDRESSES)
