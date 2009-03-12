@@ -20,6 +20,7 @@ sys.path.append(os.path.join(sys.path[0], ".."))
 
 # manent imports
 import manent.utils.IntegerEncodings as IE
+import manent.Config as Config
 import manent.ExclusionProcessor as EP
 import manent.Nodes as Nodes
 
@@ -27,17 +28,11 @@ import manent.Nodes as Nodes
 import UtilFilesystemCreator as FSC
 import Mock
 
-#TODO:
-# Test directories
-# Test symlinks
-# Test that prev information is read correctly
-
 class TestNodes(unittest.TestCase):
   def setUp(self):
     self.fsc = FSC.FilesystemCreator()
   def tearDown(self):
-    #self.fsc.cleanup()
-    pass
+    Config.paths.clean_temp_area()
 
   def test_path(self):
     # Test that path is computed correctly
@@ -120,8 +115,7 @@ class TestNodes(unittest.TestCase):
     #
     # Scan the files
     #
-    file_data = {u"file1" : "kuku",
-        u"file2" : ""}
+    file_data = {u"file1" : "kuku", u"file2" : ""}
     self.fsc.reset()
     self.fsc.add_files(file_data)
     self.fsc.chmod(u"file1", stat.S_IREAD|stat.S_IRWXO)

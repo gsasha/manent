@@ -77,6 +77,7 @@ class Storage:
     self.db_manager = params.db_manager
     self.txn_manager = params.txn_manager
     self.config_db = params.config_db
+    params.config_db = None
     self.loaded_headers_db = params.db_manager.get_scratch_database(
       "scratch_loaded_headers_%d.db" % params.index, None)
     self.index = params.index
@@ -94,7 +95,9 @@ class Storage:
 
   def close(self):
     self.loaded_headers_db.close()
+    self.loaded_headers_db = None
     self.config_db.close()
+    self.config_db = None
 
   def _key(self, suffix):
     return "%s" % (suffix)

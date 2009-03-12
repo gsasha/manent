@@ -34,7 +34,7 @@ class TestIncrement(unittest.TestCase):
     Config.paths.clean_temp_area()
 
   def test_load(self):
-    """Test that increment saves to db and loads"""
+    # Test that increment saves to db and loads
     repository = Mock.MockRepository()
     blockDB = Mock.MockBlockDatabase(repository)
     db = self.env.get_database_btree("a", None, None)
@@ -51,7 +51,7 @@ class TestIncrement(unittest.TestCase):
           increment2.get_attribute(attr))
 
   def test_reconstruct(self):
-    """Test that increment can reconstruct itself"""
+    # Test that increment can reconstruct itself
     # TODO(gsasha): make reconstruct accept seq id and test it.
     repository = Mock.MockRepository()
     blockDB = Mock.MockBlockDatabase(repository)
@@ -74,7 +74,7 @@ class TestIncrement(unittest.TestCase):
           increment2.get_attribute(attr))
 
   def test_start(self):
-    """Test that increment database starts increments correctly"""
+    # Test that increment database starts increments correctly
     #
     # Create one increment and see that it produces correct basis
     #

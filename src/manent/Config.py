@@ -167,9 +167,12 @@ class Paths:
     for path, dirs, files in os.walk(self.temp_area(), topdown=False):
       for fname in dirs + files:
         fullpath = os.path.join(path, fname)
-	os.chmod(fullpath, stat.S_IWRITE | stat.S_IRWXU)
+        os.chmod(fullpath, stat.S_IWRITE | stat.S_IRWXU)
     # 2. And now delete it!
-    shutil.rmtree(self.temp_area())
+    try:
+      shutil.rmtree(self.temp_area())
+    except WindowsError:
+      print "Problem deleting", self.temp_area().encode('utf8')
 
 paths = Paths()
 if os.name =='nt':

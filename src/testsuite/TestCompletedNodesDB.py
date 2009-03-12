@@ -26,6 +26,8 @@ class TestCompletedNodesDB(unittest.TestCase):
     self.report_manager = Reporting.ReportManager()
     self.env.set_report_manager(self.report_manager)
   def tearDown(self):
+    self.txn.abort()
+    self.env.close()
     self.env = None
     Config.paths.clean_temp_area()
   def test_add_block(self):

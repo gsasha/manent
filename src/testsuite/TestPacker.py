@@ -38,7 +38,7 @@ class MockBackup:
 
 class TestPacker(unittest.TestCase):
 	def test_empty_file(self):
-		"""Test the packing and unpacking a "nothing sent" file"""
+		# Test the packing and unpacking a "nothing sent" file
 		backup = MockBackup()
 		ostream = PackerStream.PackerOStream(backup, Container.CODE_DATA)
 		digest = ostream.get_digest()
@@ -48,7 +48,7 @@ class TestPacker(unittest.TestCase):
 		data = istream.read()
 		self.assertEqual(data, "")
 	def test_short_file(self):
-		"""Test the packing and unpacking a small file"""
+		# Test the packing and unpacking a small file
 		backup = MockBackup()
 		for size in range(1024):
 			ostream = PackerStream.PackerOStream(backup, Container.CODE_DATA)
@@ -60,7 +60,7 @@ class TestPacker(unittest.TestCase):
 			self.assertEqual(istream.read(), 'a' * size)
 
 	def test_large_file(self):
-		"""Test the packing and unpacking of a large file"""
+		# Test the packing and unpacking of a large file
 		backup = MockBackup()
 		size = 1
 		for bsize in range(10):
@@ -77,7 +77,7 @@ class TestPacker(unittest.TestCase):
 
 			size *= 2
 	def test_different_code(self):
-		"""Test that codes different from CODE_DATA work too"""
+	  # Test that codes different from CODE_DATA work too
 		backup = MockBackup()
 		size = 1
 		for bsize in range(10):

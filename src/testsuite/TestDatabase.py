@@ -49,7 +49,7 @@ class TestDatabase(unittest.TestCase):
       os.makedirs(self.path_config.backup_home_area(""))
   def tearDown(self):
     shutil.rmtree(self.path_config.backup_home_area(""))
-  def testCommit(self):
+  def test_commit(self):
     try:
       dbc = DB.DatabaseManager(self.path_config, "")
       txn = DB.TransactionHandler(dbc)
@@ -73,7 +73,7 @@ class TestDatabase(unittest.TestCase):
     txn.add_precommit_hook(hook_checker.hook)
     txn.commit()
     self.assert_(hook_checker.called)
-  def testAbort(self):
+  def test_abort(self):
     try:
       dbc = DB.DatabaseManager(self.path_config, "")
       txn = DB.TransactionHandler(dbc)
@@ -91,7 +91,7 @@ class TestDatabase(unittest.TestCase):
       txn.abort()
       db.close()
       # dbc.close()
-  def testIterate(self):
+  def test_iterate(self):
     try:
       dbc = DB.DatabaseManager(self.path_config, "")
       txn = DB.TransactionHandler(dbc)
@@ -108,7 +108,7 @@ class TestDatabase(unittest.TestCase):
     finally:
       db.close()
       # dbc.close()
-  def testIteratePrefix(self):
+  def test_iterate_prefix(self):
     try:
       dbc = DB.DatabaseManager(self.path_config, "")
       txn = DB.TransactionHandler(dbc)

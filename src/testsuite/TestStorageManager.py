@@ -115,21 +115,17 @@ class TestStorageManager(unittest.TestCase):
         self.blocks[(digest, code)] = data
     handler = Handler()
     
-    env2 = Database.PrivateDatabaseManager()
-    txn2 = Database.TransactionHandler(env2)
-    storage_manager2 = StorageManager.StorageManager(env2, txn2)
-    storage_manager2.load_storages()
-    storage_index2 = storage_manager2.add_storage(
+    self.env = Database.PrivateDatabaseManager()
+    self.txn = Database.TransactionHandler(self.env)
+    storage_manager = StorageManager.StorageManager(self.env, self.txn)
+    storage_manager.load_storages()
+    storage_index = storage_manager.add_storage(
         {'type': '__mock__', 'encryption_key': 'kuku', 'key': ''})
-    storage_manager2.make_active_storage(storage_index2)
-    storage_manager2.load_blocks_for(block_digest, handler)
+    storage_manager.make_active_storage(storage_index)
+    storage_manager.load_blocks_for(block_digest, handler)
     self.assertEqual({(block_digest, Container.CODE_DATA): block},
       handler.blocks)
-    storage_manager2.close()
-    txn2 = None
-    env2.close()
-    env2 = None
-    Config.paths.clean_temp_area()
+    storage_manager.close()
   def test_base_storage(self):
     # Test that base storage works
     # First storage manager. This will be the base.
@@ -160,21 +156,17 @@ class TestStorageManager(unittest.TestCase):
         self.blocks[(digest, code)] = data
     handler = Handler()
     
-    env2 = Database.PrivateDatabaseManager()
-    txn2 = Database.TransactionHandler(env2)
-    storage_manager2 = StorageManager.StorageManager(env2, txn2)
-    storage_manager2.load_storages()
-    storage_index2 = storage_manager2.add_storage(
+    self.env = Database.PrivateDatabaseManager()
+    self.txn = Database.TransactionHandler(self.env)
+    storage_manager = StorageManager.StorageManager(self.env, self.txn)
+    storage_manager.load_storages()
+    storage_index = storage_manager.add_storage(
         {'type': '__mock__', 'encryption_key': 'kuku', 'key': 'a'})
-    storage_manager2.make_active_storage(storage_index2)
-    storage_manager2.load_blocks_for(block_digest, handler)
+    storage_manager.make_active_storage(storage_index)
+    storage_manager.load_blocks_for(block_digest, handler)
     self.assertEqual({(block_digest, Container.CODE_DATA): block},
       handler.blocks)
-    storage_manager2.close()
-    txn2 = None
-    env2.close()
-    env2 = None
-    Config.paths.clean_temp_area()
+    storage_manager.close()
 
 suite_StorageManager = unittest.TestLoader().loadTestsFromTestCase(TestStorageManager)
 if __name__ == "__main__":

@@ -281,10 +281,11 @@ class File(Node):
     # --- File not yet in database, process it
     file_size = 0
     packer = PackerStream.PackerOStream(self.backup, Container.CODE_DATA)
-    for data in FileIO.read_blocks(open(self.path(), "rb"),
-                          self.backup.get_block_size()):
+    handle = open(self.path(), "rb")
+    for data in FileIO.read_blocks(handle, self.backup.get_block_size()):
       packer.write(data)
       file_size += len(data)
+    handle.close()
       
     self.digest = packer.get_digest()
     self.level = packer.get_level()
