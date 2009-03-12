@@ -2,3 +2,6 @@ The current version supports python 2.6.
 Crypto lib under python2.6 gives out warnings.
 To avoid the warnings, change dir to %PYTHON%\lib\site-packages\Crypto and apply
 the diff in 3rdparty\crypto_fix.diff.
+
+We need to "setdefaultencoding" to UTF-8. This is not recommended, but will not
+work otherwise, because tarfile doesn't work otherwise.
