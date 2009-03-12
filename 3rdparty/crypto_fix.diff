@@ -1,0 +1,63 @@
+diff --git a/Hash/HMAC.py b/Hash/HMAC.py
+index eeb5782..6c41e8c 100644
+--- a/Hash/HMAC.py
++++ b/Hash/HMAC.py
+@@ -33,8 +33,11 @@ class HMAC:
+         digestmod: A module supporting PEP 247. Defaults to the md5 module.
+         """
+         if digestmod == None:
+-            import md5
+-            digestmod = md5
++            import hashlib
++            class wrapper:
++              def new(self):
++                return hashlib.md5()
++            digestmod = wrapper()
+ 
+         self.digestmod = digestmod
+         self.outer = digestmod.new()
+diff --git a/Hash/MD5.py b/Hash/MD5.py
+index b0eba39..9a7229c 100644
+--- a/Hash/MD5.py
++++ b/Hash/MD5.py
+@@ -3,11 +3,11 @@
+ 
+ __revision__ = "$Id: MD5.py,v 1.4 2002/07/11 14:31:19 akuchling Exp $"
+ 
+-from md5 import *
+-
+-import md5
+-if hasattr(md5, 'digestsize'):
+-    digest_size = digestsize
+-    del digestsize
+-del md5
+-
++import hashlib
++
++digest_size = hashlib.md5().digest_size
++def new(initial=None):
++  h = hashlib.md5()
++  if h is not None:
++    h.update(initial)
++  return h
+diff --git a/Hash/SHA.py b/Hash/SHA.py
+index ea3c6a3..c3c3746 100644
+--- a/Hash/SHA.py
++++ b/Hash/SHA.py
+@@ -3,9 +3,10 @@
+ 
+ __revision__ = "$Id: SHA.py,v 1.4 2002/07/11 14:31:19 akuchling Exp $"
+ 
+-from sha import *
+-import sha
+-if hasattr(sha, 'digestsize'):
+-    digest_size = digestsize
+-    del digestsize
+-del sha
++import hashlib
++digest_size = hashlib.sha1().digest_size
++def new(initial=None):
++  h = hashlib.sha1()
++  if initial is not None:
++    h.update(initial)
++  return h

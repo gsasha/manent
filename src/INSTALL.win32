@@ -1,0 +1,4 @@
+The current version supports python 2.6.
+Crypto lib under python2.6 gives out warnings.
+To avoid the warnings, change dir to %PYTHON%\lib\site-packages\Crypto and apply
+the diff in 3rdparty\crypto_fix.diff.
