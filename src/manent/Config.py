@@ -11,6 +11,7 @@ import re
 import shutil
 import stat
 import sys
+import tarfile
 import tempfile
 
 import ConfigParser
@@ -178,7 +179,8 @@ paths = Paths()
 if os.name =='nt':
   # Switch the codepage to Utf-8, so that files with unicode names will print
   # correctly.
-  os.system("chcp 65001")
+  os.system("chcp 65001 > nul")
+  sys.setdefaultencoding('utf-8')
 
 def init_logging():
   import logging.config
