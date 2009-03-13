@@ -36,12 +36,14 @@ class TestCompletedNodesDB(unittest.TestCase):
     self.failIf(cndb.has_key("k1"))
     cndb["k1"] = "v1"
     self.assert_(cndb.has_key("k1"))
+    cndb.close()
   def test_remove_block(self):
     # Test that after a block is removed, it is no longer visible
     cndb = CNDB.CompletedNodesDB(self.env, self.txn)
     self.failIf(cndb.has_key("k1"))
     cndb["k1"] = "v1"
     del cndb["k1"]
+    cndb.close()
   def test_count_db_ops(self):
     # Use the counters built in to the DB to make sure that it is touched only
     # on load and save, and that it is touched only as many times as necessary.
@@ -71,6 +73,7 @@ class TestCompletedNodesDB(unittest.TestCase):
         self.env.num_dels_reporter.value +
         self.env.num_has_keys_reporter.value)
     self.assertNotEqual(accesses_after_load, accesses_after_save)
+    cndb.close()
   def test_reload(self):
     # Test that a reload works.
     cndb1 = CNDB.CompletedNodesDB(self.env, self.txn)
@@ -80,6 +83,8 @@ class TestCompletedNodesDB(unittest.TestCase):
     cndb2.load()
     self.assert_(cndb2.has_key("k1"))
     self.assertEqual("v1", cndb2["k1"])
+    cndb1.close()
+    cndb2.close()
   def test_empty_reload(self):
     # Test that a reload of emptied database is set.
     cndb1 = CNDB.CompletedNodesDB(self.env, self.txn)
@@ -90,6 +95,8 @@ class TestCompletedNodesDB(unittest.TestCase):
     cndb2 = CNDB.CompletedNodesDB(self.env, self.txn)
     cndb2.load()
     self.failIf(cndb2.has_key("k1"))
+    cndb1.close()
+    cndb2.close()
   def test_precommit_hook(self):
     # Test that CNDB's save is triggered on presubmit hook
     cndb = CNDB.CompletedNodesDB(self.env, self.txn)
@@ -105,3 +112,4 @@ class TestCompletedNodesDB(unittest.TestCase):
         self.env.num_dels_reporter.value +
         self.env.num_has_keys_reporter.value)
     self.assertNotEqual(accesses_before, accesses_after)
+    cndb.close()
