@@ -93,7 +93,6 @@ class TestStorage(unittest.TestCase):
     self.assertNotEqual(seq_id1, seq_id2)
   def test_active_sequence_reloaded(self):
     # Test that the active sequence is reloaded correctly
-    return
     storage = Storage.DirectoryStorage(self.storage_params)
     storage.configure(self.CONFIGURATION, None)
     seq_id1 = storage.create_sequence()
