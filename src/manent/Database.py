@@ -71,7 +71,7 @@ class PrivateDatabaseManager(DatabaseManagerBase):
     # Close up the db environment. The user should have been
     # smart enough to close it himself.
     #
-    self.dbenv.close()
+    result = self.dbenv.close()
     dbenv = db.DBEnv()
     self.dbenv = None
   def get_database(self, filename, tablename, txn_handler):
@@ -156,11 +156,15 @@ class DatabaseManager(DatabaseManagerBase):
     #self.done_event.set()
     #print "Waiting for the checkpoint thread to finish"
     #self.checkpoint_finished.wait()
-    self.dbenv.close()
+    print dir(self.dbenv)
+    result = self.dbenv.txn_checkpoint()
+    result = self.dbenv.log_archive(db.DB_ARCH_REMOVE)
+    result = self.dbenv.close()
     self.dbenv = None
     dbenv = db.DBEnv()
     dbenv_dir = self.__dbenv_dir()
     dbenv.remove(dbenv_dir)
+    dbenv.close()
 
   def get_database(self, filename, tablename, txn_handler):
     full_fname = self.__db_fname(filename)
@@ -243,6 +247,10 @@ class TransactionHandler:
     self.checkpoint_reporter = Reporting.DummyReporter()
 
     self.precommit_hooks = []
+  def close(self):
+    if self.txn is not None:
+      self.txn.commit()
+      self.txn = None
   def set_report_manager(self, report_manager):
     self.commit_reporter = report_manager.find_reporter(
         "database.transactions.commits", 0)

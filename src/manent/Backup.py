@@ -51,13 +51,6 @@ class Backup:
       exclusion_file = open(exclusion_file_name, "w")
       exclusion_file.write(Config.BACKUP_EXCLUSION_RULES_TEMPLATE)
       exclusion_file.close()
-    
-    logging.debug("Opening the databases")
-    self.db_manager = Database.DatabaseManager(Config.paths, self.label)
-    self.db_manager.set_report_manager(self.report_manager)
-    self.txn_handler = Database.TransactionHandler(self.db_manager)
-    self.txn_handler.set_report_manager(self.report_manager)
-    logging.debug("Opening the databases done")
 
   def get_report_manager(self):
     return self.report_manager
@@ -341,6 +334,13 @@ class Backup:
     return self.completed_nodes_db
 
   def __open_all(self):
+    logging.debug("Opening the databases")
+    self.db_manager = Database.DatabaseManager(Config.paths, self.label)
+    self.db_manager.set_report_manager(self.report_manager)
+    self.txn_handler = Database.TransactionHandler(self.db_manager)
+    self.txn_handler.set_report_manager(self.report_manager)
+    logging.debug("Opening the databases done")
+
     logging.debug("Backup opening all")
     self.config_db = self.db_manager.get_database_btree(
         "config.db", "settings", self.txn_handler)
@@ -402,8 +402,8 @@ class Backup:
     # TODO: consider not loading storages on initialization, only on meaningful
     # operations
     logging.debug("Opening storage")
-    self.storage_manager = StorageManager.StorageManager(self.db_manager,
-      self.txn_handler)
+    self.storage_manager = StorageManager.StorageManager(
+        self.db_manager, self.txn_handler)
     self.storage_manager.set_report_manager(self.report_manager)
     self.increment_manager = IncrementManager.IncrementManager(
       self.db_manager, self.txn_handler, self.label, self.storage_manager)
@@ -419,6 +419,11 @@ class Backup:
       logging.debug("Storage has not been opened")
     self.completed_nodes_db.close()
     self.config_db.close()
+
+    self.txn_handler.close()
+    self.txn_handler = None
+    self.db_manager.close()
+    self.db_manager = None
   
 #===============================================================================
 # ScanContext
