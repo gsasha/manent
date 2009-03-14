@@ -15,24 +15,6 @@ import traceback
 import Config
 import Reporting
 
-class CheckpointThread(threading.Thread):
-  def __init__(self, dbenv, done_event, checkpoint_finished):
-    threading.Thread.__init__(self)
-    self.dbenv = dbenv
-    self.done_event = done_event
-    self.checkpoint_finished = checkpoint_finished
-  def run(self):
-    #print "CHECKPOINT THREAD STARTED"
-    while True:
-      self.done_event.wait(60.0)
-      if self.done_event.isSet():
-        self.checkpoint_finished.set()
-        break
-      #print "RUNNING DATABASE CHECKPOINT"
-      self.dbenv.txn_checkpoint(100, 5, 0)
-      #print "DONE RUNNING DATABASE CHECKPOINT"
-
-
 # A base for database managers, implementing the following common
 # functionality:
 # - Reporting
@@ -72,7 +54,6 @@ class PrivateDatabaseManager(DatabaseManagerBase):
     # smart enough to close it himself.
     #
     result = self.dbenv.close()
-    dbenv = db.DBEnv()
     self.dbenv = None
   def get_database(self, filename, tablename, txn_handler):
     name = filename + "." + str(tablename)
@@ -95,9 +76,11 @@ class PrivateDatabaseManager(DatabaseManagerBase):
     name = filename + "." + str(tablename)
     return DatabaseWrapper(self, name, name)
   def txn_begin(self):
-    return None
+    txn = self.dbenv.txn_begin(flags=db.DB_DIRTY_READ)
+    return txn
   def txn_checkpoint(self):
-    pass
+    self.dbenv.txn_checkpoint()
+
 
 # The normal database manager class
 class DatabaseManager(DatabaseManagerBase):
@@ -134,14 +117,9 @@ class DatabaseManager(DatabaseManagerBase):
         db.DB_INIT_MPOOL|db.DB_INIT_LOCK|db.DB_THREAD)
     #print "dbenv.open() takes", (open_end_time-open_start_time), "seconds"
     
-    #self.done_event = Event()
-    #self.checkpoint_finished = Event()
-    #self.checkpoint_thread = CheckpointThread(self.dbenv, self.done_event,
-    #                                          self.checkpoint_finished)
-    #self.checkpoint_thread.start()
   def txn_begin(self):
-    self.dbenv.txn_checkpoint()
-    return self.dbenv.txn_begin(flags=db.DB_DIRTY_READ)
+    txn = self.dbenv.txn_begin(flags=db.DB_DIRTY_READ)
+    return txn
   def txn_checkpoint(self):
     self.dbenv.txn_checkpoint()
   def close(self):
@@ -153,18 +131,17 @@ class DatabaseManager(DatabaseManagerBase):
     #
     # Free up the files that the database held
     #
-    #self.done_event.set()
-    #print "Waiting for the checkpoint thread to finish"
-    #self.checkpoint_finished.wait()
-    print dir(self.dbenv)
     result = self.dbenv.txn_checkpoint()
     result = self.dbenv.log_archive(db.DB_ARCH_REMOVE)
     result = self.dbenv.close()
     self.dbenv = None
-    dbenv = db.DBEnv()
-    dbenv_dir = self.__dbenv_dir()
-    dbenv.remove(dbenv_dir)
-    dbenv.close()
+    if os.name != "nt":
+      # Python 2.6 under Windows crashes the interpreter(!) when trying to
+      # do this. Oh well, this saves resources but is not critical.
+      dbenv = db.DBEnv()
+      dbenv_dir = self.__dbenv_dir()
+      dbenv.remove(dbenv_dir)
+      dbenv = None
 
   def get_database(self, filename, tablename, txn_handler):
     full_fname = self.__db_fname(filename)
@@ -244,7 +221,6 @@ class TransactionHandler:
         pass
     self.commit_reporter = Reporting.DummyReporter()
     self.abort_reporter = Reporting.DummyReporter()
-    self.checkpoint_reporter = Reporting.DummyReporter()
 
     self.precommit_hooks = []
   def close(self):
@@ -256,29 +232,27 @@ class TransactionHandler:
         "database.transactions.commits", 0)
     self.abort_reporter = report_manager.find_reporter(
         "database.transactions.aborts", 0)
-    self.checkpoint_reporter = report_manager.find_reporter(
-        "database.transactions.checkpoints", 0)
 
   def add_precommit_hook(self, hook):
     self.precommit_hooks.append(hook)
   def remove_precommit_hook(self, hook):
     self.precommit_hooks = [h for h in self.precommit_hooks
         if h is not hook]
+  def checkpoint(self):
+    self.db_manager.txn_checkpoint()
   def get_txn(self):
     if self.txn is None:
       self.txn = self.db_manager.txn_begin()
+      #print "Created transaction %X" % self.txn.id()
     return self.txn
   def commit(self):
-    #print "Committing transaction", self.txn
+    #print "Committing transaction %X" % self.txn.id()
     for hook in self.precommit_hooks:
       hook()
     if self.txn is not None:
       self.commit_reporter.increment(1)
       self.txn.commit()
     self.txn = None
-  def checkpoint(self):
-    self.checkpoint_reporter.increment(1)
-    self.db_manager.txn_checkpoint()
   def abort(self):
     if self.txn is not None:
       self.abort_reporter.increment(1)
@@ -299,7 +273,6 @@ class DatabaseWrapper:
     self.is_scratch = is_scratch
     
     self.d = db.DB(self.db_manager.dbenv)
-    self.cursor = None
     
     self.num_puts_reporter = Reporting.DummyReporter()
     self.num_gets_reporter = Reporting.DummyReporter()
@@ -344,10 +317,9 @@ class DatabaseWrapper:
   def get(self, key):
     #print "db[%s:%s].get(%s)" % (self.filename,self.dbname,i
     #   base64.b64encode(key[0:10]))
-    txn = self.__get_txn()
     self.db_manager.num_gets_reporter.increment(1)
     self.num_gets_reporter.increment(1)
-    return self.d.get(str(key), txn=txn)
+    return self.d.get(str(key), txn=self.__get_txn())
   def put(self, key, value):
     #print "db[%s:%s].put(%s,%s)" % (self.filename,self.dbname,
     #  base64.b64encode(key[0:10]), base64.b64encode(value[0:10]))
@@ -388,10 +360,6 @@ class DatabaseWrapper:
   #
   # Transaction support
   #
-  def close_cursor(self):
-    if self.cursor != None:
-      self.cursor.close()
-      self.cursor = None
   def close(self):
     #traceback.print_stack()
     logging.debug("Closing database filename=%s, dbname=%s" %
