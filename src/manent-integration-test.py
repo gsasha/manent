@@ -141,7 +141,7 @@ for dir in [scratchdir, restoredir]:
     os.path.walk(dir, set_writable, None)
   shutil.rmtree(dir)
   os.mkdir(dir)
-
+backup1.close()
 
 #
 # Step4. Create another backup in same directory, and move it also through steps
@@ -164,4 +164,4 @@ for dir in [scratchdir, restoredir]:
     os.path.walk(dir, set_writable, None)
   shutil.rmtree(dir)
   os.mkdir(dir)
-
+backup2.close()

@@ -76,6 +76,13 @@ class Backup:
     print "Wrote detailed report to %s" % (
         log_detail_file_name.encode("utf8"))
 
+  def close(self):
+    self.txn_handler.commit()
+    self.txn_handler.close()
+    self.txn_handler = None
+    self.db_manager.close()
+    self.db_manager = None
+
   #
   # Two initialization methods:
   # Creation of new backup, loading from live DB
@@ -213,14 +220,19 @@ class Backup:
       ctx = RestoreContext()
       root.restore(ctx)
       
+      print "------------------ 1"
       self.txn_handler.commit()
+      print "------------------ 2"
     except:
       traceback.print_exc()
       self.txn_handler.abort()
       raise
     finally:
+      print "------------------ 3"
       self.__close_all()
+      print "------------------ 4"
       self.write_log()
+      print "------------------ 5"
   
   #
   # Serving the filesystem as ftp
@@ -419,11 +431,6 @@ class Backup:
       logging.debug("Storage has not been opened")
     self.completed_nodes_db.close()
     self.config_db.close()
-
-    self.txn_handler.close()
-    self.txn_handler = None
-    self.db_manager.close()
-    self.db_manager = None
   
 #===============================================================================
 # ScanContext

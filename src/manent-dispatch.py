@@ -54,6 +54,7 @@ elif sys.argv[1] == "create":
     print "Backup config", label, "already exists"
     sys.exit(0)
   backup = config.create_backup(label)
+  backup.close()
 
   config.save()
   config.close()
@@ -67,6 +68,7 @@ elif sys.argv[1] == "configure":
     sys.exit(0)
   backup = config.load_backup(label)
   backup.configure(sys.argv[3:])
+  backup.close()
 
   config.save()
   config.close()
@@ -78,6 +80,7 @@ elif sys.argv[1] == "backup":
 
   backup = config.load_backup(label)
   backup.scan(sys.argv[3:])
+  backup.close()
   
   config.save()
   config.close()
@@ -89,6 +92,7 @@ elif sys.argv[1] == "restore":
 
   backup = config.load_backup(label)
   backup.restore(sys.argv[3:])
+  backup.close()
   config.close()
 
 elif sys.argv[1] == "ftp":
@@ -96,6 +100,7 @@ elif sys.argv[1] == "ftp":
 
   backup = config.load_backup(label)
   backup.serve(sys.argv[3:])
+  backup.close()
   config.close()
 
 elif sys.argv[1] == "test":
@@ -103,11 +108,13 @@ elif sys.argv[1] == "test":
 
   backup = config.load_backup(label)
   backup.test(sys.argv[3:])
+  backup.close()
   config.close()
 
 elif sys.argv[1] == "remove":
   label = sys.argv[2]
   config.remove_backup(label)
+  backup.close()
   config.save()
   config.close()
 
@@ -115,6 +122,7 @@ elif sys.argv[1] == "info":
   label = sys.argv[2]
   backup = config.load_backup(label)
   backup.info(sys.argv[3:])
+  backup.close()
   #config.save()
   config.close()
 
