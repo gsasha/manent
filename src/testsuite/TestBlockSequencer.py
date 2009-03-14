@@ -59,6 +59,7 @@ class TestBlockSequencer(unittest.TestCase):
     self.storage_manager = None
     self.block_manager.close()
     self.block_manager = None
+    self.txn.commit()
     self.txn = None
     self.env.close()
     self.env = None
