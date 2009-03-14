@@ -32,6 +32,8 @@ class MockStorageManager:
     self.num_load_block_requests = 0
     self.num_blocks_loaded = 0
     self.storage = Mock.MockStorage(password="kakamaika")
+  def close(self):
+    pass
   def add_block(self, digest, code, data):
     logging.debug("adding block %s %s %s" %
         (base64.b64encode(digest), Container.code_name(code), data))
@@ -53,10 +55,13 @@ class TestBlockSequencer(unittest.TestCase):
     self.storage_manager = MockStorageManager()
     self.block_manager = BlockManager.BlockManager(self.env, self.txn)
   def tearDown(self):
+    self.storage_manager.close()
     self.storage_manager = None
+    self.block_manager.close()
     self.block_manager = None
-    self.env = None
     self.txn = None
+    self.env.close()
+    self.env = None
     Config.paths.clean_temp_area()
   def test_clean_start(self):
     # Check that if BlockSequencer is started cleanly, it is initialized
