@@ -758,6 +758,7 @@ def decode_container_name(name):
   name_re = re.compile("([^.]+).([^.]+).([^.]+)", re.UNICODE)
   match = name_re.match(name)
   if not match:
+    print "Warning: File %s is not a manent container." % name.encode('utf8')
     return (None, None, None)
   try:
     sequence_id = base64.urlsafe_b64decode(match.groups()[0].encode('utf8'))
@@ -766,5 +767,5 @@ def decode_container_name(name):
     return (sequence_id, index, extension)
   except:
     # File name unparseable. Can be junk coming from something else
-    traceback.print_exc()
+    print "Warning: File %s is not a manent container." % name.encode('utf8')
     return (None, None, None)
