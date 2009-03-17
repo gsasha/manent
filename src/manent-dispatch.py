@@ -54,7 +54,6 @@ elif sys.argv[1] == "create":
     print "Backup config", label, "already exists"
     sys.exit(0)
   backup = config.create_backup(label)
-  backup.close()
 
   config.save()
   config.close()
