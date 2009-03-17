@@ -30,11 +30,21 @@ def cmpdirs(dir1, dir2):
         return False
   return True
 
-def set_writable(arg, dirname, names):
-  # Set the files back to writable, otherwise, rmtree can't remove them on
-  # native Windows.
-  for name in names:
-    os.chmod(os.path.join(dirname, name), stat.S_IWRITE)
+
+def reset_dir(dir):
+  def set_writable(arg, dirname, names):
+    # Set the files back to writable, otherwise, rmtree can't remove them on
+    # native Windows.
+    for name in names:
+      os.chmod(os.path.join(dirname, name), stat.S_IWRITE)
+  for dir in [scratchdir, restoredir]:
+    if os.name == 'nt':
+      os.path.walk(dir, set_writable, None)
+    shutil.rmtree(dir)
+    os.mkdir(dir)
+def reset_dirs(dirs):
+  for dir in dirs:
+    reset_dir(dir)
 
 tempdir = Config.paths.temp_area()
 homedir = os.path.join(tempdir, "home")
@@ -60,6 +70,7 @@ datadir = "testdata"
 # Step 0. Create backup 1, configure it and run one backup iteration. Check that
 # one container has been added.
 #
+print "Step 0"
 logging.info(" - Step 0 ---------------- Creating backup1")
 label1 = "backup1"
 backup1 = config.create_backup(label1)
@@ -71,6 +82,7 @@ backup1.configure(("set data_path=%s" % (scratchdir)).split())
 #
 # Step 1. Test backup&restore of the first data pack.
 #
+print "Step 1"
 logging.info(" - Step 1 ---------------- Testing pack 1")
 tar = tarfile.open("testdata/pack1.tar")
 tar.extractall(scratchdir)
@@ -83,51 +95,50 @@ backup1.restore(["storage=0",
   "increment=0",
   "target=%s" % restoredir.encode('utf8')])
 assert(cmpdirs(scratchdir, restoredir))
-for dir in [scratchdir, restoredir]:
-  if os.name == 'nt':
-    os.path.walk(dir, set_writable, None)
-  shutil.rmtree(dir)
-  os.mkdir(dir)
+reset_dirs([scratchdir, restoredir])
+
 #
 # Step2. Open second pack (which adds one image file), check that one container
 # has been added.
 #
+print "Step 2"
 logging.info("Testing second data pack")
 tar = tarfile.open("testdata/pack2.tar")
 tar.extractall(scratchdir)
+print "--------------- 2.1"
 backup1.scan(["comment=scan2"])
+print "--------------- 2.2"
 # TODO(gsasha): check that one more container has been added.
 logging.info("Restoring from the backup and comparing the results")
 backup1.restore(("storage=0 increment=1 target=%s" %
   restoredir.encode('utf8')).split())
+print "--------------- 2.3"
 assert(cmpdirs(scratchdir, restoredir))
-for dir in [scratchdir, restoredir]:
-  if os.name == 'nt':
-    os.path.walk(dir, set_writable, None)
-  shutil.rmtree(dir)
-  os.mkdir(dir)
+reset_dirs([scratchdir, restoredir])
+print "--------------- 2.4"
 
 #
 # Step3. Open third pack (which adds one large image file), check that
 # one container has been added.
 #
+print "Step 3"
 tar = tarfile.open("testdata/pack3.tar")
 tar.extractall(scratchdir)
+print "------------------- 1"
 backup1.scan(["comment=scan3"])
+print "------------------- 2"
 # TODO(gsasha): check that one moore container has been added.
 logging.info("Restoring from the backup and comparing the results")
 backup1.restore(("storage=0 increment=2 target=%s" %
   restoredir.encode('utf8')).split())
+print "------------------- 3"
 assert(cmpdirs(scratchdir, restoredir))
-for dir in [scratchdir, restoredir]:
-  if os.name == 'nt':
-    os.path.walk(dir, set_writable, None)
-  shutil.rmtree(dir)
-  os.mkdir(dir)
+reset_dirs([scratchdir, restoredir])
 
 #
 # Step3.5. Backup a lot of data to make sure there is something to piggyback.
 #
+print "Step 3.5"
 for i in range(30):
   file = open(os.path.join(scratchdir, "file"+str(i)), "w")
   file.write(os.urandom(1024*1024))
@@ -136,17 +147,15 @@ backup1.scan(["comment=scan4"])
 backup1.restore(("storage=0 increment=3 target=%s" %
   restoredir.encode('utf8')).split())
 assert(cmpdirs(scratchdir, restoredir))
-for dir in [scratchdir, restoredir]:
-  if os.name == 'nt':
-    os.path.walk(dir, set_writable, None)
-  shutil.rmtree(dir)
-  os.mkdir(dir)
+reset_dirs([scratchdir, restoredir])
+
 backup1.close()
 
 #
 # Step4. Create another backup in same directory, and move it also through steps
 # 1, 2, 3. Make sure that very small containers are created this time.
 #
+print "Step 4"
 logging.info("Creating backup2")
 label2 = "backup2"
 backup2 = config.create_backup(label2)
@@ -159,9 +168,6 @@ backup2.scan(["comment=scan1"])
 backup2.restore(("storage=0 increment=0 target=%s" %
   restoredir.encode('utf8')).split())
 assert(cmpdirs(scratchdir, restoredir))
-for dir in [scratchdir, restoredir]:
-  if os.name == 'nt':
-    os.path.walk(dir, set_writable, None)
-  shutil.rmtree(dir)
-  os.mkdir(dir)
+reset_dirs([scratchdir, restoredir])
+
 backup2.close()

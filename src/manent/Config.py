@@ -180,7 +180,11 @@ if os.name =='nt':
   # Switch the codepage to Utf-8, so that files with unicode names will print
   # correctly.
   os.system("chcp 65001 > nul")
-  sys.setdefaultencoding('utf-8')
+  # Work around python not knowing that 65001 is UTF8.
+  import encodings.aliases
+  encodings.aliases.aliases['cp65001'] = 'utf_8'
+  encodings.aliases.aliases['CP65001'] = 'utf_8'
+  sys.setdefaultencoding('utf_8')
 
 def init_logging():
   import logging.config
@@ -199,7 +203,7 @@ def init_logging():
   if os.environ.has_key("MANENT_LOGGING_LEVEL"):
     level = os.environ["MANENT_LOGGING_LEVEL"]
   else:
-    level = "ERROR"
+    level = "INFO"
   LEVELS = { "NOTSET": logging.NOTSET,
              "DEBUG": logging.DEBUG,
              "INFO": logging.INFO,
