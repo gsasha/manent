@@ -77,7 +77,6 @@ class Backup:
         log_detail_file_name.encode("utf8"))
 
   def close(self):
-    self.txn_handler.commit()
     self.txn_handler.close()
     self.txn_handler = None
     self.db_manager.close()
@@ -437,6 +436,7 @@ class Backup:
       logging.debug("Storage has not been opened")
     self.completed_nodes_db.close()
     self.config_db.close()
+    self.txn_handler.commit()
   
 #===============================================================================
 # ScanContext
@@ -559,7 +559,10 @@ class ScanContext:
         elapsed,
         progress,
         message[-80:].encode('utf8'))
-    sys.stderr.write(report_string)
+    try:
+      sys.stderr.write(report_string)
+    except:
+      print "Cannot print status message"
   def update_scan_status(self):
     timestamp = time.time()
     if timestamp - self.scan_timestamp > 0.1:

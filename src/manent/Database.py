@@ -242,6 +242,7 @@ class TransactionHandler:
     self.db_manager.txn_checkpoint()
   def get_txn(self):
     if self.txn is None:
+      #traceback.print_stack()
       self.txn = self.db_manager.txn_begin()
       #print "Created transaction %X" % self.txn.id()
     return self.txn
