@@ -187,20 +187,15 @@ class Backup:
         root.get_level(), root.get_stats(), ctx.total_nodes)
       self.storage_manager.flush()
       
-      print "scan ----- 1"
       self.txn_handler.commit()
-      print "scan ----- 2"
       ctx.print_report()
-      print "scan ----- 3"
     except:
       traceback.print_exc()
       self.txn_handler.abort()
       raise
     finally:
-      print "scan ----- 4"
       logging.debug("Closing everythinng down after scan")
       self.__close_all()
-      print "scan ----- 5"
       self.write_log()
 
   #
@@ -222,22 +217,16 @@ class Backup:
       root.set_level(increment.get_fs_level())
       root.set_stats(increment.get_fs_stats())
       ctx = RestoreContext()
-      print "restore ----- 0"
       root.restore(ctx)
       
-      print "restore ----- 1"
       self.txn_handler.commit()
-      print "restore ----- 2"
     except:
       traceback.print_exc()
       self.txn_handler.abort()
       raise
     finally:
-      print "restore ----- 3"
       self.__close_all()
-      print "restore ----- 4"
       self.write_log()
-      print "restore ----- 5"
   
   #
   # Serving the filesystem as ftp
