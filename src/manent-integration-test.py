@@ -60,7 +60,7 @@ def extract_tarfile_with_utf8(tf, target):
       os.makedirs(os.path.dirname(path))
     except OSError, (no, strerror):
       # Directory already exists. Oh well.
-      if no == errno.EEXIST:
+      if (no == errno.EEXIST or "already exists" in strerror):
         pass
       else:
         raise
