@@ -28,6 +28,7 @@ class TestIncrement(unittest.TestCase):
     self.env = Database.PrivateDatabaseManager()
     self.txn = Database.TransactionHandler(self.env)
   def tearDown(self):
+    self.txn.abort()
     self.txn = None
     self.env.close()
     self.env = None

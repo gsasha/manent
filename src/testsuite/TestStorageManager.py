@@ -33,6 +33,7 @@ class TestStorageManager(unittest.TestCase):
     Storage.MemoryStorage.files = {}
     if self.env is not None:
       # Some tests need to clean self.env anyway...
+      self.txn.abort()
       self.txn = None
       self.env.close()
       self.env = None
@@ -99,6 +100,7 @@ class TestStorageManager(unittest.TestCase):
     storage_manager.add_block(block_digest, Container.CODE_DATA, block)
     storage_manager.flush()
     storage_manager.close()
+    self.txn.commit()
     self.txn = None
     self.env.close()
     self.env = None
@@ -140,6 +142,7 @@ class TestStorageManager(unittest.TestCase):
     storage_manager.add_block(block_digest, Container.CODE_DATA, block)
     storage_manager.flush()
     storage_manager.close()
+    self.txn.commit()
     self.txn = None
     self.env.close()
     self.env = None

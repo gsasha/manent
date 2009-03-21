@@ -183,7 +183,6 @@ class BlockSequencer:
     self._write_vars()
     self.txn_manager.commit()
   def open_container(self):
-    print "bls ------ 0"
     # 1. Ask the storage to create a new empty container.
     logging.debug("BlockSequencer: creating a new container")
     container = self.storage_manager.create_container()
@@ -238,6 +237,5 @@ class BlockSequencer:
         self.aside_block_first = block_idx + 1
     logging.info("Container %d nondata blocks:%d, piggyback headers:%s" %
         (container.get_index(), nondata_blocks_added, str(piggybacked_headers)))
-    print "bls ------- 1"
     return container
 
