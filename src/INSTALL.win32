@@ -5,3 +5,5 @@ the diff in 3rdparty\crypto_fix.diff.
 
 We need to "setdefaultencoding" to UTF-8. This is not recommended, but will not
 work otherwise, because tarfile doesn't work otherwise.
+UPDATE: this is no longer needed, we switched to manually extracting files from
+tarfile, which solves the problem.

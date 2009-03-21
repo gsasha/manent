@@ -25,10 +25,16 @@ try:
   extra['console'] = [
       'manent-dispatch.py',
       'manent-integration-test.py',
-      'manent-unittest.py']
+      'manent-unittest.py',
+      ]
 
 except ImportError:
     pass
+
+if os.name != "nt":
+  extra['scripts'] = [
+      'scripts/manent',
+      ]
 
 setup(
     name = 'manent',
