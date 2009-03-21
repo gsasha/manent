@@ -73,7 +73,10 @@ class ReportManager:
   def write_report(self, file):
     for name in sorted(self.reporters.keys()):
       reporter = self.reporters[name]
-      file.write("%s: %s\n" % (name, str(reporter.value).encode('utf8')))
+      if type(reporter.value) == unicode:
+        file.write("%s: %s\n" % (name, reporter.value.encode('utf8')))
+      else:
+        file.write("%s: %s\n" % (name, str(reporter.value)))
   def set(self, name, value):
     self.find_reporter(name, None).set(value)
   def increment(self, name, value):

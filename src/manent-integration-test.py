@@ -5,6 +5,7 @@
 #    License: see LICENSE.txt
 #
 
+import errno
 import filecmp
 import logging
 import os, os.path
@@ -46,6 +47,27 @@ def reset_dirs(dirs):
   for dir in dirs:
     reset_dir(dir)
 
+def extract_tarfile_with_utf8(tf, target):
+  """Extract the given tarfile object to the given directory, assuming that
+  the file names are encoded as UTF8. At least in Python 2.5, there is no
+  option of supplying the encoding"""
+  for member in tf.getmembers():
+    if not member.isfile():
+      continue
+    name = unicode(member.name, "utf8")
+    path = os.path.join(target, name)
+    try:
+      os.makedirs(os.path.dirname(path))
+    except OSError, (no, strerror):
+      # Directory already exists. Oh well.
+      if no == errno.EEXIST:
+        pass
+      else:
+        raise
+    of = open(path, "w")
+    of.write(tf.extractfile(member).read())
+    of.close()
+
 tempdir = Config.paths.temp_area()
 homedir = os.path.join(tempdir, "home")
 storagedir = os.path.join(tempdir, "storage")
@@ -85,7 +107,7 @@ backup1.configure(("set data_path=%s" % (scratchdir)).split())
 print "Step 1"
 logging.info(" - Step 1 ---------------- Testing pack 1")
 tar = tarfile.open("testdata/pack1.tar")
-tar.extractall(scratchdir)
+extract_tarfile_with_utf8(tar, scratchdir)
 
 backup1.scan(["comment=scan1"])
 # TODO(gsasha): check that one container has been added
@@ -104,7 +126,7 @@ reset_dirs([scratchdir, restoredir])
 print "Step 2"
 logging.info("Testing second data pack")
 tar = tarfile.open("testdata/pack2.tar")
-tar.extractall(scratchdir)
+extract_tarfile_with_utf8(tar, scratchdir)
 print "--------------- 2.1"
 backup1.scan(["comment=scan2"])
 print "--------------- 2.2"
@@ -123,7 +145,7 @@ print "--------------- 2.4"
 #
 print "Step 3"
 tar = tarfile.open("testdata/pack3.tar")
-tar.extractall(scratchdir)
+extract_tarfile_with_utf8(tar, scratchdir)
 print "------------------- 1"
 backup1.scan(["comment=scan3"])
 print "------------------- 2"
