@@ -13,7 +13,8 @@ OutputDir=userdocs:Inno Setup Examples Output
 
 [Files]
 Source: "dist\*.*"; DestDir: "{app}"
-Source: "scripts\manent.bat"; DestDir: "{win}"
+Source: "dist\testdata\*.*"; DestDir: "{app}\testdata"
+Source: "scripts\manent.cmd"; DestDir: "{win}"
 Source: "README-win.txt"; DestDir: "{app}"; Flags: isreadme
 
 [Icons]

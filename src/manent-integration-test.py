@@ -87,7 +87,7 @@ logging.info("Running integration testing in " + tempdir)
 logging.info("homedir=%s, storagedir=%s, scratchdir=%s" %
     (homedir, storagedir, scratchdir))
 
-datadir = os.path.join(Config.paths.install_area(), "..", "testdata")
+datadir = os.path.join(Config.paths.install_area(), "testdata")
 
 #
 # Step 0. Create backup 1, configure it and run one backup iteration. Check that

@@ -42,7 +42,7 @@ setup(
     description = 'Manent backup software',
     version = 'DEVELOPMENT',
     author = 'Alex Gontmakher',
-    data_files = [('testdata', glob.glob('testdata/*.tar'))],
+    data_files = [('testdata', glob.glob('manent/testdata/*.tar'))],
     author_email = 'gsasha@gmail.com',
     packages = ['manent', 'manent/utils'],
     py_modules = ['manent'],

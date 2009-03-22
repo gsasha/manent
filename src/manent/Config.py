@@ -188,6 +188,16 @@ class Paths:
 paths = Paths()
 
 if os.name =='nt':
+  # Make sure that if we exit, the codepage is restored. Otherwise, bat files
+  # in this cmd shell will go defunct.
+  def reset_codepage():
+    os.system("chcp 437 > nul")
+  import atexit
+  atexit.register(reset_codepage)
+  import signal
+  def sigbreak_handler(signum, frame):
+    reset_codepage()
+  signal.signal(signal.SIGBREAK, sigbreak_handler)
   # Switch the codepage to Utf-8, so that files with unicode names will print
   # correctly.
   os.system("chcp 65001 > nul")
