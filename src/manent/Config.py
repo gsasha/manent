@@ -174,8 +174,19 @@ class Paths:
       shutil.rmtree(self.temp_area())
     except WindowsError:
       print "Problem deleting", self.temp_area().encode('utf8')
+  def install_area(self):
+    if hasattr(sys, 'frozen'):
+      # We are in py2exe or something like that.
+      exe = sys.executable
+    else:
+      # We are being interpreted.
+      exe = __file__
+    print "---------- %s -------------" % exe
+    return os.path.dirname(
+        unicode(exe, sys.getfilesystemencoding()))
 
 paths = Paths()
+
 if os.name =='nt':
   # Switch the codepage to Utf-8, so that files with unicode names will print
   # correctly.
@@ -184,7 +195,9 @@ if os.name =='nt':
   import encodings.aliases
   encodings.aliases.aliases['cp65001'] = 'utf_8'
   encodings.aliases.aliases['CP65001'] = 'utf_8'
-  sys.setdefaultencoding('utf_8')
+  # Not necessary anymore, we're unpacking tar manually and so we control
+  # all the encodings explicitly.
+  # sys.setdefaultencoding('utf_8')
 
 def init_logging():
   import logging.config

@@ -87,7 +87,8 @@ logging.info("Running integration testing in " + tempdir)
 logging.info("homedir=%s, storagedir=%s, scratchdir=%s" %
     (homedir, storagedir, scratchdir))
 
-datadir = "testdata"
+datadir = os.path.join(Config.paths.install_area(), "..", "testdata")
+
 #
 # Step 0. Create backup 1, configure it and run one backup iteration. Check that
 # one container has been added.
@@ -106,7 +107,7 @@ backup1.configure(("set data_path=%s" % (scratchdir)).split())
 #
 print "Step 1"
 logging.info(" - Step 1 ---------------- Testing pack 1")
-tar = tarfile.open("testdata/pack1.tar")
+tar = tarfile.open(os.path.join(datadir, "pack1.tar"))
 extract_tarfile_with_utf8(tar, scratchdir)
 
 backup1.scan(["comment=scan1"])
@@ -125,7 +126,7 @@ reset_dirs([scratchdir, restoredir])
 #
 print "Step 2"
 logging.info("Testing second data pack")
-tar = tarfile.open("testdata/pack2.tar")
+tar = tarfile.open(os.path.join(datadir, "pack2.tar"))
 extract_tarfile_with_utf8(tar, scratchdir)
 print "--------------- 2.1"
 backup1.scan(["comment=scan2"])
@@ -144,7 +145,7 @@ print "--------------- 2.4"
 # one container has been added.
 #
 print "Step 3"
-tar = tarfile.open("testdata/pack3.tar")
+tar = tarfile.open(os.path.join(datadir, "pack3.tar"))
 extract_tarfile_with_utf8(tar, scratchdir)
 print "------------------- 1"
 backup1.scan(["comment=scan3"])
@@ -183,7 +184,10 @@ label2 = "backup2"
 backup2 = config.create_backup(label2)
 config.save()
 backup2.configure(
-    ["add_storage", "type=directory", "path=%s" % storagedir, "encryption_key=kukuriku"])
+    ["add_storage",
+     "type=directory",
+     "path=%s" % storagedir,
+     "encryption_key=kukuriku"])
 backup2.configure(("set data_path=%s" % (scratchdir)).split())
 
 backup2.scan(["comment=scan1"])
