@@ -62,13 +62,14 @@ class Backup:
       return s
     return [sanitize_param(x) for x in params]
   def write_log(self):
+    timestamp = time.strftime("%Y-%m-%d-%H:%M:%S")
     log_dir = Config.paths.backup_home_area(self.label)
     log_file_name = os.path.join(log_dir, "log.txt") 
     log_file = open(log_file_name, "a")
-    log_file.write("Performing command:\n%s\n" %
-        " ".join(self.sanitize_command_for_log(sys.argv)))
+    log_file.write("%s Performing command:\n%s\n" % (
+      timestamp, " ".join(self.sanitize_command_for_log(sys.argv))))
     log_detail_file, log_detail_file_name = tempfile.mkstemp(
-        prefix="report-",
+        prefix="repoort-" + timestamp + "-",
         dir=Config.paths.backup_home_area(self.label),
         suffix=".txt")
     log_file.write("Detailed report stored in file: %s\n" %
