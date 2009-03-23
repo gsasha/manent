@@ -35,6 +35,9 @@ except ImportError:
 if os.name != "nt":
   extra['scripts'] = [
       'scripts/manent',
+      'manent-dispatch.py',
+      'manent-integration-test.py',
+      'manent-unittest.py',
       ]
 
 setup(
@@ -45,7 +48,6 @@ setup(
     data_files = [('testdata', glob.glob('manent/testdata/*.tar'))],
     author_email = 'gsasha@gmail.com',
     packages = ['manent', 'manent/utils'],
-    py_modules = ['manent'],
     requires = ['paramiko'],
     **extra
     )
