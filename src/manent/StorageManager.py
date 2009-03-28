@@ -63,7 +63,8 @@ class StorageManager:
     self.block_sequencer = BlockSequencer.BlockSequencer(
         self.db_manager, self.txn_manager, self, self.block_manager)
     self.report_manager = Reporting.DummyReportManager()
-    self.block_listeners = []
+    self.num_new_blocks_reporter = Reporting.DummyReporter()
+    self.size_new_blocks_reporter = Reporting.DummyReporter()
 
     self.config_db = db_manager.get_database_btree("config.db", "storage",
       txn_manager)
@@ -100,8 +101,13 @@ class StorageManager:
       storage_idx, sequence_idx = IE.binary_decode_int_varlen_list(val)
       self.seq_to_index[sequence_id] = (storage_idx, sequence_idx)
       self.index_to_seq[sequence_idx] = (storage_idx, sequence_id)
+    self.block_listeners = []
   def set_report_manager(self, report_manager):
     self.report_manager = report_manager
+    self.num_new_blocks_reporter = report_manager.find_reporter(
+        "scan.counts.new_blocks", 0)
+    self.size_new_blocks_reporter = report_manager.find_reporter(
+        "scan.counts.size_new_blocks", 0)
   def close(self):
     for index, storage in self.storages.iteritems():
       storage.close()
@@ -249,6 +255,8 @@ class StorageManager:
     if self.block_container_db.has_key(digest):
       return False
 
+    self.num_new_blocks_reporter.increment(1)
+    self.size_new_blocks_reporter.increment(len(data))
     logging.debug("Storage manager adding new block %s:%s:%d" %
         (base64.b64encode(digest), Container.code_name(code), len(data)))
     self.block_sequencer.add_block(digest, code, data)

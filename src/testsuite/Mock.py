@@ -90,6 +90,8 @@ class MockScanCtx(MockBlockCtx, MockHlinkCtx, MockChangeCtx):
     self.changed_dirs_reporter = Reporting.DummyReporter()
     self.changed_symlinks_reporter = Reporting.DummyReporter()
 
+    self.num_total_blocks_reporter = Reporting.DummyReporter()
+    self.size_total_blocks_reporter = Reporting.DummyReporter()
     self.num_new_blocks_reporter = Reporting.DummyReporter()
     self.size_new_blocks_reporter = Reporting.DummyReporter()
 

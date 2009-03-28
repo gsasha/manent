@@ -285,6 +285,9 @@ class File(Node):
     for data in FileIO.read_blocks(handle, self.backup.get_block_size()):
       packer.write(data)
       file_size += len(data)
+      ctx.num_total_blocks_reporter.increment(1)
+      ctx.size_total_blocks_reporter.increment(len(data))
+      ctx.update_scan_status()
     handle.close()
       
     self.digest = packer.get_digest()

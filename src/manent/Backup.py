@@ -486,6 +486,10 @@ class ScanContext:
     self.changed_symlinks_reporter = report_manager.find_reporter(
         "scan.changed_symlinks", [])
 
+    self.num_total_blocks_reporter = report_manager.find_reporter(
+        "scan.counts.total_blocks", 0)
+    self.size_total_blocks_reporter = report_manager.find_reporter(
+        "scan.counts.size_total_blocks", 0)
     self.num_new_blocks_reporter = report_manager.find_reporter(
         "scan.counts.new_blocks", 0)
     self.size_new_blocks_reporter = report_manager.find_reporter(
@@ -538,6 +542,22 @@ class ScanContext:
 
   def set_last_num_files(self, last_num_files):
     self.last_num_files = last_num_files
+  def clip_to_width(self, message, width):
+    if len(message) < width:
+      return message
+    left_chunk_size = width / 2 - 3
+    right_chunk_size = width - left_chunk_size
+    return message[:left_chunk_size] + "..." + message[-right_chunk_size:]
+  def format_filesize(self, size):
+    if size < 1024:
+      return "%d" % size
+    elif size < 1024 * 1024:
+      return "%dK" % (size / 1024.)
+    elif size < 1024 * 1024 * 1024:
+      return "%.2fM" % (size / (1024 * 1024.))
+    else:
+      return "%.3fG" % (size/ (1024 * 1024 * 1024.))
+
   def print_update_message(self, message):
     if self.last_num_files is not None and self.last_num_files != 0:
       progress = "%2.3f%%" % (self.num_visited_files_reporter.value * 100.0 /
@@ -545,10 +565,14 @@ class ScanContext:
     else:
       progress = "%5d" % self.num_visited_files_reporter.value
     elapsed = "%2.3f" % (time.time() - self.start_time)
-    report_string = "%s sec: %s %80s      \r" % (
+    report_string = "%s sec:%s blk:%d/%s nblk:%d/%s %40s      \r" % (
         elapsed,
         progress,
-        message[-80:].encode('utf8'))
+        self.num_total_blocks_reporter.value,
+        self.format_filesize(self.size_total_blocks_reporter.value),
+        self.num_new_blocks_reporter.value,
+        self.format_filesize(self.size_new_blocks_reporter.value),
+        self.clip_to_width(message, 80).encode('utf8'))
     try:
       sys.stderr.write(report_string)
     except:
