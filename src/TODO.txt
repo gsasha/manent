@@ -1,5 +1,9 @@
 CHANGELOG:
 
+Make exclusion files understand paths with spaces.
+Make sure exclusion files are UTF8
+Add standard Windows paths to exclusion files.
+
 0.10.0
 
 - Make it work on Windows now!

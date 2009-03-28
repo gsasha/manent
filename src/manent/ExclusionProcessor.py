@@ -102,8 +102,8 @@ class ExclusionProcessor:
   def add_wildcard_rule(self, action, pattern):
     (dir_pattern, file_pattern) = os.path.split(pattern)
     if dir_pattern != "":
-      raise Exception("Global rule must be either an absolute path or a file"
-                      " wildcard")
+      raise Exception("Global rule must be either an absolute path"
+                      "or a file wildcard")
     self.wildcard_rules.append((action, file_pattern))
     
   def filter_files(self):

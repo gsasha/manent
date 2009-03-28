@@ -380,11 +380,12 @@ class Backup:
         exclusion_rules_file = open(file_name, "r")
         for line in exclusion_rules_file:
           # Ignore comments and empty lines
+          line = line.strip()
           if line.startswith("#"):
             continue
-          if line.strip() == "":
+          if line == "":
             continue
-          type_str, action_str, pattern = line.split()
+          type_str, action_str, pattern = line.split(None, 2)
           process_rule(type_str, action_str, pattern)
     #
     # Read exclusion rules from the manent home dir
