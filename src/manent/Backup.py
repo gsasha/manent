@@ -54,11 +54,19 @@ class Backup:
 
   def get_report_manager(self):
     return self.report_manager
+  def sanitize_command_for_log(self, params):
+    def sanitize_param(s):
+      for prefix in ["encryption_key=", "pass", "password"]:
+        if s.startswith(prefix):
+          return prefix + "=*SANITIZED*"
+      return s
+    return [sanitize_param(x) for x in params]
   def write_log(self):
     log_dir = Config.paths.backup_home_area(self.label)
     log_file_name = os.path.join(log_dir, "log.txt") 
     log_file = open(log_file_name, "a")
-    log_file.write("Performing command:\n%s\n" % " ".join(sys.argv))
+    log_file.write("Performing command:\n%s\n" %
+        " ".join(self.sanitize_command_for_log(sys.argv)))
     log_detail_file, log_detail_file_name = tempfile.mkstemp(
         prefix="report-",
         dir=Config.paths.backup_home_area(self.label),
