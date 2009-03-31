@@ -57,11 +57,11 @@ class PackerOStream(StreamAdapter.OStreamAdapter):
   def get_num_new_blocks(self):
     if self.rec_ostream is None:
       return self.num_new_blocks
-    return self.num_new_blocks + self.re_ostream.get_num_new_blocks()
+    return self.num_new_blocks + self.rec_ostream.get_num_new_blocks()
   def get_size_new_blocks(self):
     if self.rec_ostream is None:
       return self.size_new_blocks
-    return self.size_new_blocks + self.re_ostream.get_size_new_blocks()
+    return self.size_new_blocks + self.rec_ostream.get_size_new_blocks()
 
 class BlockReaderIStream(StreamAdapter.IStreamAdapter):
   """Utility class for PackerIStream"""
