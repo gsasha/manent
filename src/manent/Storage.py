@@ -102,6 +102,20 @@ class Storage:
   def _key(self, suffix):
     return "%s" % (suffix)
   #
+  # Reporting
+  #
+  def report_upload_container_start(self, sequence_id, index, total_size):
+    self.report_manager.set(
+        "storage.container.upload.%s.%d.size" %
+        (base64.b64encode(sequence_id), index),
+        "%d" % total_size)
+
+  def report_upload_container_done(self, sequence_id, index, time):
+    self.report_manager.set(
+        "storage.container.upload.%s.%d.time" %
+        (base64.b64encode(sequence_id), index),
+        "%f" % time)
+  #
   # Loading
   #
   def configure(self, config, new_block_handler):
@@ -429,9 +443,12 @@ class MemoryStorage(Storage):
     return StringIO.StringIO()
   def upload_container(self, sequence_id, index, header_file, body_file):
     assert sequence_id == self.active_sequence_id
+    self.report_upload_container_start(sequence_id, index, 
+        len(header_file.getvalue() + len(body_file.getvalue())))
     file_name = encode_container_name(sequence_id, index, CONTAINER_EXT)
     self.get_cur_files()[file_name] = (header_file.getvalue() +
       body_file.getvalue())
+    self.report_upload_container_done(sequence_id, index, 0)
   def load_body_file(self, sequence_id, index):
     body_file_name = encode_container_name(sequence_id, index, CONTAINER_EXT)
     return StringIO.StringIO(self.get_cur_files()[body_file_name])
@@ -530,10 +547,7 @@ class FTPStorage(Storage):
       tmpfile.write(block)
       total_size += len(block)
 
-    self.report_manager.set(
-        "storage.container.upload.%s.%d.size" % (
-          base64.b64encode(sequence_id), index),
-        "%d" % total_size)
+    self.report_upload_container_start(sequence_id, index, total_size)
 
     # Upload tmpfile to the remote location
     tmp_file_name = encode_container_name(sequence_id, index, CONTAINER_EXT_TMP)
@@ -544,10 +558,8 @@ class FTPStorage(Storage):
     self.get_fs_handler().rename(tmp_file_name, file_name)
     self.get_fs_handler().chmod(file_name, 0440)
 
-    self.report_manager.set(
-        "storage.container.upload.%s.%d.time" % (
-          base64.b64encode(sequence_id), index),
-        "%f" % (time.time() - start_time))
+    self.report_upload_container_done(sequence_id, index,
+        time.time() - start_time)
 
 class DirectoryStorage(Storage):
   """
@@ -582,6 +594,9 @@ class DirectoryStorage(Storage):
     
     logging.debug("Uploading container %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))
+    start_time = time.time()
+    self.report_upload_container_start(sequence_id, index,
+        header_file.tell() + body_file.tell())
     file_name_tmp = encode_container_name(sequence_id, index, CONTAINER_EXT_TMP)
     file_name = encode_container_name(sequence_id, index, CONTAINER_EXT)
     file_path_tmp = os.path.join(self.get_path(), file_name_tmp)
@@ -607,6 +622,9 @@ class DirectoryStorage(Storage):
     shutil.move(file_path_tmp, file_path)
     # Remove the write permission off the permanent files
     os.chmod(file_path, 0444)
+
+    self.report_upload_container_done(sequence_id, index,
+        time.time() - start_time)
   def load_body_file(self, sequence_id, index):
     logging.debug("Loading container %s %d" %
       (base64.urlsafe_b64encode(sequence_id), index))

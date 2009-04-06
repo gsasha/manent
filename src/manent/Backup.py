@@ -573,13 +573,15 @@ class ScanContext:
     else:
       progress = "%5d" % self.num_visited_files_reporter.value
     elapsed = "%2.3f" % (time.time() - self.start_time)
-    report_string = "%s sec:%s blk:%d/%s nblk:%d/%s %-80s      \r" % (
+    report_string = "%s sec:%s #blk:%d/%d blksize:%s/%s #c:%d,%s %-80s      \r" % (
         elapsed,
         progress,
-        self.num_total_blocks_reporter.value,
-        self.format_filesize(self.size_total_blocks_reporter.value),
         self.num_new_blocks_reporter.value,
+        self.num_total_blocks_reporter.value,
         self.format_filesize(self.size_new_blocks_reporter.value),
+        self.format_filesize(self.size_total_blocks_reporter.value),
+        self.num_new_containers,
+        self.format_filesize(self.size_new_containers),
         self.clip_to_width(message, 80).encode('utf8'))
     try:
       sys.stderr.write(report_string)
