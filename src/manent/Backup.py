@@ -572,9 +572,9 @@ class ScanContext:
       progress = "%2.3f%%" % (self.num_visited_files_reporter.value * 100.0 /
           self.last_num_files)
     else:
-      progress = "%5d" % self.num_visited_files_reporter.value
-    elapsed = "%2.3f" % (time.time() - self.start_time)
-    report_string = "%s sec:%s #blk:%d/%d blksize:%s/%s #c:%d,%s %-80s      \r" % (
+      progress = "%5d files" % self.num_visited_files_reporter.value
+    elapsed = "%2.1fs" % (time.time() - self.start_time)
+    report_string = "%s:%s #blk:%d/%d blksize:%s/%s #c:%d,%s %-80s      \r" % (
         elapsed,
         progress,
         self.num_new_blocks_reporter.value,
